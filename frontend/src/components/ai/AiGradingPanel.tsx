@@ -2,9 +2,9 @@ import { BarChart3, RefreshCw, Send } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getLatestAiGrading, gradeSubjectiveAnswer, sendAiGradingMessageStream, type AiConfig, type AiGradingCard, type AiGradingResult, type AiMessage } from "../../api/ai";
 import type { Question } from "../../types/question";
+import { aiConfigForRole } from "../../utils/aiConfigStorage";
 
 const OBJECTIVE_TYPES = new Set(["single_choice", "multiple_choice", "true_false", "fill_blank"]);
-const GRADING_MODEL_LABEL = "deepseek-v4-pro";
 
 export function AiGradingPanel({
   question,
@@ -27,6 +27,8 @@ export function AiGradingPanel({
 
   const supported = useMemo(() => Boolean(question && !OBJECTIVE_TYPES.has(question.type)), [question?.id, question?.type]);
   const hasKey = Boolean(config.api_key?.trim());
+  const gradingConfig = aiConfigForRole(config, "grading");
+  const gradingModelLabel = gradingConfig.model || "deepseek-v4-pro";
 
   useEffect(() => {
     setNotice("");
@@ -48,7 +50,7 @@ export function AiGradingPanel({
     setLoading(true);
     setNotice("");
     try {
-      const response = await gradeSubjectiveAnswer(question.id, attemptId, config);
+      const response = await gradeSubjectiveAnswer(question.id, attemptId, gradingConfig);
       setGrading(response);
     } catch (err) {
       setNotice(readApiError(err));
@@ -65,7 +67,7 @@ export function AiGradingPanel({
     setNotice("");
     appendStreamingMessages(content);
     try {
-      await sendAiGradingMessageStream(grading.grading_id, content, config, handleStreamEvent);
+      await sendAiGradingMessageStream(grading.grading_id, content, gradingConfig, handleStreamEvent);
     } catch (err) {
       setNotice(readApiError(err));
     } finally {
@@ -111,7 +113,7 @@ export function AiGradingPanel({
       </div>
       {!submitted && <div className="rounded-md bg-surface p-3 text-sm text-muted">请先提交主观题答案，再进行 AI 评分。</div>}
       {submitted && !hasKey && <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">请先在 AI 讲题助手中配置 DeepSeek API Key。</div>}
-      {submitted && hasKey && <div className="mb-3 text-xs text-muted">评分模型：{GRADING_MODEL_LABEL}。聊天模型设置不会影响评分模型。</div>}
+      {submitted && hasKey && <div className="mb-3 text-xs text-muted">评分模型：{gradingModelLabel}。可在 AI 讲题助手设置中单独修改。</div>}
       {submitted && hasKey && (
         <button className="mb-3 inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm disabled:opacity-50" onClick={runGrade} disabled={loading || !attemptId}>
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />

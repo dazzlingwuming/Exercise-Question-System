@@ -120,4 +120,16 @@
 
 权限状态机由后端执行。未提交答案时只允许提示和概念解释，prompt 上下文只包含题干、材料、选项、题型、难度、方向和考察点，不包含 `standard_answer`、`explanation`、`scoring_standard` 或用户历史答案；如果用户追问“直接告诉我答案”，后端直接返回防泄露提示，不调用模型。提交答案后才允许讲解与错因分析，完成讲解后再开放工程例子和面试追问。
 
-DeepSeek Key 的默认来源是环境变量 `DEEPSEEK_API_KEY`，也可以由前端每次请求临时携带。前端只把用户填写的 Key 存在浏览器 `sessionStorage`，后端不保存 Key，不在 AI thread 或 message 表中落库。
+DeepSeek Key 的默认来源是环境变量 `DEEPSEEK_API_KEY`，也可以由前端每次请求临时携带。前端只把用户填写的 Key 存在本机浏览器 `localStorage`，后端不保存 Key，不在 AI thread 或 message 表中落库。
+
+## AI 题目生成设计
+
+AI 题目生成只从刷题页右侧 AI 讲题助手进入。每条 AI 回复旁提供“生成题目”按钮，用户点击后选择题型、生成数量、难度策略和生成方向。这个入口刻意不放在题库管理页，目的是让新题围绕当前题目、用户作答、AI 提示、讲解、追问和主观题评分暴露出的薄弱点生成，而不是做无上下文的批量出题。
+
+后端新增 `ai_question_generations` 和 `ai_question_candidates`。`ai_question_generations` 记录一次生成请求的来源题目、attempt、点击的 AI 消息、目标题型、数量、难度策略和生成方向；`ai_question_candidates` 保存候选题 JSON、结构校验、AI 质量校验、题干相似题和状态。候选题刷新页面后仍可恢复，但不会自动写入正式 `questions`。
+
+生成接口为 `POST /api/ai/question-generation/generate`。服务层读取当前题目、最近 attempt、AI 讲题 thread、AI 主观题评分结果和评分追问消息，拼成稳定上下文后调用 DeepSeek JSON 输出。模型返回后先转换为现有 `QuestionCreate` 结构，再由代码执行结构校验，避免生成结果绕过题库保存规则。
+
+质量校验分两层：第一层是代码校验题干、选项、题型和答案格式，复用 `question_validation_service`；第二层是 AI 自洽性校验，只传入新候选题本身，检查题干、答案、解析和评分点是否一致，并返回质量分、问题和建议。重复检测第一版只比较题干文本相似度，使用 `difflib.SequenceMatcher` 找出最相似的 3 道已有题，作为人工确认提示。
+
+确认页路由为 `/ai/question-generation/{generation_id}`。用户可以查看候选题、质量分、结构问题和相似题，再选择“加入题库”或“取消这道”。加入题库调用 `POST /api/ai/question-generation/candidates/{candidate_id}/accept`，最终仍复用 `question_create_service.create_question` 写入正式题库，并生成正常的题目历史记录；取消只把候选题状态改为 `rejected`。

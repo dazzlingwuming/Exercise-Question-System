@@ -23,6 +23,7 @@ import { QuestionCard } from "../components/question/QuestionCard";
 import { QuestionRenderer } from "../components/question/QuestionRenderer";
 import type { QuestionState, SubmitAnswerResponse } from "../types/attempt";
 import type { FilterOptions, Question } from "../types/question";
+import { aiConfigForRole, loadStoredAiConfig } from "../utils/aiConfigStorage";
 
 const MODE_LABELS: Record<string, string> = {
   random: "随机未答题",
@@ -37,7 +38,17 @@ const MODE_LABELS: Record<string, string> = {
   direction: "按方向",
 };
 
-const AI_CONFIG_STORAGE_KEY = "ai_tutor_deepseek_config";
+const ORDER_LABELS: Record<string, string> = {
+  import_order: "按导入顺序",
+  random: "随机打乱",
+};
+
+const PRACTICE_ANSWER_CACHE_KEY = "practice_session_answer_cache";
+
+type CachedPracticeAnswer = {
+  answer: string | string[];
+  result: SubmitAnswerResponse;
+};
 
 export function PracticePage() {
   const [searchParams] = useSearchParams();
@@ -49,6 +60,7 @@ export function PracticePage() {
   const [difficulty, setDifficulty] = useState(searchParams.get("difficulty") ?? "");
   const [examPoint, setExamPoint] = useState(searchParams.get("exam_point") ?? "");
   const [direction, setDirection] = useState(searchParams.get("direction") ?? "");
+  const [order, setOrder] = useState(searchParams.get("order") ?? (searchParams.get("mode") === "random" ? "random" : "import_order"));
   const [pageSize, setPageSize] = useState(20);
   const [sessionId, setSessionId] = useState("");
   const [currentGroup, setCurrentGroup] = useState<Question[]>([]);
@@ -69,7 +81,7 @@ export function PracticePage() {
   const [aiTutorSummaryPending, setAiTutorSummaryPending] = useState(false);
   const [aiGradingSummaryPending, setAiGradingSummaryPending] = useState(false);
   const [aiSummaryRunning, setAiSummaryRunning] = useState(false);
-  const [aiConfig, setAiConfig] = useState<AiConfig>(() => loadAiConfig());
+  const [aiConfig, setAiConfig] = useState<AiConfig>(() => loadStoredAiConfig());
   const aiSummaryPending = aiTutorSummaryPending || aiGradingSummaryPending;
 
   useEffect(() => {
@@ -93,6 +105,7 @@ export function PracticePage() {
     const progress = total && question ? currentIndex + 1 : 0;
     const parts = [
       `当前模式：${MODE_LABELS[mode] ?? mode}`,
+      `题目顺序：${ORDER_LABELS[order] ?? order}`,
       `总题数：${total}`,
       `每组题数：${pageSize}`,
       `当前组：${total ? groupStart + 1 : 0}-${groupEnd}`,
@@ -104,12 +117,19 @@ export function PracticePage() {
     if (examPoint) parts.push(`考察点：${examPoint}`);
     if (direction) parts.push(`方向：${direction}`);
     return parts;
-  }, [mode, pageSize, total, question, currentIndex, groupStart, groupEnd, currentGroup, questionStates, type, difficulty, examPoint, direction]);
+  }, [mode, order, pageSize, total, question, currentIndex, groupStart, groupEnd, currentGroup, questionStates, type, difficulty, examPoint, direction]);
 
   useEffect(() => {
-    if (!question || result) return;
+    if (!question) return;
+    const cached = loadCachedPracticeAnswer(sessionId, question.id);
+    if (cached) {
+      setAnswer(cached.answer);
+      setResult(cached.result);
+      return;
+    }
     setAnswer("");
-  }, [question?.id, result]);
+    setResult(null);
+  }, [sessionId, question?.id]);
 
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => {
@@ -126,7 +146,7 @@ export function PracticePage() {
     setAiSummaryRunning(true);
     setNotice("正在检查并总结本题 AI 对话，完成后会删除已总结的原始聊天记录...");
     try {
-      await finalizeAiSummaryStream(question.id, result.attempt_id, loadAiConfig(), () => undefined);
+      await finalizeAiSummaryStream(question.id, result.attempt_id, aiConfigForRole(loadStoredAiConfig(), "tutor"), () => undefined);
       setAiTutorSummaryPending(false);
       setAiGradingSummaryPending(false);
       setNotice("本题 AI 学习记录已总结，原始聊天记录已清理。");
@@ -168,7 +188,7 @@ export function PracticePage() {
         direction: direction || undefined,
         page_size: pageSize,
         start_question_id: startQuestionId,
-        order: mode === "random" ? "random" : "import_order",
+        order: mode === "random" ? "random" : order,
         allow_answered: mode === "all_practice" || mode === "wrong" || mode === "due_review",
       });
       applySessionResponse(response);
@@ -201,6 +221,7 @@ export function PracticePage() {
     setSessionId(response.session_id);
     setMode(response.mode);
     setPageSize(response.page_size);
+    setOrder(response.order || "import_order");
     setType(response.filters.type ?? "");
     setDifficulty(response.filters.difficulty ?? "");
     setExamPoint(response.filters.exam_point ?? "");
@@ -235,6 +256,7 @@ export function PracticePage() {
     try {
       const response = await submitAnswer(question.id, answer, sessionId || undefined);
       setResult(response);
+      if (sessionId) saveCachedPracticeAnswer(sessionId, question.id, { answer, result: response });
       void refreshQuestionStates(currentGroup);
     } catch (err) {
       setError((err as Error).message);
@@ -245,6 +267,7 @@ export function PracticePage() {
     if (!question) return;
     try {
       await deleteQuestion(question.id, { reason });
+      if (sessionId) removeCachedPracticeAnswer(sessionId, question.id);
       setDeleteOpen(false);
       setResult(null);
       setAnswer("");
@@ -306,6 +329,7 @@ export function PracticePage() {
 
   async function endPractice() {
     await finalizeCurrentAiSummary();
+    if (sessionId) clearCachedPracticeSession(sessionId);
     setSessionId("");
     setCurrentGroup([]);
     setCurrentIndex(0);
@@ -329,10 +353,11 @@ export function PracticePage() {
             <Select label="题型" value={type} onChange={setType} options={(filters?.types ?? []).map((value) => ({ value, label: value }))} empty="全部题型" />
             <Select label="难度" value={difficulty} onChange={setDifficulty} options={(filters?.difficulties ?? []).map((value) => ({ value, label: value }))} empty="全部难度" />
             <Select label="每组题数" value={String(pageSize)} onChange={(value) => setPageSize(Number(value))} options={[10, 20, 50].map((value) => ({ value: String(value), label: `${value} 题` }))} />
+            <Select label="题目顺序" value={mode === "random" ? "random" : order} onChange={setOrder} options={Object.entries(ORDER_LABELS).map(([value, label]) => ({ value, label }))} />
             <Select label="考察点" value={examPoint} onChange={setExamPoint} options={(filters?.exam_points ?? []).map((value) => ({ value, label: value }))} empty="全部考察点" />
             <Select label="方向" value={direction} onChange={setDirection} options={(filters?.directions ?? []).map((value) => ({ value, label: value }))} empty="全部方向" />
           </div>
-          <p className="mt-3 text-sm text-muted">每次加载多少道题，刷完后可以继续下一组。</p>
+          <p className="mt-3 text-sm text-muted">每次加载多少道题，刷完后可以继续下一组。题目顺序选择“随机打乱”时，会在创建练习会话时一次性打乱，后续上一题、下一组和刷新恢复都保持同一顺序。</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => startPractice()}>开始练习</button>
             {sessionId && (
@@ -472,12 +497,44 @@ function stateStatusText(state: QuestionState) {
   return "已有历史记录";
 }
 
-function loadAiConfig(): AiConfig {
+function cacheKey(sessionId: string, questionId: string) {
+  return `${sessionId}:${questionId}`;
+}
+
+function loadPracticeAnswerCache(): Record<string, CachedPracticeAnswer> {
   try {
-    const raw = sessionStorage.getItem(AI_CONFIG_STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as AiConfig;
+    const raw = sessionStorage.getItem(PRACTICE_ANSWER_CACHE_KEY);
+    return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
   }
-  return {};
+}
+
+function savePracticeAnswerCache(cache: Record<string, CachedPracticeAnswer>) {
+  sessionStorage.setItem(PRACTICE_ANSWER_CACHE_KEY, JSON.stringify(cache));
+}
+
+function loadCachedPracticeAnswer(sessionId: string, questionId: string): CachedPracticeAnswer | null {
+  if (!sessionId || !questionId) return null;
+  return loadPracticeAnswerCache()[cacheKey(sessionId, questionId)] ?? null;
+}
+
+function saveCachedPracticeAnswer(sessionId: string, questionId: string, value: CachedPracticeAnswer) {
+  const cache = loadPracticeAnswerCache();
+  cache[cacheKey(sessionId, questionId)] = value;
+  savePracticeAnswerCache(cache);
+}
+
+function removeCachedPracticeAnswer(sessionId: string, questionId: string) {
+  const cache = loadPracticeAnswerCache();
+  delete cache[cacheKey(sessionId, questionId)];
+  savePracticeAnswerCache(cache);
+}
+
+function clearCachedPracticeSession(sessionId: string) {
+  const cache = loadPracticeAnswerCache();
+  Object.keys(cache).forEach((key) => {
+    if (key.startsWith(`${sessionId}:`)) delete cache[key];
+  });
+  savePracticeAnswerCache(cache);
 }

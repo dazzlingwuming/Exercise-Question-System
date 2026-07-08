@@ -1,6 +1,6 @@
 import { Edit3, History, RotateCcw, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { deleteQuestion, getQuestion, restoreDeletedQuestion } from "../api/questions";
 import { Badge } from "../components/common/Badge";
 import { ErrorState } from "../components/common/ErrorState";
@@ -10,6 +10,8 @@ import type { Question } from "../types/question";
 
 export function QuestionDetailPage() {
   const { id = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const returnTo = safeReturnTo(searchParams.get("return_to"));
   const [question, setQuestion] = useState<Question | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [error, setError] = useState("");
@@ -39,8 +41,9 @@ export function QuestionDetailPage() {
           <h1 className="text-2xl font-semibold">{question.part_id ?? question.id}</h1>
         </div>
         <div className="flex gap-2">
+          {returnTo && <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" to={returnTo}>返回</Link>}
           {!question.is_deleted && (
-            <Link className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm text-white" to={`/questions/${question.id}/edit`}>
+            <Link className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm text-white" to={`/questions/${question.id}/edit${returnTo ? `?${new URLSearchParams({ return_to: returnTo }).toString()}` : ""}`}>
               <Edit3 className="h-4 w-4" />
               编辑题目
             </Link>
@@ -114,4 +117,10 @@ export function QuestionDetailPage() {
       />
     </div>
   );
+}
+
+function safeReturnTo(value: string | null) {
+  if (!value) return "";
+  if (!value.startsWith("/") || value.startsWith("//")) return "";
+  return value;
 }

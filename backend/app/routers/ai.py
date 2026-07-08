@@ -12,6 +12,13 @@ from app.schemas.ai import (
     AiGradingHistoryResponse,
     AiGradingRequest,
     AiGradingResultRead,
+    AiGeneratedQuestionCandidate,
+    AiQuestionCandidateAcceptResponse,
+    AiQuestionCandidateRejectRequest,
+    AiQuestionCandidateRejectResponse,
+    AiQuestionCandidateUpdateRequest,
+    AiQuestionGenerationRequest,
+    AiQuestionGenerationResponse,
     AiMessageRead,
     AiSummaryRequest,
     AiTestRequest,
@@ -20,6 +27,7 @@ from app.schemas.ai import (
     AiUserMessageRequest,
 )
 from app.services.llm.ai_grading_service import ask_grading_question, grade_subjective_answer, grading_history, grading_messages, latest_grading, stream_grading_question
+from app.services.llm.ai_question_generation_service import accept_candidate, generate_question_candidates, get_generation, reject_candidate, update_candidate
 from app.services.llm.ai_tutor_service import get_thread_response, run_action, run_user_message, stream_action, stream_previous_summary, stream_user_message, test_connection
 from app.services.llm.deepseek_client import AiClientError
 
@@ -136,3 +144,53 @@ def grading_message_stream_api(payload: AiGradingChatRequest, db: Session = Depe
     """中文说明：围绕某次 AI 评分卡继续追问，使用 SSE 流式返回。"""
 
     return StreamingResponse(stream_grading_question(db, payload, payload.grading_id, payload.content), media_type="text/event-stream")
+
+
+@router.post("/question-generation/generate", response_model=AiQuestionGenerationResponse)
+def question_generation_api(payload: AiQuestionGenerationRequest, db: Session = Depends(get_db)) -> AiQuestionGenerationResponse:
+    """中文说明：基于当前答题上下文生成 AI 候选题，不直接入库。"""
+
+    try:
+        return generate_question_candidates(db, payload)
+    except AiClientError as exc:
+        raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc
+
+
+@router.get("/question-generation/{generation_id}", response_model=AiQuestionGenerationResponse)
+def question_generation_detail_api(generation_id: str, db: Session = Depends(get_db)) -> AiQuestionGenerationResponse:
+    """中文说明：读取 AI 候选题生成结果。"""
+
+    try:
+        return get_generation(db, generation_id)
+    except AiClientError as exc:
+        raise HTTPException(status_code=404, detail={"error": exc.code, "message": exc.message}) from exc
+
+
+@router.post("/question-generation/candidates/{candidate_id}/accept", response_model=AiQuestionCandidateAcceptResponse)
+def question_candidate_accept_api(candidate_id: str, db: Session = Depends(get_db)) -> AiQuestionCandidateAcceptResponse:
+    """中文说明：用户确认候选题后加入正式题库。"""
+
+    try:
+        return accept_candidate(db, candidate_id)
+    except AiClientError as exc:
+        raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc
+
+
+@router.post("/question-generation/candidates/{candidate_id}/reject", response_model=AiQuestionCandidateRejectResponse)
+def question_candidate_reject_api(candidate_id: str, payload: AiQuestionCandidateRejectRequest | None = None, db: Session = Depends(get_db)) -> AiQuestionCandidateRejectResponse:
+    """中文说明：用户取消某道 AI 候选题。"""
+
+    try:
+        return reject_candidate(db, candidate_id)
+    except AiClientError as exc:
+        raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc
+
+
+@router.patch("/question-generation/candidates/{candidate_id}", response_model=AiGeneratedQuestionCandidate)
+def question_candidate_update_api(candidate_id: str, payload: AiQuestionCandidateUpdateRequest, db: Session = Depends(get_db)) -> AiGeneratedQuestionCandidate:
+    """中文说明：保存用户对 AI 候选题的人工编辑。"""
+
+    try:
+        return update_candidate(db, candidate_id, payload)
+    except AiClientError as exc:
+        raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc

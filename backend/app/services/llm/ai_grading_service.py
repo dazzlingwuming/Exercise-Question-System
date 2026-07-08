@@ -58,7 +58,7 @@ def grade_subjective_answer(db: Session, payload: AiConfig, question_id: str, at
     question = _get_question(db, question_id)
     attempt = _get_attempt(db, attempt_id)
     _validate_grade_request(question, attempt)
-    model = settings.deepseek_grading_model
+    model = payload.model or settings.deepseek_grading_model
     provider = payload.provider or "deepseek"
     user_answer = (attempt.user_answer_raw or "").strip()
     if not user_answer:
@@ -132,7 +132,7 @@ def ask_grading_question(db: Session, payload: AiConfig, grading_id: int, conten
     answer = chat_completion(
         api_key=payload.api_key or "",
         base_url=payload.base_url or settings.deepseek_base_url,
-        model=settings.deepseek_grading_model,
+        model=payload.model or result.model or settings.deepseek_grading_model,
         messages=messages,
         max_tokens=1800,
         thinking={"type": "disabled"},
@@ -161,7 +161,7 @@ def stream_grading_question(db: Session, payload: AiConfig, grading_id: int, con
         for chunk in stream_chat_completion(
             api_key=payload.api_key or "",
             base_url=payload.base_url or settings.deepseek_base_url,
-            model=settings.deepseek_grading_model,
+            model=payload.model or result.model or settings.deepseek_grading_model,
             messages=messages,
             max_tokens=1800,
             thinking={"type": "disabled"},

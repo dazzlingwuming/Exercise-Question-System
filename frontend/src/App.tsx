@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
+import { AiQuestionGenerationPage } from "./pages/AiQuestionGenerationPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { ImportPage } from "./pages/ImportPage";
 import { PracticePage } from "./pages/PracticePage";
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/questions/:id/edit" element={<QuestionEditPage />} />
         <Route path="/questions/:id/revisions" element={<QuestionRevisionPage />} />
         <Route path="/practice" element={<PracticePage />} />
+        <Route path="/ai/question-generation/:generationId" element={<AiQuestionGenerationPage />} />
         <Route path="/review" element={<ReviewPage />} />
         <Route path="/stats" element={<StatsPage />} />
       </Routes>

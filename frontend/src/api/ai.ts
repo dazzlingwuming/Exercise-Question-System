@@ -1,10 +1,14 @@
 import { API_BASE, request } from "./client";
+import type { Question, QuestionCreatePayload } from "../types/question";
 
 export type AiConfig = {
   provider?: string;
   base_url?: string;
   api_key?: string;
   model?: string;
+  tutor_model?: string;
+  grading_model?: string;
+  generation_model?: string;
   stream?: boolean;
 };
 
@@ -72,6 +76,58 @@ export type AiGradingResult = {
   result?: AiGradingCard | null;
   created_at?: string | null;
   messages?: AiMessage[];
+};
+
+export type AiStructureValidation = {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+};
+
+export type AiQuestionQualityValidation = {
+  is_consistent: boolean;
+  quality_score: number;
+  problems: string[];
+  suggestions: string[];
+};
+
+export type SimilarQuestion = {
+  question_id: string;
+  stem: string;
+  similarity_score: number;
+};
+
+export type AiGeneratedQuestionCandidate = {
+  candidate_id: string;
+  question: QuestionCreatePayload;
+  structure_validation: AiStructureValidation;
+  ai_validation: AiQuestionQualityValidation;
+  similar_questions: SimilarQuestion[];
+  status: "pending" | "accepted" | "rejected" | string;
+  accepted_question_id?: string | null;
+};
+
+export type AiQuestionGeneration = {
+  generation_id: string;
+  source_question_id: string;
+  candidates: AiGeneratedQuestionCandidate[];
+};
+
+export type AiQuestionGenerationRequest = AiConfig & {
+  question_id: string;
+  attempt_id?: string | null;
+  clicked_ai_message?: string | null;
+  target_type: string;
+  count: number;
+  difficulty_strategy: "keep" | "lower" | "higher";
+  generation_direction?: string | null;
+};
+
+export type AiQuestionCandidateAcceptResponse = {
+  candidate_id: string;
+  status: string;
+  question?: Question | null;
+  question_id?: string | null;
 };
 
 export const getAiThread = (questionId: string, attemptId?: string) => {
@@ -155,3 +211,18 @@ export const summarizePreviousAiStream = (questionId: string, attemptId: string,
   streamAi("/ai/thread/summary-stream", { question_id: questionId, attempt_id: attemptId, ...config }, onEvent);
 
 export const finalizeAiSummaryStream = summarizePreviousAiStream;
+
+export const generateAiQuestions = (payload: AiQuestionGenerationRequest) =>
+  request<AiQuestionGeneration>("/ai/question-generation/generate", { method: "POST", body: JSON.stringify(payload) });
+
+export const getAiQuestionGeneration = (generationId: string) =>
+  request<AiQuestionGeneration>(`/ai/question-generation/${generationId}`);
+
+export const acceptAiQuestionCandidate = (candidateId: string) =>
+  request<AiQuestionCandidateAcceptResponse>(`/ai/question-generation/candidates/${candidateId}/accept`, { method: "POST" });
+
+export const rejectAiQuestionCandidate = (candidateId: string, reason?: string) =>
+  request<{ candidate_id: string; status: string }>(`/ai/question-generation/candidates/${candidateId}/reject`, { method: "POST", body: JSON.stringify({ reason }) });
+
+export const updateAiQuestionCandidate = (candidateId: string, question: QuestionCreatePayload) =>
+  request<AiGeneratedQuestionCandidate>(`/ai/question-generation/candidates/${candidateId}`, { method: "PATCH", body: JSON.stringify({ question }) });

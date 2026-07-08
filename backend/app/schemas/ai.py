@@ -4,12 +4,17 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+from app.schemas.question import QuestionCreate, QuestionRead
+
 
 class AiConfig(BaseModel):
     provider: str = "deepseek"
     base_url: str | None = None
     api_key: str | None = None
     model: str | None = None
+    tutor_model: str | None = None
+    grading_model: str | None = None
+    generation_model: str | None = None
     stream: bool = False
 
 
@@ -128,3 +133,70 @@ class AiGradingChatRequest(AiConfig):
 
     grading_id: int
     content: str
+
+
+class AiQuestionGenerationRequest(AiConfig):
+    """中文说明：基于当前题目和 AI 对话上下文生成候选题。"""
+
+    question_id: str
+    attempt_id: str | None = None
+    clicked_ai_message: str | None = None
+    target_type: str
+    count: int = 1
+    difficulty_strategy: str = "keep"
+    generation_direction: str | None = None
+
+
+class AiStructureValidation(BaseModel):
+    ok: bool
+    errors: list[str] = []
+    warnings: list[str] = []
+
+
+class AiQuestionQualityValidation(BaseModel):
+    is_consistent: bool = False
+    quality_score: float = 0
+    problems: list[str] = []
+    suggestions: list[str] = []
+
+
+class SimilarQuestionRead(BaseModel):
+    question_id: str
+    stem: str
+    similarity_score: float
+
+
+class AiGeneratedQuestionCandidate(BaseModel):
+    candidate_id: str
+    question: QuestionCreate
+    structure_validation: AiStructureValidation
+    ai_validation: AiQuestionQualityValidation
+    similar_questions: list[SimilarQuestionRead] = []
+    status: str = "pending"
+    accepted_question_id: str | None = None
+
+
+class AiQuestionGenerationResponse(BaseModel):
+    generation_id: str
+    source_question_id: str
+    candidates: list[AiGeneratedQuestionCandidate]
+
+
+class AiQuestionCandidateAcceptResponse(BaseModel):
+    candidate_id: str
+    status: str
+    question: QuestionRead | None = None
+    question_id: str | None = None
+
+
+class AiQuestionCandidateRejectRequest(BaseModel):
+    reason: str | None = None
+
+
+class AiQuestionCandidateRejectResponse(BaseModel):
+    candidate_id: str
+    status: str
+
+
+class AiQuestionCandidateUpdateRequest(BaseModel):
+    question: QuestionCreate
