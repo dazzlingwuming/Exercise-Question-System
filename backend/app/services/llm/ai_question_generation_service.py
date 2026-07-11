@@ -30,6 +30,7 @@ from app.schemas.question import OptionSchema, QuestionCreate, QuestionRead
 from app.services.llm.deepseek_client import AiClientError, chat_completion
 from app.services.question_create_service import TYPE_LABELS, create_question
 from app.services.question_validation_service import QuestionValidationError, validate_question_for_save
+from app.services.search.web_context_service import build_web_reference_context
 
 
 DIFFICULTY_STRATEGY_LABELS = {
@@ -195,6 +196,14 @@ def _generation_messages(db: Session, question: Question, payload: AiQuestionGen
     grading_context = _grading_context(db, question.id, attempt.id if attempt else payload.attempt_id)
     ai_chat_context = _ai_chat_context(db, question.id, payload.attempt_id, payload.clicked_ai_message)
     taxonomy_context = _taxonomy_context(db)
+    web_reference_context = build_web_reference_context(
+        payload=payload,
+        question_context=question_context,
+        answer_context=answer_context,
+        grading_context=grading_context,
+        ai_chat_context=ai_chat_context,
+        taxonomy_context=taxonomy_context,
+    )
     user_prompt = f"""
 请基于下面的当前题目作答上下文，生成 {count} 道新的候选题。
 
@@ -216,6 +225,9 @@ def _generation_messages(db: Session, question: Question, payload: AiQuestionGen
 8. 输出必须是严格 JSON，顶层字段为 candidates。
 9. directions、knowledge_points/exam_points、tags 应优先从“题库已有分类全集”里选择最匹配项。
 10. 如果现有分类确实没有合适项，可以新增更准确的方向、考察点或标签，但不要随意造泛泛分类。
+11. 如果提供了联网参考资料，只能把它作为补充工程背景、术语和场景的参考。
+12. 联网资料可能错误、过时或片面；如果它与当前题库上下文冲突，以当前题目、标准答案、用户作答和题库分类为准。
+13. 不要直接复制网页原文生成题干、选项或标准答案；候选题必须可以脱离联网资料独立作答。
 
 当前题目上下文：
 {json.dumps(question_context, ensure_ascii=False)}
@@ -231,6 +243,8 @@ AI 对话上下文：
 
 题库已有分类全集：
 {json.dumps(taxonomy_context, ensure_ascii=False)}
+
+{web_reference_context}
 """
     return [
         {

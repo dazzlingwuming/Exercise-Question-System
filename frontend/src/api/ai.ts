@@ -9,6 +9,8 @@ export type AiConfig = {
   tutor_model?: string;
   grading_model?: string;
   generation_model?: string;
+  anysearch_api_key?: string;
+  anysearch_endpoint?: string;
   stream?: boolean;
 };
 
@@ -121,6 +123,7 @@ export type AiQuestionGenerationRequest = AiConfig & {
   count: number;
   difficulty_strategy: "keep" | "lower" | "higher";
   generation_direction?: string | null;
+  use_web_search?: boolean;
 };
 
 export type AiQuestionCandidateAcceptResponse = {

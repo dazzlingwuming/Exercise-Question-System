@@ -17,6 +17,9 @@ class Settings:
     deepseek_base_url: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
     deepseek_model: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
     deepseek_grading_model: str = os.getenv("DEEPSEEK_GRADING_MODEL", "deepseek-v4-pro")
+    anysearch_enabled: bool = os.getenv("ANYSEARCH_ENABLED", "true").lower() not in {"0", "false", "no", "off"}
+    anysearch_api_key: str | None = os.getenv("ANYSEARCH_API_KEY")
+    anysearch_endpoint: str = os.getenv("ANYSEARCH_ENDPOINT", "https://api.anysearch.com/mcp")
 
 
 settings = Settings()

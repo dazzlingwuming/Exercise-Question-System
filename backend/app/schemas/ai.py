@@ -15,6 +15,8 @@ class AiConfig(BaseModel):
     tutor_model: str | None = None
     grading_model: str | None = None
     generation_model: str | None = None
+    anysearch_api_key: str | None = None
+    anysearch_endpoint: str | None = None
     stream: bool = False
 
 
@@ -145,6 +147,7 @@ class AiQuestionGenerationRequest(AiConfig):
     count: int = 1
     difficulty_strategy: str = "keep"
     generation_direction: str | None = None
+    use_web_search: bool = False
 
 
 class AiStructureValidation(BaseModel):

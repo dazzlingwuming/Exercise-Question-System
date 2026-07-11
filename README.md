@@ -119,6 +119,18 @@ AI 评分使用 rubric 结构化评分卡，包含：
 - AI 主观题评分卡和评分追问
 - 当前题库已有标签、方向和考察点
 
+也支持开启“联网搜索增强”。开启后，系统会先让模型根据当前题目、用户答案、AI 对话和评分上下文生成搜索词，然后通过 AnySearch 搜索并提取网页正文；后端再用 BM25 风格的相关性筛选，从网页中截取与当前薄弱点最相关的片段，作为参考资料交给题目生成模型。
+
+联网增强的目的不是让 AI 直接复制网页内容，而是让生成题目时能参考更新、更接近工程实践的资料，尤其适合补充：
+
+- 新框架、新协议、新工具链相关题目
+- 当前题库覆盖不足的工程细节
+- 用户与 AI 对话中暴露出的薄弱概念
+- 面试追问里需要结合实际场景的问题
+
+联网资料只作为辅助参考，系统会在提示词中明确要求模型判断资料可信度，优先服从当前题目上下文、用户答案和本地题库知识结构。
+![img_10.png](图片/img_10.png)
+
 AI 生成题目不会直接进入正式题库，而是进入候选题确认页。用户可以先只看题干和选项，判断题目是否有价值；通过初审后再查看答案、解析、常见错误和面试追问。
 ![img_7.png](图片/img_7.png)
 候选题确认页支持：
@@ -194,6 +206,7 @@ AI：
 - 主观题评分使用 JSON Output
 - 评分追问支持 SSE 流式输出
 - AI 生成候选题使用 JSON Output，并由后端代码做结构校验、相似题检测和候选题入库
+- AI 生成候选题可选联网搜索增强：模型生成搜索词，后端调用 AnySearch 搜索 / 提取网页正文，再由代码筛选相关片段放入生成提示词
 
 ## 目录结构
 
@@ -271,6 +284,8 @@ DEEPSEEK_API_KEY=your_api_key
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 DEEPSEEK_GRADING_MODEL=deepseek-v4-pro
+ANYSEARCH_API_KEY=your_anysearch_api_key
+ANYSEARCH_ENDPOINT=https://api.anysearch.com/mcp
 ```
 
 说明：
@@ -279,6 +294,17 @@ DEEPSEEK_GRADING_MODEL=deepseek-v4-pro
 - `DEEPSEEK_MODEL` 是 AI 讲题助手的后端默认模型。
 - `DEEPSEEK_GRADING_MODEL` 是主观题评分和评分追问的后端默认模型。
 - AI 生成题目前端默认使用 `deepseek-v4-pro`；如果请求未传模型，后端也会以 `deepseek-v4-pro` 作为兜底。
+- AI 生成题目可以开启联网搜索增强。AnySearch 配置可以在网页右侧 AI 设置中填写，也可以用 `ANYSEARCH_API_KEY` 和 `ANYSEARCH_ENDPOINT` 作为后端兜底。
+- 前端填写的 DeepSeek Key 和 AnySearch Key 都只保存在本机浏览器，不写入数据库。
+
+### 联网搜索增强配置
+
+AI 生成题目可以选择开启“联网搜索增强”。这个功能使用 AnySearch API 获取外部资料，配置入口在网页右侧 AI 面板的设置中：
+
+- `AnySearch Endpoint`：默认 `https://api.anysearch.com/mcp`
+- `AnySearch API Key`：填写你的 AnySearch Key
+
+前端填写的 AnySearch 配置优先级高于环境变量。开启联网搜索后，系统会先生成搜索词，再搜索、提取网页正文并筛选相关片段；如果搜索失败，会自动退回普通题目生成流程。
 
 ## 运行测试
 

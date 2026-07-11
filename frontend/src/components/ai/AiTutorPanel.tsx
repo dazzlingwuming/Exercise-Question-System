@@ -57,7 +57,7 @@ export function AiTutorPanel({
   const [notice, setNotice] = useState("");
   const [showGenerationPanel, setShowGenerationPanel] = useState(false);
   const [generationMessage, setGenerationMessage] = useState<AiMessage | null>(null);
-  const [generationForm, setGenerationForm] = useState({ target_type: question?.type ?? "short_answer", count: "1", difficulty_strategy: "keep", generation_direction: "" });
+  const [generationForm, setGenerationForm] = useState({ target_type: question?.type ?? "short_answer", count: "1", difficulty_strategy: "keep", generation_direction: "", use_web_search: false });
 
   const hasKey = Boolean(config.api_key?.trim());
   const placeholder = submitted ? "继续追问这道题的原理、错因、工程场景或面试回答。" : "可以问概念、思路、题干含义，但 AI 不会直接告诉你答案。";
@@ -175,7 +175,7 @@ export function AiTutorPanel({
   async function generateQuestions() {
     if (!question || !hasKey) return;
     setLoading("question_generation");
-    setNotice("正在基于当前题目的完整作答上下文生成候选题...");
+    setNotice(generationForm.use_web_search ? "正在联网搜索并基于当前题目的完整作答上下文生成候选题..." : "正在基于当前题目的完整作答上下文生成候选题...");
     try {
       const response = await generateAiQuestions({
         question_id: question.id,
@@ -185,6 +185,7 @@ export function AiTutorPanel({
         count: Number(generationForm.count),
         difficulty_strategy: generationForm.difficulty_strategy as "keep" | "lower" | "higher",
         generation_direction: generationForm.generation_direction.trim() || undefined,
+        use_web_search: generationForm.use_web_search,
         ...aiConfigForRole(config, "generation"),
       });
       setShowGenerationPanel(false);
@@ -226,6 +227,14 @@ export function AiTutorPanel({
             <label className="block">
               <span className="mb-1 block text-xs text-muted">AI 生成题目模型</span>
               <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.generation_model ?? ""} onChange={(event) => setConfig({ ...config, generation_model: event.target.value })} placeholder="deepseek-v4-pro" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-muted">AnySearch Endpoint</span>
+              <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.anysearch_endpoint ?? ""} onChange={(event) => setConfig({ ...config, anysearch_endpoint: event.target.value })} placeholder="https://api.anysearch.com/mcp" />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs text-muted">AnySearch API Key</span>
+              <input className="w-full rounded-md border border-line px-3 py-2 text-sm" type="password" value={config.anysearch_api_key ?? ""} onChange={(event) => setConfig({ ...config, anysearch_api_key: event.target.value })} placeholder="可选，不填则使用匿名额度或后端环境变量" />
             </label>
           </div>
           <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={testConnection} disabled={!hasKey || loading === "test"}>
@@ -339,6 +348,18 @@ export function AiTutorPanel({
               <label className="block">
                 <span className="mb-1 block text-sm text-muted">生成方向</span>
                 <textarea className="min-h-24 w-full rounded-md border border-line px-3 py-2 text-sm leading-6" value={generationForm.generation_direction} onChange={(event) => setGenerationForm({ ...generationForm, generation_direction: event.target.value })} placeholder="例如：重点加强 tool_result 写回状态，留空则根据缺失点和 AI 对话自动生成。" />
+              </label>
+              <label className="flex items-start gap-2 rounded-md border border-line bg-surface p-3 text-sm">
+                <input
+                  className="mt-1"
+                  type="checkbox"
+                  checked={generationForm.use_web_search}
+                  onChange={(event) => setGenerationForm({ ...generationForm, use_web_search: event.target.checked })}
+                />
+                <span>
+                  <span className="block font-medium">联网搜索增强</span>
+                  <span className="mt-1 block text-xs leading-5 text-muted">启用后会先让模型生成搜索句，再搜索并提取相关网页片段辅助出题。AnySearch Key 可在 AI 设置里配置，联网资料仅作参考。</span>
+                </span>
               </label>
               {generationMessage ? (
                 <div className="rounded-md bg-surface p-3 text-xs leading-6 text-muted">
