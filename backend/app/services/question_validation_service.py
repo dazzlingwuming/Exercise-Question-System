@@ -72,8 +72,11 @@ def validate_answer_matches_question_type(
     elif question_type == "fill_blank":
         if _is_empty_answer(standard_answer):
             raise QuestionValidationError("填空题标准答案不能为空")
-    elif _is_empty_answer(standard_answer) and not str(scoring_standard or "").strip():
-        raise QuestionValidationError("主观题至少需要参考答案或评分标准")
+    else:
+        if _is_empty_answer(standard_answer):
+            raise QuestionValidationError("主观题参考答案不能为空")
+        if not str(scoring_standard or "").strip():
+            raise QuestionValidationError("主观题评分标准不能为空")
 
 
 def _is_empty_answer(value: Any) -> bool:

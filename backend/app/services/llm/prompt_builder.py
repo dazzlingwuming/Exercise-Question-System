@@ -8,6 +8,12 @@ from app.models.attempt import Attempt
 from app.models.question import Question
 
 
+MATH_MARKDOWN_INSTRUCTION = (
+    "\n如果回答中包含数学公式，行内公式必须使用 `$...$`，块级公式必须使用独占行的 `$$...$$`；"
+    "不要使用 `\\(...\\)` 或 `\\[...\\]` 作为公式定界符。"
+)
+
+
 def build_messages(
     *,
     question: Question,
@@ -17,7 +23,7 @@ def build_messages(
     user_content: str,
     history: list[dict[str, str]],
 ) -> list[dict[str, str]]:
-    system = _system_prompt(stage, submitted)
+    system = _system_prompt(stage, submitted) + MATH_MARKDOWN_INSTRUCTION
     context = _question_context(question, attempt, submitted)
     messages = [
         {"role": "system", "content": system},

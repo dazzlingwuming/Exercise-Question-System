@@ -1,5 +1,5 @@
 import { request } from "./client";
-import type { Question, QuestionPageResponse } from "../types/question";
+import type { PracticeQuestion } from "../types/question";
 
 export type PracticeParams = {
   mode?: string;
@@ -8,6 +8,7 @@ export type PracticeParams = {
   difficulty?: string;
   exam_point?: string;
   direction?: string;
+  source_id?: string;
   only_wrong?: boolean;
   only_unanswered?: boolean;
   order?: string;
@@ -22,6 +23,7 @@ export type PracticeSessionCreate = {
   difficulty?: string;
   exam_point?: string;
   direction?: string;
+  source_id?: string;
   order?: string;
   page_size?: number;
   start_question_id?: string;
@@ -36,7 +38,7 @@ export type PracticeSessionResponse = {
   current_index: number;
   current_group_start: number;
   current_group_end: number;
-  items: Question[];
+  items: PracticeQuestion[];
   has_next_group: boolean;
   has_previous_group: boolean;
   shortage_code?: string | null;
@@ -51,10 +53,10 @@ export type PracticeSessionState = {
   total: number;
   page_size: number;
   current_index: number;
-  current_question: Question | null;
+  current_question: PracticeQuestion | null;
   current_group_start: number;
   current_group_end: number;
-  current_group: Question[];
+  current_group: PracticeQuestion[];
   has_next: boolean;
   has_previous: boolean;
   has_next_group: boolean;
@@ -64,7 +66,7 @@ export type PracticeSessionState = {
 };
 
 export type PracticeGroupResponse = {
-  items: Question[];
+  items: PracticeQuestion[];
   offset: number;
   limit: number;
   total: number;
@@ -76,7 +78,7 @@ export type PracticeGroupResponse = {
 export type PracticeMoveResponse = {
   status: "ok" | "group_finished" | "session_finished";
   current_index?: number;
-  question?: Question | null;
+  question?: PracticeQuestion | null;
   has_next: boolean;
   has_previous: boolean;
   has_next_group: boolean;
@@ -93,8 +95,16 @@ function toQuery(params: Record<string, string | number | boolean | undefined>):
 }
 
 export const getPracticeModes = () => request<Array<{ key: string; label: string }>>("/practice/modes");
-export const listPracticeQuestions = (params: PracticeParams) => request<QuestionPageResponse>(`/practice/questions${toQuery(params)}`);
-export const nextPracticeQuestion = (params: PracticeParams = { mode: "random" }) => request<Question>(`/practice/next${toQuery(params)}`);
+export type PracticeQuestionPageResponse = {
+  items: PracticeQuestion[];
+  total: number;
+  page: number;
+  page_size: number;
+  has_next: boolean;
+};
+
+export const listPracticeQuestions = (params: PracticeParams) => request<PracticeQuestionPageResponse>(`/practice/questions${toQuery(params)}`);
+export const nextPracticeQuestion = (params: PracticeParams = { mode: "random" }) => request<PracticeQuestion>(`/practice/next${toQuery(params)}`);
 export const createPracticeSession = (payload: PracticeSessionCreate) => request<PracticeSessionResponse>("/practice/sessions", { method: "POST", body: JSON.stringify(payload) });
 export const getPracticeSession = (sessionId: string) => request<PracticeSessionState>(`/practice/sessions/${sessionId}`);
 export const getPracticeSessionGroup = (sessionId: string, params: { offset?: number; limit?: number } = {}) => request<PracticeGroupResponse>(`/practice/sessions/${sessionId}/group${toQuery(params)}`);

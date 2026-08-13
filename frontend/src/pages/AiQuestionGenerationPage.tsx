@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { acceptAiQuestionCandidate, getAiQuestionGeneration, rejectAiQuestionCandidate, updateAiQuestionCandidate, type AiGeneratedQuestionCandidate, type AiQuestionGeneration } from "../api/ai";
 import { ErrorState } from "../components/common/ErrorState";
+import { RichContent } from "../components/content/RichContent";
 import { AnswerEditor } from "../components/question/AnswerEditor";
 import type { Option, QuestionCreatePayload } from "../types/question";
 
@@ -182,7 +183,7 @@ function CandidateCard({
             {question.difficulty && <span className="rounded-md bg-surface px-2 py-1">难度：{question.difficulty}</span>}
             <span className="rounded-md bg-surface px-2 py-1">状态：{statusText(candidate.status)}</span>
           </div>
-          <h2 className="text-lg font-semibold leading-8">{question.stem}</h2>
+          <RichContent content={question.stem} className="text-lg font-semibold leading-8" />
         </div>
         {candidate.accepted_question_id && <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to={withReturnTo(`/questions/${candidate.accepted_question_id}`, returnTo)}>查看入库题目</Link>}
       </div>
@@ -227,9 +228,11 @@ function CandidateCard({
         </section>
       ) : question.options?.length > 0 && (
         <div className="mb-4 grid gap-2">
-          {question.options.map((option) => <div key={option.key} className="rounded-md border border-line bg-white px-3 py-2 text-sm">{option.key}. {option.text}</div>)}
+          {question.options.map((option) => <div key={option.key} className="rounded-md border border-line bg-white px-3 py-2 text-sm"><div className="mb-1 font-medium">{option.key}.</div><RichContent content={option.text} /></div>)}
         </div>
       )}
+
+      {!editing && question.material && <InfoBlock title="材料" content={question.material} />}
 
       {!revealed ? (
         <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
@@ -319,7 +322,7 @@ function InfoBlock({ title, content }: { title: string; content: string }) {
   return (
     <div className="mt-3 rounded-md bg-surface p-3 text-sm leading-6">
       <div className="mb-1 font-medium">{title}</div>
-      <div className="whitespace-pre-wrap">{content}</div>
+      <RichContent content={content} />
     </div>
   );
 }
@@ -361,6 +364,8 @@ function validateDraft(question: QuestionCreatePayload) {
   if (!question.stem.trim()) return "题干不能为空";
   if (["single_choice", "multiple_choice"].includes(question.type) && (question.options ?? []).filter((option) => option.key.trim() && option.text.trim()).length < 2) return "选择题至少需要 2 个选项";
   if (isObjective(question.type) && !String(question.standard_answer ?? "").trim()) return "客观题标准答案不能为空";
+  if (!isObjective(question.type) && !String(question.standard_answer ?? "").trim()) return "主观题参考答案不能为空";
+  if (!isObjective(question.type) && !String(question.scoring_standard ?? "").trim()) return "主观题评分标准不能为空";
   return "";
 }
 

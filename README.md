@@ -44,6 +44,9 @@ Markdown 题库
 也支持个人导入题库
 ![img_2.png](图片/img_2.png)
 
+这里支持原始文本解析，而不需要自己填写：
+![img.png](图片/img11.png)
+
 ### 2. 多种练习模式和稳定 Practice Session
 
 练习不是简单抽一页题，而是创建稳定的 Practice Session：
@@ -294,6 +297,7 @@ curl http://localhost:8000/api/health
 在新的终端中重新进入项目根目录，然后执行：
 
 ```bash
+
 cd frontend
 npm run dev
 ```

@@ -12,6 +12,7 @@ class ImportWarningItem(BaseModel):
 
     question_id: str | None = None
     part_id: str | None = None
+    field: str | None = None
     message: str
 
 
@@ -20,32 +21,49 @@ class ImportErrorItem(BaseModel):
 
     index: int
     part_id: str | None = None
+    question_id: str | None = None
+    field: str | None = None
     message: str
     raw_text_preview: str
+
+
+class ImportConflictItem(BaseModel):
+    """中文说明：预览时发现的数据库既有题目冲突。"""
+
+    question_id: str
+    part_id: str | None = None
+    status: str
+    message: str
 
 
 class ImportPreviewRequest(BaseModel):
     """中文说明：导入预览请求，text 为空时读取根目录默认题库。"""
 
     text: str | None = None
+    source_name: str | None = None
 
 
 class ImportPreviewResponse(BaseModel):
     """中文说明：导入预览响应，包含题目、统计、警告和错误。"""
 
     source_name: str
+    format_version: str = "legacy"
+    is_legacy: bool = True
     success_count: int
+    blocking_error_count: int = 0
     type_distribution: dict[str, int]
     difficulty_distribution: dict[str, int]
     questions: list[QuestionRead]
     warnings: list[ImportWarningItem]
     errors: list[ImportErrorItem]
+    database_conflicts: list[ImportConflictItem] = []
 
 
 class ImportCommitRequest(BaseModel):
     """中文说明：确认导入请求，默认重新读取根目录题库并导入。"""
 
     text: str | None = None
+    source_name: str | None = None
 
 
 class ImportCommitResponse(BaseModel):

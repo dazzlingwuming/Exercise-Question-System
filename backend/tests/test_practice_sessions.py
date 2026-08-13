@@ -214,6 +214,29 @@ def test_safe_question_state_does_not_expose_historical_answer() -> None:
     assert "correct_answer_normalized" not in payload
 
 
+def test_practice_session_does_not_expose_answer_or_explanation_before_submit() -> None:
+    """中文说明：练习会话只能返回作答所需字段，答案相关字段必须由提交接口单独返回。"""
+
+    db = make_db(2)
+    session = create_practice_session(db, PracticeSessionCreate(mode="sequential", page_size=20))
+    state = get_practice_session(db, session.session_id)
+    session_payload = session.items[0].model_dump()
+    state_payload = state.current_question.model_dump() if state and state.current_question else {}
+    sensitive_fields = {
+        "standard_answer",
+        "answer_text",
+        "explanation",
+        "common_mistakes",
+        "follow_up_question",
+        "scoring_standard",
+        "source_text",
+        "parse_warnings",
+    }
+
+    assert sensitive_fields.isdisjoint(session_payload)
+    assert sensitive_fields.isdisjoint(state_payload)
+
+
 def test_shortage_fields_when_new_questions_less_than_page_size() -> None:
     """中文说明：新题不足一组时明确提示，不静默混入已答题。"""
 

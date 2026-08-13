@@ -1,8 +1,9 @@
 import { BarChart3, RefreshCw, Send } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { getLatestAiGrading, gradeSubjectiveAnswer, sendAiGradingMessageStream, type AiConfig, type AiGradingCard, type AiGradingResult, type AiMessage } from "../../api/ai";
-import type { Question } from "../../types/question";
+import type { PracticeQuestion } from "../../types/question";
 import { aiConfigForRole } from "../../utils/aiConfigStorage";
+import { RichContent } from "../content/RichContent";
 
 const OBJECTIVE_TYPES = new Set(["single_choice", "multiple_choice", "true_false", "fill_blank"]);
 
@@ -13,7 +14,7 @@ export function AiGradingPanel({
   config,
   onSummaryPendingChange,
 }: {
-  question: Question | null;
+  question: PracticeQuestion | null;
   attemptId?: string;
   submitted: boolean;
   config: AiConfig;
@@ -141,7 +142,7 @@ function AiGradingCardView({ card, createdAt, model }: { card: AiGradingCard; cr
         </div>
         <span className="rounded-md bg-accent/10 px-2 py-1 text-xs font-medium text-accent">{card.level}</span>
       </div>
-      <p className="leading-6 text-muted">{card.summary}</p>
+      <RichContent content={card.summary} className="leading-6 text-muted" />
       <MetaLine createdAt={createdAt} model={model} />
       {card.dimension_scores.length > 0 && (
         <div>
@@ -153,7 +154,7 @@ function AiGradingCardView({ card, createdAt, model }: { card: AiGradingCard; cr
                   <span>{item.name}</span>
                   <span>{item.score} / {item.max_score}</span>
                 </div>
-                {item.comment && <div className="mt-1 text-xs leading-5 text-muted">{item.comment}</div>}
+                {item.comment && <RichContent content={item.comment} className="mt-1 text-xs leading-5 text-muted" />}
               </div>
             ))}
           </div>
@@ -183,7 +184,7 @@ function PointList({ title, items, tone }: { title: string; items: string[]; ton
     <div>
       <div className="mb-1 font-medium">{title}</div>
       <ul className={`space-y-1 leading-6 ${color}`}>
-        {items.map((item, index) => <li key={`${title}-${index}`}>- {item}</li>)}
+        {items.map((item, index) => <li key={`${title}-${index}`}><RichContent content={item} /></li>)}
       </ul>
     </div>
   );
@@ -193,7 +194,7 @@ function TextBlock({ title, content }: { title: string; content: string }) {
   return (
     <div>
       <div className="mb-1 font-medium">{title}</div>
-      <div className="whitespace-pre-wrap rounded-md bg-surface p-2 leading-6">{content}</div>
+      <RichContent content={content} className="rounded-md bg-surface p-2 leading-6" />
     </div>
   );
 }
@@ -220,7 +221,11 @@ function AiGradingChat({
         {messages.length ? messages.map((message, index) => (
           <div key={`${message.created_at}-${index}`} className={message.role === "assistant" ? "leading-6" : "text-muted"}>
             <div className="mb-1 text-xs text-muted">{message.role === "assistant" ? "AI" : "你"}</div>
-            <div className="whitespace-pre-wrap">{message.content}</div>
+            {message.role === "assistant" && !String(message.created_at ?? "").includes("assistant-streaming") ? (
+              <RichContent content={message.content} />
+            ) : (
+              <div className="whitespace-pre-wrap">{message.content}</div>
+            )}
           </div>
         )) : <div className="text-muted">可以追问为什么扣分、怎么补漏点、如何把答案改到更高分。</div>}
         {loading && <div className="text-muted">AI 正在解释评分...</div>}

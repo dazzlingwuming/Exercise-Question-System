@@ -1,7 +1,8 @@
-import type { Question } from "../../types/question";
+import type { PracticeQuestion } from "../../types/question";
 import { Badge } from "../common/Badge";
+import { RichContent } from "../content/RichContent";
 
-export function QuestionCard({ question }: { question: Question }) {
+export function QuestionCard({ question }: { question: PracticeQuestion }) {
   return (
     <section className="panel rounded-lg p-5">
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -9,8 +10,8 @@ export function QuestionCard({ question }: { question: Question }) {
         {question.difficulty && <Badge>{question.difficulty}</Badge>}
         {question.part_id && <span className="text-xs text-muted">{question.part_id}</span>}
       </div>
-      <h2 className="whitespace-pre-wrap text-lg font-semibold leading-8">{question.stem}</h2>
-      {question.material && <pre className="mt-4 overflow-auto rounded-md bg-ink p-4 text-sm leading-6 text-white">{question.material}</pre>}
+      <RichContent content={question.stem} className="text-lg font-semibold leading-8" />
+      {question.material && <RichContent content={question.material} className="mt-4 rounded-md bg-surface p-4 text-sm leading-6" />}
     </section>
   );
 }

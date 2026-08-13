@@ -22,7 +22,7 @@ import { DeleteQuestionDialog } from "../components/question/DeleteQuestionDialo
 import { QuestionCard } from "../components/question/QuestionCard";
 import { QuestionRenderer } from "../components/question/QuestionRenderer";
 import type { QuestionState, SubmitAnswerResponse } from "../types/attempt";
-import type { FilterOptions, Question } from "../types/question";
+import type { FilterOptions, PracticeQuestion } from "../types/question";
 import { aiConfigForRole, loadStoredAiConfig } from "../utils/aiConfigStorage";
 
 const MODE_LABELS: Record<string, string> = {
@@ -60,10 +60,11 @@ export function PracticePage() {
   const [difficulty, setDifficulty] = useState(searchParams.get("difficulty") ?? "");
   const [examPoint, setExamPoint] = useState(searchParams.get("exam_point") ?? "");
   const [direction, setDirection] = useState(searchParams.get("direction") ?? "");
+  const [sourceId, setSourceId] = useState(searchParams.get("source_id") ?? "");
   const [order, setOrder] = useState(searchParams.get("order") ?? (searchParams.get("mode") === "random" ? "random" : "import_order"));
   const [pageSize, setPageSize] = useState(20);
   const [sessionId, setSessionId] = useState("");
-  const [currentGroup, setCurrentGroup] = useState<Question[]>([]);
+  const [currentGroup, setCurrentGroup] = useState<PracticeQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [groupStart, setGroupStart] = useState(0);
   const [groupEnd, setGroupEnd] = useState(0);
@@ -100,6 +101,7 @@ export function PracticePage() {
 
   const question = currentGroup[currentIndex - groupStart] ?? null;
   const questionState = question ? questionStates[question.id] : undefined;
+  const sourceName = filters?.sources.find((item) => item.id === sourceId)?.name ?? "";
   const returnTo = `${location.pathname}${location.search}`;
   const contextText = useMemo(() => {
     const progress = total && question ? currentIndex + 1 : 0;
@@ -116,8 +118,9 @@ export function PracticePage() {
     if (difficulty) parts.push(`难度：${difficulty}`);
     if (examPoint) parts.push(`考察点：${examPoint}`);
     if (direction) parts.push(`方向：${direction}`);
+    if (sourceName) parts.push(`来源：${sourceName}`);
     return parts;
-  }, [mode, order, pageSize, total, question, currentIndex, groupStart, groupEnd, currentGroup, questionStates, type, difficulty, examPoint, direction]);
+  }, [mode, order, pageSize, total, question, currentIndex, groupStart, groupEnd, currentGroup, questionStates, type, difficulty, examPoint, direction, sourceName]);
 
   useEffect(() => {
     if (!question) return;
@@ -186,6 +189,7 @@ export function PracticePage() {
         difficulty: difficulty || undefined,
         exam_point: examPoint || undefined,
         direction: direction || undefined,
+        source_id: sourceId || undefined,
         page_size: pageSize,
         start_question_id: startQuestionId,
         order: mode === "random" ? "random" : order,
@@ -226,6 +230,7 @@ export function PracticePage() {
     setDifficulty(response.filters.difficulty ?? "");
     setExamPoint(response.filters.exam_point ?? "");
     setDirection(response.filters.direction ?? "");
+    setSourceId(response.filters.source_id ?? "");
     setCurrentGroup(response.current_group);
     setCurrentIndex(response.current_index);
     setGroupStart(response.current_group_start);
@@ -238,7 +243,7 @@ export function PracticePage() {
     void refreshQuestionStates(response.current_group);
   }
 
-  async function refreshQuestionStates(items: Question[]) {
+  async function refreshQuestionStates(items: PracticeQuestion[]) {
     if (items.length === 0) {
       setQuestionStates({});
       return;
@@ -350,6 +355,7 @@ export function PracticePage() {
           <h1 className="mb-4 text-2xl font-semibold">练习配置</h1>
           <div className="grid gap-3 md:grid-cols-4">
             <Select label="练习模式" value={mode} onChange={setMode} options={Object.entries(MODE_LABELS).map(([value, label]) => ({ value, label }))} />
+            <Select label="来源" value={sourceId} onChange={setSourceId} options={(filters?.sources ?? []).map((item) => ({ value: item.id, label: `${item.name}（${item.question_count} 题）` }))} empty="全部来源" />
             <Select label="题型" value={type} onChange={setType} options={(filters?.types ?? []).map((value) => ({ value, label: value }))} empty="全部题型" />
             <Select label="难度" value={difficulty} onChange={setDifficulty} options={(filters?.difficulties ?? []).map((value) => ({ value, label: value }))} empty="全部难度" />
             <Select label="每组题数" value={String(pageSize)} onChange={(value) => setPageSize(Number(value))} options={[10, 20, 50].map((value) => ({ value: String(value), label: `${value} 题` }))} />

@@ -1,18 +1,22 @@
-import { Save, Trash2 } from "lucide-react";
+import { Save, Sparkles, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import type { AiParseIssue } from "../api/ai";
 import { createQuestion } from "../api/questions";
 import { ErrorState } from "../components/common/ErrorState";
 import { AnswerEditor } from "../components/question/AnswerEditor";
+import { AiQuestionParseDialog } from "../components/question/AiQuestionParseDialog";
 import type { Option, QuestionCreatePayload } from "../types/question";
 
-const TYPE_OPTIONS = [
+const TYPE_OPTIONS: Array<[string, string]> = [
   ["single_choice", "单选题"],
   ["multiple_choice", "多选题"],
   ["true_false", "判断题"],
   ["fill_blank", "填空题"],
   ["short_answer", "简答题"],
+  ["essay", "论述题"],
+  ["flow_order", "流程排序题"],
   ["concept_analysis", "概念辨析题"],
   ["scenario_analysis", "场景分析题"],
   ["interview", "面试题"],
@@ -50,6 +54,8 @@ export function QuestionCreatePage() {
     reason: "",
   });
   const [error, setError] = useState("");
+  const [parseOpen, setParseOpen] = useState(false);
+  const [aiParseIssues, setAiParseIssues] = useState<AiParseIssue[]>([]);
 
   const update = <K extends keyof QuestionCreatePayload>(key: K, value: QuestionCreatePayload[K]) => setForm({ ...form, [key]: value });
   const updateOption = (index: number, value: Partial<Option>) => {
@@ -78,6 +84,15 @@ export function QuestionCreatePage() {
   const isChoice = ["single_choice", "multiple_choice"].includes(form.type);
   const isTrueFalse = form.type === "true_false";
 
+  const applyAiDraft = (candidate: QuestionCreatePayload, issues: AiParseIssue[]) => {
+    if (form.stem.trim() && !window.confirm("当前表单已有内容。应用 AI 草稿会覆盖已有字段，是否继续？")) return;
+    const typeLabel = TYPE_OPTIONS.find(([value]) => value === candidate.type)?.[1] ?? candidate.type_label ?? candidate.type;
+    setForm({ ...candidate, type_label: typeLabel, reason: candidate.reason || "AI 原始文本解析草稿，请人工确认后保存" });
+    setAiParseIssues(issues);
+    setError("");
+    setParseOpen(false);
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -85,9 +100,22 @@ export function QuestionCreatePage() {
           <h1 className="text-2xl font-semibold">新增题目</h1>
           <p className="mt-1 text-sm text-muted">保存后会直接进入正式题库，并参与练习和统计。</p>
         </div>
-        <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to="/questions">取消</Link>
+        <div className="flex items-center gap-2">
+          <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" type="button" onClick={() => setParseOpen(true)}>
+            <Sparkles className="h-4 w-4 text-accent" />从原始文本解析
+          </button>
+          <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to="/questions">取消</Link>
+        </div>
       </div>
       {error && <ErrorState message={error} />}
+      {aiParseIssues.length > 0 && (
+        <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="font-medium">AI 解析待核对</div>
+          <div className="mt-2 space-y-1 leading-6">
+            {aiParseIssues.map((issue, index) => <div key={`${issue.code}-${index}`}>{issue.severity === "error" ? "需处理" : "提示"}{issue.field ? ` · ${issue.field}` : ""}：{issue.message}</div>)}
+          </div>
+        </section>
+      )}
       <EditSection title="基础信息">
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="题型">
@@ -159,6 +187,7 @@ export function QuestionCreatePage() {
         <Save className="h-4 w-4" />
         保存题目
       </button>
+      <AiQuestionParseDialog open={parseOpen} typeOptions={TYPE_OPTIONS} onClose={() => setParseOpen(false)} onApply={applyAiDraft} />
     </div>
   );
 }
@@ -203,6 +232,7 @@ function validateForm(question: QuestionCreatePayload) {
     const answers = String(question.standard_answer ?? "").match(/[A-Z]/gi)?.map((item) => item.toUpperCase()) ?? [];
     if (answers.length === 0 || answers.some((item) => !keys.has(item))) return "多选题标准答案必须来自已有选项";
   }
-  if (!isObjective(question.type) && !String(question.standard_answer ?? "").trim() && !String(question.scoring_standard ?? "").trim()) return "主观题至少需要参考答案或评分标准";
+  if (!isObjective(question.type) && !String(question.standard_answer ?? "").trim()) return "主观题参考答案不能为空";
+  if (!isObjective(question.type) && !String(question.scoring_standard ?? "").trim()) return "主观题评分标准不能为空";
   return "";
 }

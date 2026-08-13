@@ -88,7 +88,7 @@ def _generate_search_queries(
     raw = chat_completion(
         api_key=payload.api_key or "",
         base_url=payload.base_url or "https://api.deepseek.com",
-        model=payload.model or "deepseek-v4-pro",
+        model=payload.generation_model or payload.model or "deepseek-v4-pro",
         messages=[
             {
                 "role": "system",

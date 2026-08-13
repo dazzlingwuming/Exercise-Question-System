@@ -16,19 +16,20 @@ export function QuestionBankPage() {
   const [tag, setTag] = useState("");
   const [examPoint, setExamPoint] = useState("");
   const [direction, setDirection] = useState("");
+  const [sourceId, setSourceId] = useState("");
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
   const [deleting, setDeleting] = useState<Question | null>(null);
   const [error, setError] = useState("");
 
   const load = () => {
-    listQuestions({ keyword, type, difficulty, tag, exam_point: examPoint, direction, page_size: 50 })
+    listQuestions({ keyword, type, difficulty, tag, exam_point: examPoint, direction, source_id: sourceId, page_size: 50 })
       .then((res) => setItems(res.items))
       .catch((err) => setError(err.message));
   };
 
   useEffect(() => {
     load();
-  }, [keyword, type, difficulty, tag, examPoint, direction]);
+  }, [keyword, type, difficulty, tag, examPoint, direction, sourceId]);
 
   useEffect(() => {
     getFilterOptions().then(setFilterOptions).catch(() => undefined);
@@ -36,38 +37,46 @@ export function QuestionBankPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-2xl font-semibold">题库</h1>
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="shrink-0 text-2xl font-semibold">题库</h1>
+          <div className="flex flex-wrap gap-2">
+            <Link className="inline-flex h-10 items-center gap-2 rounded-md bg-accent px-3 text-sm text-white" to="/questions/new">
+              <Plus className="h-4 w-4" />
+              新增题目
+            </Link>
+            <Link className="inline-flex h-10 items-center rounded-md border border-line bg-white px-3 text-sm" to="/questions/deleted">查看已删除题目</Link>
+          </div>
+        </div>
         <div className="flex flex-wrap gap-2">
           <div className="flex items-center gap-2 rounded-md border border-line bg-white px-3">
             <Search className="h-4 w-4 text-muted" />
-            <input className="h-10 outline-none" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索题干" />
+            <input className="h-10 w-48 outline-none" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索题干" />
           </div>
-          <select className="rounded-md border border-line bg-white px-3" value={type} onChange={(event) => setType(event.target.value)}>
+          <select className="h-10 min-w-64 max-w-80 rounded-md border border-line bg-white px-3" value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
+            <option value="">全部来源</option>
+            {(filterOptions?.sources ?? []).map((item) => <option key={item.id} value={item.id}>{item.name}（{item.question_count}）</option>)}
+          </select>
+          <select className="h-10 rounded-md border border-line bg-white px-3" value={type} onChange={(event) => setType(event.target.value)}>
             <option value="">全部题型</option>
             {(filterOptions?.types ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <select className="rounded-md border border-line bg-white px-3" value={difficulty} onChange={(event) => setDifficulty(event.target.value)}>
+          <select className="h-10 rounded-md border border-line bg-white px-3" value={difficulty} onChange={(event) => setDifficulty(event.target.value)}>
             <option value="">全部难度</option>
             {(filterOptions?.difficulties ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <select className="rounded-md border border-line bg-white px-3" value={tag} onChange={(event) => setTag(event.target.value)}>
+          <select className="h-10 rounded-md border border-line bg-white px-3" value={tag} onChange={(event) => setTag(event.target.value)}>
             <option value="">全部标签</option>
             {(filterOptions?.tags ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <select className="rounded-md border border-line bg-white px-3" value={examPoint} onChange={(event) => setExamPoint(event.target.value)}>
+          <select className="h-10 rounded-md border border-line bg-white px-3" value={examPoint} onChange={(event) => setExamPoint(event.target.value)}>
             <option value="">全部考察点</option>
             {(filterOptions?.exam_points ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <select className="rounded-md border border-line bg-white px-3" value={direction} onChange={(event) => setDirection(event.target.value)}>
+          <select className="h-10 rounded-md border border-line bg-white px-3" value={direction} onChange={(event) => setDirection(event.target.value)}>
             <option value="">全部方向</option>
             {(filterOptions?.directions ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
-          <Link className="inline-flex items-center gap-2 rounded-md bg-accent px-3 text-sm text-white" to="/questions/new">
-            <Plus className="h-4 w-4" />
-            新增题目
-          </Link>
-          <Link className="inline-flex items-center rounded-md border border-line bg-white px-3 text-sm" to="/questions/deleted">查看已删除题目</Link>
         </div>
       </div>
       {error && <ErrorState message={error} />}
@@ -80,6 +89,7 @@ export function QuestionBankPage() {
               <div className="mb-2 flex flex-wrap gap-2">
                 <Badge tone="accent">{question.type_label}</Badge>
                 <Badge>v{question.version}</Badge>
+                {question.source_name && <Badge>{`来源：${question.source_name}`}</Badge>}
                 {question.difficulty && <Badge>{question.difficulty}</Badge>}
                 {question.directions.slice(0, 3).map((item) => <Badge key={item}>{item}</Badge>)}
                 {question.exam_points.slice(0, 3).map((point) => <Badge key={point}>{point}</Badge>)}

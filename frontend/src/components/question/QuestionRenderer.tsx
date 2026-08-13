@@ -1,4 +1,4 @@
-import type { Question } from "../../types/question";
+import type { PracticeQuestion } from "../../types/question";
 import { FillBlankQuestion } from "./FillBlankQuestion";
 import { MultipleChoiceQuestion } from "./MultipleChoiceQuestion";
 import { SingleChoiceQuestion } from "./SingleChoiceQuestion";
@@ -11,7 +11,7 @@ export function QuestionRenderer({
   answer,
   setAnswer,
 }: {
-  question: Question;
+  question: PracticeQuestion;
   answer: string | string[];
   setAnswer: (value: string | string[]) => void;
 }) {

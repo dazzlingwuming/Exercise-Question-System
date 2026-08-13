@@ -29,7 +29,7 @@ from app.schemas.ai import (
 from app.schemas.question import OptionSchema, QuestionCreate, QuestionRead
 from app.services.llm.deepseek_client import AiClientError, chat_completion
 from app.services.question_create_service import TYPE_LABELS, create_question
-from app.services.question_validation_service import QuestionValidationError, validate_question_for_save
+from app.services.question_validation_service import OBJECTIVE_TYPES, QuestionValidationError, validate_question_for_save
 from app.services.search.web_context_service import build_web_reference_context
 
 
@@ -54,7 +54,7 @@ def generate_question_candidates(db: Session, payload: AiQuestionGenerationReque
     raw = chat_completion(
         api_key=payload.api_key or "",
         base_url=payload.base_url or "https://api.deepseek.com",
-        model=payload.model or "deepseek-v4-pro",
+        model=_resolve_generation_model(payload),
         messages=_generation_messages(db, question, payload, count),
         max_tokens=6000,
         response_format={"type": "json_object"},
@@ -267,7 +267,7 @@ def _quality_validate(payload: AiQuestionGenerationRequest, question: QuestionCr
     raw = chat_completion(
         api_key=payload.api_key or "",
         base_url=payload.base_url or "https://api.deepseek.com",
-        model=payload.model or "deepseek-v4-pro",
+        model=_resolve_generation_model(payload),
         messages=[
             {
                 "role": "system",
@@ -363,11 +363,11 @@ def _validate_candidate(payload: QuestionCreate) -> AiStructureValidation:
         validate_question_for_save(data)
     except QuestionValidationError as exc:
         errors.append(str(exc))
-    if payload.type in {"short_answer", "concept_analysis", "scenario_analysis", "interview", "debug_analysis", "code_reading", "system_design", "project_follow_up", "mock_interview"}:
+    if payload.type not in OBJECTIVE_TYPES:
         if not str(payload.standard_answer or "").strip():
             errors.append("主观题参考答案不能为空")
         if not str(payload.scoring_standard or "").strip():
-            warnings.append("主观题缺少评分标准。")
+            errors.append("主观题评分标准不能为空")
     return AiStructureValidation(ok=not errors, errors=errors, warnings=warnings)
 
 
@@ -424,6 +424,12 @@ def _latest_attempt(db: Session, question_id: str, attempt_id: str | None) -> At
     return db.scalars(select(Attempt).where(Attempt.question_id == question_id).order_by(Attempt.created_at.desc()).limit(1)).first()
 
 
+def _resolve_generation_model(payload: AiQuestionGenerationRequest) -> str:
+    """中文说明：出题专用模型优先，同时兼容旧的通用 model 字段。"""
+
+    return payload.generation_model or payload.model or "deepseek-v4-pro"
+
+
 def _grading_context(db: Session, question_id: str, attempt_id: str | None) -> dict[str, Any]:
     if not attempt_id:
         return {}
@@ -441,7 +447,9 @@ def _grading_context(db: Session, question_id: str, attempt_id: str | None) -> d
         "max_score": result.max_score,
         "summary": result.summary,
         "result": result.result_json,
-        "messages": [{"role": item.role, "stage": item.stage, "content": item.content} for item in messages],
+        # AiGradingMessage 不包含 tutor 对话的 stage 字段；保留固定语义标签，
+        # 让题目生成上下文可序列化且不会在有评分追问时崩溃。
+        "messages": [{"role": item.role, "stage": "grading_chat", "content": item.content} for item in messages],
     }
 
 

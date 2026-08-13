@@ -133,6 +133,26 @@ export type AiQuestionCandidateAcceptResponse = {
   question_id?: string | null;
 };
 
+export type AiParseIssue = {
+  severity: "error" | "warning" | "info" | string;
+  code: string;
+  field?: string | null;
+  message: string;
+  suggestion?: string | null;
+};
+
+export type AiQuestionParseResponse = {
+  candidate: QuestionCreatePayload;
+  detected_type?: string | null;
+  issues: AiParseIssue[];
+  parser_version: string;
+};
+
+export type AiQuestionParseRequest = AiConfig & {
+  source_text: string;
+  expected_type?: string;
+};
+
 export const getAiThread = (questionId: string, attemptId?: string) => {
   const params = new URLSearchParams({ question_id: questionId });
   if (attemptId) params.set("attempt_id", attemptId);
@@ -217,6 +237,9 @@ export const finalizeAiSummaryStream = summarizePreviousAiStream;
 
 export const generateAiQuestions = (payload: AiQuestionGenerationRequest) =>
   request<AiQuestionGeneration>("/ai/question-generation/generate", { method: "POST", body: JSON.stringify(payload) });
+
+export const parseAiQuestionDraft = (payload: AiQuestionParseRequest) =>
+  request<AiQuestionParseResponse>("/ai/question-parse", { method: "POST", body: JSON.stringify(payload) });
 
 export const getAiQuestionGeneration = (generationId: string) =>
   request<AiQuestionGeneration>(`/ai/question-generation/${generationId}`);

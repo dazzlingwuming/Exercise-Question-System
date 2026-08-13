@@ -203,3 +203,25 @@ class AiQuestionCandidateRejectResponse(BaseModel):
 
 class AiQuestionCandidateUpdateRequest(BaseModel):
     question: QuestionCreate
+
+
+class AiQuestionParseRequest(AiConfig):
+    """中文说明：把用户粘贴的一道原始题目解析为未保存的表单草稿。"""
+
+    source_text: str
+    expected_type: str | None = None
+
+
+class AiParseIssue(BaseModel):
+    severity: str
+    code: str
+    field: str | None = None
+    message: str
+    suggestion: str | None = None
+
+
+class AiQuestionParseResponse(BaseModel):
+    candidate: QuestionCreate
+    detected_type: str | None = None
+    issues: list[AiParseIssue] = []
+    parser_version: str = "v1"

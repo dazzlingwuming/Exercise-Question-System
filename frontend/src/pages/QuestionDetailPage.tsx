@@ -5,6 +5,7 @@ import { deleteQuestion, getQuestion, restoreDeletedQuestion } from "../api/ques
 import { Badge } from "../components/common/Badge";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
+import { RichContent } from "../components/content/RichContent";
 import { DeleteQuestionDialog } from "../components/question/DeleteQuestionDialog";
 import type { Question } from "../types/question";
 
@@ -81,8 +82,14 @@ export function QuestionDetailPage() {
       )}
       <section className="panel rounded-lg p-5">
         <h2 className="mb-3 font-semibold">题干</h2>
-        <p className="whitespace-pre-wrap leading-8">{question.stem}</p>
+        <RichContent content={question.stem} className="leading-8" />
       </section>
+      {question.material && (
+        <section className="panel rounded-lg p-5">
+          <h2 className="mb-3 font-semibold">材料</h2>
+          <RichContent content={question.material} className="leading-7" />
+        </section>
+      )}
       {question.directions.length > 0 && (
         <section className="panel rounded-lg p-5">
           <h2 className="mb-3 font-semibold">题目方向</h2>
@@ -95,7 +102,8 @@ export function QuestionDetailPage() {
           <div className="space-y-2">
             {question.options.map((option) => (
               <div key={option.key} className="rounded-md border border-line bg-white p-3">
-                {option.key}. {option.text}
+                <div className="mb-1 font-medium">{option.key}.</div>
+                <RichContent content={option.text} />
               </div>
             ))}
           </div>
@@ -103,8 +111,8 @@ export function QuestionDetailPage() {
       )}
       <section className="panel rounded-lg p-5">
         <h2 className="mb-3 font-semibold">答案与解析</h2>
-        <div className="mb-3 text-sm text-muted">标准答案：{String(question.standard_answer ?? "")}</div>
-        <p className="whitespace-pre-wrap leading-7">{question.explanation || "暂无解析"}</p>
+        <div className="mb-3 text-sm text-muted">标准答案：<RichContent content={formatRichValue(question.standard_answer)} className="inline-rich-content" /></div>
+        <RichContent content={question.explanation || "暂无解析"} className="leading-7" />
       </section>
       <DeleteQuestionDialog
         open={deleteOpen}
@@ -123,4 +131,10 @@ function safeReturnTo(value: string | null) {
   if (!value) return "";
   if (!value.startsWith("/") || value.startsWith("//")) return "";
   return value;
+}
+
+function formatRichValue(value: unknown) {
+  if (Array.isArray(value)) return value.join("、");
+  if (typeof value === "object" && value !== null) return JSON.stringify(value, null, 2);
+  return String(value ?? "");
 }

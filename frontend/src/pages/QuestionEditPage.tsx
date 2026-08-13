@@ -194,6 +194,8 @@ function validateForm(question: Question) {
     const answers = String(question.standard_answer ?? "").match(/[A-Z]/gi)?.map((item) => item.toUpperCase()) ?? [];
     if (answers.length === 0 || answers.some((item) => !keys.has(item))) return "多选题标准答案必须来自已有选项";
   }
+  if (!["single_choice", "multiple_choice", "true_false", "fill_blank"].includes(question.type) && !String(question.standard_answer ?? "").trim()) return "主观题参考答案不能为空";
+  if (!["single_choice", "multiple_choice", "true_false", "fill_blank"].includes(question.type) && !String(question.scoring_standard ?? "").trim()) return "主观题评分标准不能为空";
   return "";
 }
 

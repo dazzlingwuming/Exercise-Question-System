@@ -13,6 +13,8 @@ export type Question = {
   tags: string[];
   directions: string[];
   import_order?: number | null;
+  source_id?: string | null;
+  source_name?: string | null;
   stem: string;
   material?: string | null;
   options: Option[];
@@ -30,6 +32,25 @@ export type Question = {
   deleted_at?: string | null;
   delete_reason?: string | null;
   deleted_source?: string | null;
+};
+
+// 中文说明：练习接口只返回作答前需要的安全字段；答案、解析和原始题库文本只能在提交后单独返回。
+export type PracticeQuestion = {
+  id: string;
+  part_id?: string | null;
+  title?: string | null;
+  type: string;
+  type_label: string;
+  difficulty?: string | null;
+  tags: string[];
+  directions: string[];
+  import_order?: number | null;
+  source_id?: string | null;
+  source_name?: string | null;
+  stem: string;
+  material?: string | null;
+  options: Option[];
+  exam_points: string[];
 };
 
 export type QuestionListResponse = {
@@ -53,6 +74,7 @@ export type FilterOptions = {
   tags: string[];
   exam_points: string[];
   directions: string[];
+  sources: Array<{ id: string; name: string; question_count: number }>;
 };
 
 export type QuestionUpdatePayload = Partial<{

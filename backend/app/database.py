@@ -4,6 +4,8 @@ from collections.abc import Generator
 
 import json
 import re
+import unicodedata
+from uuid import uuid4
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
@@ -33,7 +35,7 @@ def get_db() -> Generator[Session, None, None]:
 def init_db() -> None:
     """中文说明：本地应用启动时自动创建缺失的数据表，并执行轻量字段迁移。"""
 
-    from app.models import ai_grading, ai_question_generation, ai_tutor, attempt, import_batch, practice_session, question, question_revision, user_question_state  # noqa: F401
+    from app.models import ai_grading, ai_question_generation, ai_tutor, attempt, import_batch, practice_session, question, question_revision, question_source, user_question_state  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     run_lightweight_migrations()
@@ -63,6 +65,9 @@ def run_lightweight_migrations() -> None:
                 connection.execute(text("ALTER TABLE questions ADD COLUMN delete_reason TEXT"))
             if "deleted_source" not in question_columns:
                 connection.execute(text("ALTER TABLE questions ADD COLUMN deleted_source VARCHAR(80)"))
+            if "source_id" not in question_columns:
+                connection.execute(text("ALTER TABLE questions ADD COLUMN source_id VARCHAR(80)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_questions_source_id ON questions (source_id)"))
         if "attempts" in existing_tables:
             attempt_columns = {column["name"] for column in inspector.get_columns("attempts")}
             if "question_version" not in attempt_columns:
@@ -71,8 +76,67 @@ def run_lightweight_migrations() -> None:
                 connection.execute(text("ALTER TABLE attempts ADD COLUMN question_snapshot JSON"))
             if "practice_session_id" not in attempt_columns:
                 connection.execute(text("ALTER TABLE attempts ADD COLUMN practice_session_id VARCHAR(80)"))
+        if "import_batches" in existing_tables:
+            import_batch_columns = {column["name"] for column in inspector.get_columns("import_batches")}
+            if "format_version" not in import_batch_columns:
+                connection.execute(text("ALTER TABLE import_batches ADD COLUMN format_version VARCHAR(20) NOT NULL DEFAULT 'legacy'"))
+            if "source_id" not in import_batch_columns:
+                connection.execute(text("ALTER TABLE import_batches ADD COLUMN source_id VARCHAR(80)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_import_batches_source_id ON import_batches (source_id)"))
     backfill_question_order_and_directions()
     backfill_user_question_states()
+    backfill_question_sources()
+
+
+def normalize_source_name(name: str) -> str:
+    """中文说明：同名来源按 Unicode 规范化、去首尾空白和大小写折叠复用。"""
+
+    return unicodedata.normalize("NFKC", name).strip().casefold()
+
+
+def backfill_question_sources() -> None:
+    """中文说明：从历史导入批次创建稳定来源；仅在唯一批次且数量吻合时回填旧题。"""
+
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    if not {"question_sources", "questions", "import_batches"}.issubset(tables):
+        return
+    with engine.begin() as connection:
+        batches = connection.execute(
+            text("SELECT id, source_name, source_id, imported_count FROM import_batches ORDER BY created_at, id")
+        ).mappings().all()
+        source_ids: dict[str, str] = {}
+        for batch in batches:
+            name = str(batch["source_name"] or "").strip()
+            normalized_name = normalize_source_name(name)
+            if not normalized_name:
+                continue
+            source_id = connection.execute(
+                text("SELECT id FROM question_sources WHERE normalized_name = :normalized_name"),
+                {"normalized_name": normalized_name},
+            ).scalar_one_or_none()
+            if source_id is None:
+                source_id = uuid4().hex
+                connection.execute(
+                    text("INSERT INTO question_sources (id, name, normalized_name) VALUES (:id, :name, :normalized_name)"),
+                    {"id": source_id, "name": name[:255], "normalized_name": normalized_name},
+                )
+            source_ids[str(batch["id"])] = str(source_id)
+            if batch["source_id"] is None:
+                connection.execute(
+                    text("UPDATE import_batches SET source_id = :source_id WHERE id = :id"),
+                    {"source_id": source_id, "id": batch["id"]},
+                )
+
+        # 历史 schema 没有题目到批次的逐题关系，只有一个批次且计数精确吻合时才可安全推断。
+        question_count = int(connection.execute(text("SELECT COUNT(*) FROM questions")).scalar_one())
+        missing_source_count = int(connection.execute(text("SELECT COUNT(*) FROM questions WHERE source_id IS NULL")).scalar_one())
+        if len(batches) != 1 or question_count == 0 or missing_source_count != question_count:
+            return
+        only_batch = batches[0]
+        source_id = source_ids.get(str(only_batch["id"])) or only_batch["source_id"]
+        if source_id is not None and int(only_batch["imported_count"] or 0) == question_count:
+            connection.execute(text("UPDATE questions SET source_id = :source_id WHERE source_id IS NULL"), {"source_id": source_id})
 
 
 def backfill_question_order_and_directions() -> None:

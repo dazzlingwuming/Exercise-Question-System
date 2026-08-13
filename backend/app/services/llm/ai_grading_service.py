@@ -58,7 +58,7 @@ def grade_subjective_answer(db: Session, payload: AiConfig, question_id: str, at
     question = _get_question(db, question_id)
     attempt = _get_attempt(db, attempt_id)
     _validate_grade_request(question, attempt)
-    model = payload.model or settings.deepseek_grading_model
+    model = _resolve_grading_model(payload)
     provider = payload.provider or "deepseek"
     user_answer = (attempt.user_answer_raw or "").strip()
     if not user_answer:
@@ -130,9 +130,9 @@ def ask_grading_question(db: Session, payload: AiConfig, grading_id: int, conten
     db.add(AiGradingMessage(grading_id=grading_id, role="user", content=question_text))
     messages = _build_grading_chat_messages(question, attempt, result, history, question_text)
     answer = chat_completion(
-        api_key=payload.api_key or "",
+        api_key=payload.api_key or settings.deepseek_api_key or "",
         base_url=payload.base_url or settings.deepseek_base_url,
-        model=payload.model or result.model or settings.deepseek_grading_model,
+        model=_resolve_grading_model(payload, result.model),
         messages=messages,
         max_tokens=1800,
         thinking={"type": "disabled"},
@@ -159,9 +159,9 @@ def stream_grading_question(db: Session, payload: AiConfig, grading_id: int, con
         messages = _build_grading_chat_messages(question, attempt, result, history, question_text)
         chunks: list[str] = []
         for chunk in stream_chat_completion(
-            api_key=payload.api_key or "",
+            api_key=payload.api_key or settings.deepseek_api_key or "",
             base_url=payload.base_url or settings.deepseek_base_url,
-            model=payload.model or result.model or settings.deepseek_grading_model,
+            model=_resolve_grading_model(payload, result.model),
             messages=messages,
             max_tokens=1800,
             thinking={"type": "disabled"},
@@ -273,7 +273,7 @@ def _call_grading_model(payload: AiConfig, model: str, messages: list[dict[str, 
     """中文说明：评分是结构化任务，关闭 thinking 并使用 JSON Output。"""
 
     return chat_completion(
-        api_key=payload.api_key or "",
+        api_key=payload.api_key or settings.deepseek_api_key or "",
         base_url=payload.base_url or settings.deepseek_base_url,
         model=model,
         messages=messages,
@@ -281,6 +281,12 @@ def _call_grading_model(payload: AiConfig, model: str, messages: list[dict[str, 
         response_format={"type": "json_object"},
         thinking={"type": "disabled"},
     )
+
+
+def _resolve_grading_model(payload: AiConfig, saved_model: str | None = None) -> str:
+    """中文说明：评分专用模型优先，其次兼容旧的通用 model 和已保存评分模型。"""
+
+    return payload.grading_model or payload.model or saved_model or settings.deepseek_grading_model
 
 
 def _build_retry_messages(messages: list[dict[str, str]], raw: str) -> list[dict[str, str]]:

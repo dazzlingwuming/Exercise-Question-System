@@ -34,6 +34,11 @@ def answered_question_ids(db: Session, user_id: str = LOCAL_USER_ID) -> set[str]
 def wrong_question_ids(db: Session, user_id: str = LOCAL_USER_ID) -> set[str]:
     """中文说明：返回当前状态仍是错题/复习中的题目；兼容旧库回退到 attempts。"""
 
+    has_states = db.scalar(
+        select(UserQuestionState.id)
+        .where(UserQuestionState.user_id == user_id)
+        .limit(1)
+    ) is not None
     ids = set(
         db.scalars(
             select(UserQuestionState.question_id).where(
@@ -43,7 +48,9 @@ def wrong_question_ids(db: Session, user_id: str = LOCAL_USER_ID) -> set[str]:
             )
         ).all()
     )
-    if ids:
+    # 一旦已有累计状态，状态表就是唯一事实来源。不能因为当前没有错题，
+    # 又回退到历史 attempts，否则已经改正的旧错题会重新出现在错题练习中。
+    if has_states:
         return ids
     return set(db.scalars(select(Attempt.question_id).where(Attempt.is_correct.is_(False))).all())
 
@@ -144,7 +151,16 @@ def _get_or_create_state(db: Session, question_id: str, user_id: str) -> UserQue
 
 
 def _apply_final_result(state: UserQuestionState, attempt: Attempt, count_result: bool) -> None:
-    result = "correct" if attempt.is_correct is True else "wrong" if attempt.is_correct is False else "partial"
+    # review_status 是主观题最终自评的权威来源。partial 不能被 False
+    # 误判为 wrong，否则会污染错题本、错误计数和掌握度。
+    if attempt.review_status == "partial":
+        result = "partial"
+    elif attempt.is_correct is True:
+        result = "correct"
+    elif attempt.is_correct is False:
+        result = "wrong"
+    else:
+        result = "partial"
     if result == "correct":
         if count_result:
             state.correct_count = (state.correct_count or 0) + 1
@@ -162,6 +178,8 @@ def _apply_final_result(state: UserQuestionState, attempt: Attempt, count_result
         state.status = "wrong"
         state.mastery_level = max(0, (state.mastery_level or 0) - 1)
     else:
+        state.consecutive_correct_count = 0
+        state.consecutive_wrong_count = 0
         state.last_result = "partial"
         state.status = "reviewing"
         state.mastery_level = max(0, state.mastery_level or 0)
@@ -174,6 +192,8 @@ def _next_review_at(state: UserQuestionState) -> datetime | None:
     if state.last_result == "wrong":
         minutes = 30 if state.consecutive_wrong_count >= 2 else 10
         return datetime.now() + timedelta(minutes=minutes)
+    if state.last_result == "partial":
+        return datetime.now() + timedelta(hours=12)
     if state.consecutive_correct_count >= 3:
         return datetime.now() + timedelta(days=7)
     if state.consecutive_correct_count == 2:

@@ -127,13 +127,18 @@ def test_score_is_normalized_and_result_saved(monkeypatch) -> None:
 
     monkeypatch.setattr(ai_grading_service, "chat_completion", fake_chat_completion)
     before = db.get(Attempt, "a-sub")
-    result = grade_subjective_answer(db, AiConfig(api_key="sk-test", model="deepseek-test"), "q-sub", "a-sub")
+    result = grade_subjective_answer(
+        db,
+        AiConfig(api_key="sk-test", model="legacy-model", grading_model="deepseek-test"),
+        "q-sub",
+        "a-sub",
+    )
     after = db.get(Attempt, "a-sub")
     saved = db.scalar(select(AiGradingResult).where(AiGradingResult.attempt_id == "a-sub"))
     latest = latest_grading(db, "a-sub")
     assert result.score == 10
     assert result.level == "优秀"
-    assert captured["model"] == "deepseek-v4-pro"
+    assert captured["model"] == "deepseek-test"
     assert captured["thinking"] == {"type": "disabled"}
     assert captured["max_tokens"] == 4096
     assert result.result and result.result.dimension_scores[0].score == 2

@@ -60,10 +60,17 @@ def self_review_attempt(db: Session, attempt: Attempt, status: str) -> Attempt:
     score_map = {"correct": 1.0, "partial": 0.5, "wrong": 0.0}
     if status not in score_map:
         raise ValueError("自评状态只能是 correct、partial、wrong")
+    if attempt.review_status is None:
+        raise ValueError("只有待自评的主观题可以进行自评")
+    if attempt.review_status != "pending":
+        if attempt.review_status == status:
+            # 网络重试或重复点击应保持幂等，不能再次累计答题状态。
+            return attempt
+        raise ValueError("该答题记录已完成自评；如需更正请重新作答")
     attempt.review_status = status
     attempt.score = score_map[status]
     attempt.max_score = 1.0
-    attempt.is_correct = status == "correct"
+    attempt.is_correct = True if status == "correct" else False if status == "wrong" else None
     update_state_after_self_review(db, attempt)
     db.commit()
     db.refresh(attempt)

@@ -6,6 +6,7 @@ from app.models.ai_tutor import AiTutorMessage, AiTutorThread
 from app.models.import_batch import ImportBatch
 from app.models.practice_session import PracticeSession
 from app.models.question import Question
+from app.models.question_source import QuestionSource
 from app.models.question_revision import QuestionRevision
 from app.models.user_question_state import UserQuestionState
 
@@ -18,6 +19,7 @@ __all__ = [
     "ImportBatch",
     "PracticeSession",
     "Question",
+    "QuestionSource",
     "QuestionRevision",
     "UserQuestionState",
 ]

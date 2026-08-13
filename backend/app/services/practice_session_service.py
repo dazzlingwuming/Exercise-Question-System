@@ -18,7 +18,7 @@ from app.schemas.practice import (
     PracticeSessionResponse,
     PracticeSessionState,
 )
-from app.schemas.question import QuestionRead
+from app.schemas.question import PracticeQuestionRead
 from app.services.practice_service import build_practice_questions
 
 
@@ -36,6 +36,7 @@ def create_practice_session(db: Session, payload: PracticeSessionCreate) -> Prac
         "difficulty": payload.difficulty,
         "exam_point": payload.exam_point,
         "direction": payload.direction,
+        "source_id": payload.source_id,
         "start_question_id": payload.start_question_id,
         "allow_answered": payload.allow_answered,
     }
@@ -73,10 +74,10 @@ def get_practice_session(db: Session, session_id: str) -> PracticeSessionState |
         total=session.total,
         page_size=session.page_size,
         current_index=session.current_index,
-        current_question=QuestionRead.model_validate(current_question) if current_question else None,
+        current_question=PracticeQuestionRead.model_validate(current_question) if current_question else None,
         current_group_start=group_start,
         current_group_end=group_end,
-        current_group=[QuestionRead.model_validate(item) for item in group],
+        current_group=[PracticeQuestionRead.model_validate(item) for item in group],
         has_next=session.current_index + 1 < session.total,
         has_previous=session.current_index > 0,
         has_next_group=group_end < session.total,
@@ -139,7 +140,7 @@ def move_to_next_question(db: Session, session_id: str) -> PracticeMoveResponse 
     return PracticeMoveResponse(
         status="ok",
         current_index=session.current_index,
-        question=QuestionRead.model_validate(question) if question else None,
+        question=PracticeQuestionRead.model_validate(question) if question else None,
         has_next=session.current_index + 1 < session.total,
         has_previous=session.current_index > 0,
         has_next_group=min(_current_group_start(session) + session.page_size, session.total) < session.total,
@@ -157,7 +158,7 @@ def move_to_previous_question(db: Session, session_id: str) -> PracticeMoveRespo
         return PracticeMoveResponse(
             status="ok",
             current_index=session.current_index,
-            question=QuestionRead.model_validate(question) if question else None,
+            question=PracticeQuestionRead.model_validate(question) if question else None,
             has_next=session.current_index + 1 < session.total,
             has_previous=False,
             has_next_group=min(_current_group_start(session) + session.page_size, session.total) < session.total,
@@ -170,7 +171,7 @@ def move_to_previous_question(db: Session, session_id: str) -> PracticeMoveRespo
     return PracticeMoveResponse(
         status="ok",
         current_index=session.current_index,
-        question=QuestionRead.model_validate(question) if question else None,
+        question=PracticeQuestionRead.model_validate(question) if question else None,
         has_next=session.current_index + 1 < session.total,
         has_previous=session.current_index > 0,
         has_next_group=min(_current_group_start(session) + session.page_size, session.total) < session.total,
@@ -223,6 +224,7 @@ def build_question_id_list_for_mode(db: Session, payload: PracticeSessionCreate)
         difficulty=payload.difficulty,
         exam_point=payload.exam_point,
         direction=payload.direction,
+        source_id=payload.source_id,
         order=payload.order,
         page=1,
         page_size=1000000,
@@ -248,7 +250,7 @@ def _session_response(db: Session, session: PracticeSession, offset: int, limit:
         current_index=session.current_index,
         current_group_start=offset,
         current_group_end=end,
-        items=[QuestionRead.model_validate(item) for item in items],
+        items=[PracticeQuestionRead.model_validate(item) for item in items],
         has_next_group=end < session.total,
         has_previous_group=offset > 0,
         **_shortage_fields(session),
@@ -258,7 +260,7 @@ def _session_response(db: Session, session: PracticeSession, offset: int, limit:
 def _group_response(db: Session, session: PracticeSession, offset: int, end: int, current_index: int) -> PracticeGroupResponse:
     items = _questions_by_ids(db, _ids_slice(session, offset, end))
     return PracticeGroupResponse(
-        items=[QuestionRead.model_validate(item) for item in items],
+        items=[PracticeQuestionRead.model_validate(item) for item in items],
         offset=offset,
         limit=end - offset,
         total=session.total,

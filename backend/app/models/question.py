@@ -2,10 +2,11 @@
 
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.question_source import QuestionSource  # noqa: F401
 
 
 class Question(Base):
@@ -22,6 +23,7 @@ class Question(Base):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     directions: Mapped[list[str]] = mapped_column(JSON, default=list)
     import_order: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
+    source_id: Mapped[str | None] = mapped_column(ForeignKey("question_sources.id"), index=True, nullable=True)
     stem: Mapped[str] = mapped_column(Text)
     material: Mapped[str | None] = mapped_column(Text)
     options: Mapped[list[dict]] = mapped_column(JSON, default=list)
@@ -41,3 +43,11 @@ class Question(Base):
     deleted_source: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    source: Mapped["QuestionSource | None"] = relationship(back_populates="questions")
+
+    @property
+    def source_name(self) -> str | None:
+        """中文说明：为 API 输出提供稳定来源名称，旧题未回填时返回空。"""
+
+        return self.source.name if self.source else None

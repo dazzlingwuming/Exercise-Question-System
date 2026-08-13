@@ -1,5 +1,6 @@
 import type { SubmitAnswerResponse } from "../../types/attempt";
 import { Badge } from "../common/Badge";
+import { RichContent } from "../content/RichContent";
 
 // 中文说明：解析面板负责展示判分状态、标准答案、解析、考察点和评分标准。
 export function ExplanationPanel({ result }: { result: SubmitAnswerResponse }) {
@@ -13,9 +14,9 @@ export function ExplanationPanel({ result }: { result: SubmitAnswerResponse }) {
         ) : (
           <Badge tone="bad">错误</Badge>
         )}
-        <span className="text-sm text-muted">标准答案：{String(result.standard_answer ?? "")}</span>
+        <div className="text-sm text-muted">标准答案：<RichContent content={formatRichValue(result.standard_answer)} className="inline-rich-content" /></div>
       </div>
-      {result.explanation && <p className="whitespace-pre-wrap text-sm leading-7">{result.explanation}</p>}
+      {result.explanation && <RichContent content={result.explanation} className="text-sm leading-7" />}
       <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
         {result.exam_points.length > 0 && <Info title="考察点" value={result.exam_points.join("、")} />}
         {result.common_mistakes && <Info title="常见错误" value={result.common_mistakes} />}
@@ -30,7 +31,13 @@ function Info({ title, value }: { title: string; value: string }) {
   return (
     <div className="rounded-md border border-line bg-surface p-3">
       <div className="mb-1 text-xs font-medium text-muted">{title}</div>
-      <div className="whitespace-pre-wrap leading-6">{value}</div>
+      <RichContent content={value} className="leading-6" />
     </div>
   );
+}
+
+function formatRichValue(value: unknown) {
+  if (Array.isArray(value)) return value.join("、");
+  if (typeof value === "object" && value !== null) return JSON.stringify(value, null, 2);
+  return String(value ?? "");
 }

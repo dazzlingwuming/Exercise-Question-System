@@ -209,8 +209,13 @@ def _append_and_stream(
     chunks: list[str] = []
     for chunk in stream_chat_completion(api_key=api_key, base_url=base_url, model=model, messages=messages):
         chunks.append(chunk)
-        yield _sse({"type": "delta", "content": chunk})
+        # 未提交时不能把原始模型分片直接发往浏览器，否则即使最终存储内容
+        # 经过去答案处理，前面的 SSE 分片仍可能已经泄露标准答案。
+        if submitted:
+            yield _sse({"type": "delta", "content": chunk})
     content = sanitize_output("".join(chunks), submitted=submitted)
+    if not submitted:
+        yield _sse({"type": "delta", "content": content})
     _save_message(db, thread.id, "assistant", stage, content)
     _update_thread_stage(thread, stage, submitted)
     db.commit()
@@ -222,7 +227,7 @@ def _resolve_config(config: AiConfig) -> tuple[str, str, str]:
     api_key = config.api_key or settings.deepseek_api_key
     if not api_key:
         raise AiClientError("AI_CONFIG_MISSING", "请先配置 DeepSeek API Key。")
-    return api_key, config.base_url or settings.deepseek_base_url, config.model or settings.deepseek_model
+    return api_key, config.base_url or settings.deepseek_base_url, config.tutor_model or config.model or settings.deepseek_model
 
 
 def _get_question(db: Session, question_id: str) -> Question:

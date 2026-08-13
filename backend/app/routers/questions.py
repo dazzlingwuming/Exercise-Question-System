@@ -1,11 +1,12 @@
 """中文说明：题目列表、详情和提交答案 API。"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.question import Question
+from app.models.question_source import QuestionSource
 from app.models.question_revision import QuestionRevision
 from app.models.attempt import Attempt
 from app.schemas.attempt import AttemptRead, QuestionHistoryResponse, SubmitAnswerRequest, SubmitAnswerResponse
@@ -18,6 +19,7 @@ from app.schemas.question import (
     QuestionRead,
     QuestionRevisionRead,
     QuestionRevisionSummary,
+    QuestionSourceOption,
     QuestionUpdate,
     RevisionRestoreRequest,
 )
@@ -49,6 +51,7 @@ def list_api(
     tag: str | None = None,
     exam_point: str | None = None,
     direction: str | None = None,
+    source_id: str | None = None,
     keyword: str | None = None,
     only_wrong: bool = False,
     include_deleted: bool = False,
@@ -68,6 +71,7 @@ def list_api(
         tag=tag,
         exam_point=exam_point,
         direction=direction,
+        source_id=source_id,
         keyword=keyword,
         only_wrong=only_wrong,
         include_deleted=include_deleted,
@@ -81,12 +85,23 @@ def filter_options_api(db: Session = Depends(get_db)) -> FilterOptionsResponse:
     """中文说明：返回题库筛选和练习配置可用的题型、难度、标签、考察点和方向。"""
 
     questions = db.query(Question).filter(Question.is_deleted.is_(False)).all()
+    source_rows = db.execute(
+        select(QuestionSource.id, QuestionSource.name, func.count(Question.id))
+        .join(Question, Question.source_id == QuestionSource.id)
+        .where(Question.is_deleted.is_(False))
+        .group_by(QuestionSource.id, QuestionSource.name)
+    ).all()
+    sources = sorted(
+        [QuestionSourceOption(id=source_id, name=name, question_count=question_count) for source_id, name, question_count in source_rows],
+        key=lambda item: item.name.casefold(),
+    )
     return FilterOptionsResponse(
         types=sorted({item.type for item in questions if item.type}),
         difficulties=sorted({item.difficulty for item in questions if item.difficulty}),
         tags=sorted({tag for item in questions for tag in (item.tags or []) if tag}),
         exam_points=sorted({point for item in questions for point in (item.exam_points or []) if point}),
         directions=sorted({direction for item in questions for direction in (item.directions or []) if direction}),
+        sources=sources,
     )
 
 

@@ -4,8 +4,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.practice import PracticeGroupResponse, PracticeMoveResponse, PracticeSessionCreate, PracticeSessionResponse, PracticeSessionState
-from app.schemas.question import QuestionPageResponse, QuestionRead
+from app.schemas.practice import (
+    PracticeGroupResponse,
+    PracticeMoveResponse,
+    PracticeQuestionPageResponse,
+    PracticeSessionCreate,
+    PracticeSessionResponse,
+    PracticeSessionState,
+)
+from app.schemas.question import PracticeQuestionRead
 from app.services.practice_session_service import (
     create_practice_session,
     get_practice_session,
@@ -99,13 +106,14 @@ def previous_practice_session_group_api(session_id: str, db: Session = Depends(g
     return result
 
 
-@router.get("/questions", response_model=QuestionPageResponse)
+@router.get("/questions", response_model=PracticeQuestionPageResponse)
 def practice_questions_api(
     mode: str = "random",
     type: str | None = None,
     difficulty: str | None = None,
     exam_point: str | None = None,
     direction: str | None = None,
+    source_id: str | None = None,
     only_wrong: bool = False,
     only_unanswered: bool = False,
     order: str = "import_order",
@@ -113,7 +121,7 @@ def practice_questions_api(
     page_size: int = 20,
     start_question_id: str | None = None,
     db: Session = Depends(get_db),
-) -> QuestionPageResponse:
+) -> PracticeQuestionPageResponse:
     """中文说明：按练习模式返回候选题分页，支持错题和专项练习。"""
 
     result = build_practice_questions(
@@ -123,6 +131,7 @@ def practice_questions_api(
         difficulty=difficulty,
         exam_point=exam_point,
         direction=direction,
+        source_id=source_id,
         only_wrong=only_wrong,
         only_unanswered=only_unanswered,
         order=order,
@@ -130,8 +139,8 @@ def practice_questions_api(
         page_size=page_size,
         start_question_id=start_question_id,
     )
-    return QuestionPageResponse(
-        items=[QuestionRead.model_validate(item) for item in result.items],
+    return PracticeQuestionPageResponse(
+        items=[PracticeQuestionRead.model_validate(item) for item in result.items],
         total=result.total,
         page=result.page,
         page_size=result.page_size,
@@ -139,17 +148,18 @@ def practice_questions_api(
     )
 
 
-@router.get("/next", response_model=QuestionRead)
+@router.get("/next", response_model=PracticeQuestionRead)
 def next_question(
     type: str | None = None,
     difficulty: str | None = None,
     exam_point: str | None = None,
     direction: str | None = None,
+    source_id: str | None = None,
     mode: str = "random",
     current_question_id: str | None = None,
     order: str = "import_order",
     db: Session = Depends(get_db),
-) -> QuestionRead:
+) -> PracticeQuestionRead:
     """中文说明：根据当前题和练习模式返回下一题，保留随机练习兼容。"""
 
     question = get_next_practice_question(
@@ -160,8 +170,9 @@ def next_question(
         difficulty=difficulty,
         exam_point=exam_point,
         direction=direction,
+        source_id=source_id,
         order=order,
     )
     if not question:
         raise HTTPException(status_code=404, detail="没有匹配的题目")
-    return QuestionRead.model_validate(question)
+    return PracticeQuestionRead.model_validate(question)

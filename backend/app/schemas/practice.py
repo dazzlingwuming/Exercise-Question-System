@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from app.schemas.question import QuestionRead
+from app.schemas.question import PracticeQuestionRead
 
 
 class PracticeSessionCreate(BaseModel):
@@ -15,6 +15,7 @@ class PracticeSessionCreate(BaseModel):
     difficulty: str | None = None
     exam_point: str | None = None
     direction: str | None = None
+    source_id: str | None = None
     order: str = "import_order"
     page_size: int = 20
     start_question_id: str | None = None
@@ -31,7 +32,7 @@ class PracticeSessionResponse(BaseModel):
     current_index: int
     current_group_start: int
     current_group_end: int
-    items: list[QuestionRead]
+    items: list[PracticeQuestionRead]
     has_next_group: bool
     has_previous_group: bool
     shortage_code: str | None = None
@@ -48,10 +49,10 @@ class PracticeSessionState(BaseModel):
     total: int
     page_size: int
     current_index: int
-    current_question: QuestionRead | None
+    current_question: PracticeQuestionRead | None
     current_group_start: int
     current_group_end: int
-    current_group: list[QuestionRead]
+    current_group: list[PracticeQuestionRead]
     has_next: bool
     has_previous: bool
     has_next_group: bool
@@ -63,7 +64,7 @@ class PracticeSessionState(BaseModel):
 class PracticeGroupResponse(BaseModel):
     """中文说明：读取指定 offset/limit 分组的响应。"""
 
-    items: list[QuestionRead]
+    items: list[PracticeQuestionRead]
     offset: int
     limit: int
     total: int
@@ -77,9 +78,19 @@ class PracticeMoveResponse(BaseModel):
 
     status: str
     current_index: int | None = None
-    question: QuestionRead | None = None
+    question: PracticeQuestionRead | None = None
     has_next: bool = False
     has_previous: bool = False
     has_next_group: bool = False
     next_group_offset: int | None = None
     message: str | None = None
+
+
+class PracticeQuestionPageResponse(BaseModel):
+    """中文说明：非会话练习接口的安全题目分页响应。"""
+
+    items: list[PracticeQuestionRead]
+    total: int
+    page: int
+    page_size: int
+    has_next: bool

@@ -9,8 +9,21 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
     ...options,
   });
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || `API 请求失败：${response.status}`);
+    const body = await response.text();
+    throw new Error(readApiErrorMessage(body) || `API 请求失败：${response.status}`);
   }
   return response.json() as Promise<T>;
+}
+
+function readApiErrorMessage(body: string) {
+  if (!body) return "";
+  try {
+    const parsed = JSON.parse(body) as { detail?: unknown; message?: unknown };
+    const detail = parsed.detail ?? parsed.message;
+    if (typeof detail === "string") return detail;
+    if (detail && typeof detail === "object" && "message" in detail && typeof detail.message === "string") return detail.message;
+  } catch {
+    // 非 JSON 错误（例如反向代理错误）直接展示原文即可。
+  }
+  return body;
 }

@@ -77,8 +77,10 @@ def test_create_question_validation_errors() -> None:
         create_question(db, QuestionCreate(type="single_choice", stem="", options=[OptionSchema(key="A", text="A")], standard_answer="A"))
     with pytest.raises(QuestionValidationError, match="单选题标准答案"):
         create_question(db, single_choice_payload(answer="C"))
-    with pytest.raises(QuestionValidationError, match="主观题至少"):
+    with pytest.raises(QuestionValidationError, match="主观题参考答案"):
         create_question(db, QuestionCreate(type="system_design", stem="设计系统", standard_answer=""))
+    with pytest.raises(QuestionValidationError, match="主观题评分标准"):
+        create_question(db, QuestionCreate(type="system_design", stem="设计系统", standard_answer="参考答案"))
 
 
 def test_created_question_visible_in_list_unanswered_and_practice_session() -> None:

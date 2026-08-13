@@ -2,8 +2,9 @@ import { Bot, KeyRound, Send, Settings, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { generateAiQuestions, getAiThread, runAiActionStream, sendAiMessageStream, testAiConnection, type AiConfig, type AiMessage, type AiThread } from "../../api/ai";
-import type { Question } from "../../types/question";
+import type { PracticeQuestion } from "../../types/question";
 import { aiConfigForRole, loadStoredAiConfig, saveStoredAiConfig } from "../../utils/aiConfigStorage";
+import { RichContent } from "../content/RichContent";
 
 const ACTIONS = [
   { key: "hint", label: "给我提示" },
@@ -41,7 +42,7 @@ export function AiTutorPanel({
   onSummaryPendingChange,
   onConfigChange,
 }: {
-  question: Question | null;
+  question: PracticeQuestion | null;
   attemptId?: string;
   submitted: boolean;
   onSummaryPendingChange?: (pending: boolean) => void;
@@ -253,7 +254,7 @@ export function AiTutorPanel({
       {submitted && thread?.previous_summary && (
         <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
           <div className="mb-1 font-medium">AI 学习摘要</div>
-          <div className="whitespace-pre-wrap">{thread.previous_summary}</div>
+          <RichContent content={thread.previous_summary} />
         </div>
       )}
       <div className="mb-3 grid gap-2 sm:grid-cols-2">
@@ -292,7 +293,11 @@ export function AiTutorPanel({
                 </button>
               )}
             </div>
-            <div className="whitespace-pre-wrap">{message.content}</div>
+            {message.role === "assistant" && !String(message.created_at ?? "").includes("assistant-streaming") ? (
+              <RichContent content={message.content} />
+            ) : (
+              <div className="whitespace-pre-wrap">{message.content}</div>
+            )}
           </div>
         )) : <div className="text-sm text-muted">暂无 AI 对话。</div>}
       </div>

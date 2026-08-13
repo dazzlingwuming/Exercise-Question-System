@@ -6,6 +6,7 @@ import { deleteQuestion, getFilterOptions } from "../api/questions";
 import { Badge } from "../components/common/Badge";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
+import { RichContent } from "../components/content/RichContent";
 import { DeleteQuestionDialog } from "../components/question/DeleteQuestionDialog";
 import type { WrongAttempt } from "../types/attempt";
 import type { FilterOptions, Question } from "../types/question";
@@ -78,10 +79,15 @@ export function ReviewPage() {
                 {question.difficulty && <Badge>{question.difficulty}</Badge>}
                 {question.directions.map((item) => <Badge key={item}>{item}</Badge>)}
               </div>
-              <h2 className="font-medium leading-7">{question.stem}</h2>
-              <div className="mt-3 grid gap-2 text-sm text-muted md:grid-cols-3">
+              <div className="mt-3 min-w-0 text-sm">
+                <RichContent content={question.stem} className="font-medium leading-7" />
+              </div>
+              <div className="mt-3 grid gap-3 text-sm text-muted md:grid-cols-3">
                 <div>上次错误答案：{last_wrong_answer}</div>
-                <div>标准答案：{String(question.standard_answer ?? "")}</div>
+                <div className="min-w-0 md:col-span-2">
+                  <div>标准答案：</div>
+                  <RichContent content={formatStandardAnswer(question.standard_answer)} className="mt-1 text-ink" />
+                </div>
                 <div>最近错误：{last_wrong_at ? new Date(last_wrong_at).toLocaleString() : "-"}</div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -130,6 +136,12 @@ export function ReviewPage() {
       />
     </div>
   );
+}
+
+function formatStandardAnswer(value: unknown): string {
+  if (Array.isArray(value)) return value.map(String).join("、");
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return String(value ?? "");
 }
 
 function Select({ value, onChange, options, empty }: { value: string; onChange: (value: string) => void; options: string[]; empty: string }) {

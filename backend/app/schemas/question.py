@@ -49,6 +49,8 @@ class QuestionRead(BaseModel):
     tags: list[str] = []
     directions: list[str] = []
     import_order: int | None = None
+    source_id: str | None = None
+    source_name: str | None = None
     stem: str
     material: str | None = None
     options: list[OptionSchema] = []
@@ -68,6 +70,28 @@ class QuestionRead(BaseModel):
     deleted_source: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+
+class PracticeQuestionRead(BaseModel):
+    """中文说明：练习前可返回的安全题目视图，不包含答案、解析和原始题库文本。"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    part_id: str | None = None
+    title: str | None = None
+    type: str
+    type_label: str
+    difficulty: str | None = None
+    tags: list[str] = []
+    directions: list[str] = []
+    import_order: int | None = None
+    source_id: str | None = None
+    source_name: str | None = None
+    stem: str
+    material: str | None = None
+    options: list[OptionSchema] = []
+    exam_points: list[str] = []
 
 
 class QuestionListResponse(BaseModel):
@@ -166,6 +190,14 @@ class QuestionDeleteStatus(BaseModel):
     deleted_source: str | None = None
 
 
+class QuestionSourceOption(BaseModel):
+    """中文说明：题库和练习页展示的稳定来源筛选项。"""
+
+    id: str
+    name: str
+    question_count: int
+
+
 class FilterOptionsResponse(BaseModel):
     """中文说明：前端练习和题库筛选所需的去重选项。"""
 
@@ -174,6 +206,7 @@ class FilterOptionsResponse(BaseModel):
     tags: list[str]
     exam_points: list[str]
     directions: list[str]
+    sources: list[QuestionSourceOption] = []
 
 
 class QuestionPageResponse(BaseModel):

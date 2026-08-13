@@ -63,6 +63,19 @@ PERSONAL_FIELD_NAMES = {
     "test_cases",
 }
 
+# 旧的 personal 格式与 v2 都使用 ``--- question ---``、``question_id`` 和
+# ``type``。不能只凭这些公共字段把历史题库拦下来；只有出现 v2 的小写 ID/字段
+# 组合、且没有旧格式专有字段时，才将其视为“漏了声明的近似 v2”。
+_V2_HEADER_PATTERN = re.compile(r"(?mi)^[ \t]*<!--\s*question-bank-format:\s*v2\s*-->[ \t]*$")
+_V2_DELIMITER_PATTERN = re.compile(r"(?m)^--- question ---[ \t]*$")
+_V2_LOWERCASE_ID_PATTERN = re.compile(r"(?m)^question_id:\s*[a-z][a-z0-9_]*\s*$")
+_V2_REQUIRED_FIELDS = {"question_id", "type", "difficulty", "stem"}
+_V2_DISTINCTIVE_FIELDS = {"title", "tags", "directions", "exam_points", "material", "explanation", "common_mistakes", "follow_up_question", "scoring_standard"}
+_LEGACY_PERSONAL_ONLY_FIELDS = PERSONAL_FIELD_NAMES - {"question_id", "type", "difficulty", "stem", "options", "answer", "reference_answer", "scoring_standard"}
+_V2_NESTED_FIELDS = {"tags", "directions", "exam_points", "answer", "options"}
+_V2_NESTED_FIELD_PATTERN = re.compile(r"^([a-z][a-z0-9_]*):[ \t]*$")
+_V2_UNINDENTED_NESTED_ITEM_PATTERN = re.compile(r"^(?:-\s+.+|[A-Z]:\s*.+)$")
+
 
 @dataclass
 class ParseResult:
@@ -71,6 +84,8 @@ class ParseResult:
     questions: list[QuestionRead] = field(default_factory=list)
     warnings: list[ImportWarningItem] = field(default_factory=list)
     errors: list[ImportErrorItem] = field(default_factory=list)
+    format_version: str = "legacy"
+    is_legacy: bool = True
 
 
 @dataclass
@@ -93,16 +108,98 @@ def map_question_type(type_label: str) -> QuestionType:
 def parse_markdown_question_bank(text: str) -> ParseResult:
     """中文说明：解析完整 Markdown 题库，先切题块，再逐题抽取字段和校验。"""
 
+    header_detection_text = text[1:] if text.startswith("\ufeff") else text
+    if _V2_HEADER_PATTERN.search(header_detection_text):
+        # 延迟导入避免旧解析器与 v2 解析器之间形成模块初始化循环。
+        from app.parsers.markdown_parser_v2 import parse_v2_markdown_question_bank
+
+        return parse_v2_markdown_question_bank(text)
+
+    if _looks_like_headerless_v2(text):
+        errors = [
+            ImportErrorItem(
+                index=0,
+                field="format",
+                message=(
+                    "检测到近似 question-bank-format v2 的题块，已阻止按旧格式解析；"
+                    "请将 <!-- question-bank-format: v2 --> 放在文件首行后再导入"
+                ),
+                raw_text_preview=clean_markdown_text(text[:400]) or "（无可预览原文）",
+            )
+        ]
+        indentation_error = _headerless_v2_indentation_error(text)
+        if indentation_error:
+            errors.append(indentation_error)
+        return ParseResult(
+            format_version="v2",
+            is_legacy=False,
+            errors=errors,
+        )
+
     blocks = _split_blocks(text)
-    result = ParseResult()
+    result = ParseResult(format_version="legacy", is_legacy=True)
+    seen_question_ids: set[str] = set()
+    seen_part_ids: set[str] = set()
     for block in blocks:
         question, warnings, error = _parse_block(block)
         if error:
             result.errors.append(error)
             continue
+        if question.id in seen_question_ids or (question.part_id and question.part_id in seen_part_ids):
+            result.errors.append(_make_error(block, question.part_id, "文件内存在重复的题目 ID 或 Part ID，无法安全导入", "question_id"))
+            continue
+        seen_question_ids.add(question.id)
+        if question.part_id:
+            seen_part_ids.add(question.part_id)
         result.questions.append(question)
         result.warnings.extend(warnings)
     return result
+
+
+def _looks_like_headerless_v2(text: str) -> bool:
+    """谨慎识别漏掉 v2 声明的下载/复制文件，保留旧 personal 格式兼容性。"""
+
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    if not _V2_DELIMITER_PATTERN.search(normalized) or not _V2_LOWERCASE_ID_PATTERN.search(normalized):
+        return False
+
+    field_names = set(re.findall(r"(?m)^([a-z][a-z0-9_]*):", normalized))
+    if field_names & _LEGACY_PERSONAL_ONLY_FIELDS:
+        return False
+    return _V2_REQUIRED_FIELDS <= field_names or bool(field_names & _V2_DISTINCTIVE_FIELDS)
+
+
+def _headerless_v2_indentation_error(text: str) -> ImportErrorItem | None:
+    """为漏 header 的近似 v2 提供一条首个列表缩进提示，不尝试完整解析。"""
+
+    normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    lines = normalized.splitlines()
+    for index, line in enumerate(lines):
+        field_match = _V2_NESTED_FIELD_PATTERN.match(line)
+        if not field_match or field_match.group(1) not in _V2_NESTED_FIELDS:
+            continue
+        field_name = field_match.group(1)
+        for nested_index in range(index + 1, len(lines)):
+            candidate = lines[nested_index]
+            if not candidate.strip():
+                continue
+            if candidate.startswith((" ", "\t")):
+                break
+            if _V2_UNINDENTED_NESTED_ITEM_PATTERN.match(candidate):
+                example = candidate.strip()[:80]
+                correct_example = "  A: 选项内容" if field_name == "options" else "  - 内容"
+                return ImportErrorItem(
+                    index=0,
+                    field=field_name,
+                    message=(
+                        f"第 {nested_index + 1} 行的 {field_name} 嵌套项未缩进：{example}；"
+                        f"请使用两个空格缩进（例如：{correct_example}）"
+                    ),
+                    raw_text_preview=clean_markdown_text("\n".join(lines[max(0, index - 1) : nested_index + 1]))
+                    or "（无可预览原文）",
+                )
+            break
+    return None
 
 
 def _split_blocks(text: str) -> list[RawBlock]:
@@ -508,8 +605,8 @@ def _make_warning(question_id: str | None, part_id: str | None, message: str) ->
     return ImportWarningItem(question_id=question_id, part_id=part_id, message=message)
 
 
-def _make_error(block: RawBlock, part_id: str | None, message: str) -> ImportErrorItem:
+def _make_error(block: RawBlock, part_id: str | None, message: str, field: str | None = None) -> ImportErrorItem:
     """中文说明：构造统一 error，并附带原文预览帮助定位格式问题。"""
 
     preview = clean_markdown_text(block.raw_text[:240])
-    return ImportErrorItem(index=block.index, part_id=part_id, message=message, raw_text_preview=preview)
+    return ImportErrorItem(index=block.index, part_id=part_id, question_id=part_id, field=field, message=message, raw_text_preview=preview)

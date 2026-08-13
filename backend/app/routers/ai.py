@@ -19,6 +19,8 @@ from app.schemas.ai import (
     AiQuestionCandidateUpdateRequest,
     AiQuestionGenerationRequest,
     AiQuestionGenerationResponse,
+    AiQuestionParseRequest,
+    AiQuestionParseResponse,
     AiMessageRead,
     AiSummaryRequest,
     AiTestRequest,
@@ -28,6 +30,7 @@ from app.schemas.ai import (
 )
 from app.services.llm.ai_grading_service import ask_grading_question, grade_subjective_answer, grading_history, grading_messages, latest_grading, stream_grading_question
 from app.services.llm.ai_question_generation_service import accept_candidate, generate_question_candidates, get_generation, reject_candidate, update_candidate
+from app.services.llm.ai_question_parse_service import parse_question_draft
 from app.services.llm.ai_tutor_service import get_thread_response, run_action, run_user_message, stream_action, stream_previous_summary, stream_user_message, test_connection
 from app.services.llm.deepseek_client import AiClientError
 
@@ -152,6 +155,16 @@ def question_generation_api(payload: AiQuestionGenerationRequest, db: Session = 
 
     try:
         return generate_question_candidates(db, payload)
+    except AiClientError as exc:
+        raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc
+
+
+@router.post("/question-parse", response_model=AiQuestionParseResponse)
+def question_parse_api(payload: AiQuestionParseRequest) -> AiQuestionParseResponse:
+    """中文说明：把一段原始题目文本解析为未保存的表单草稿。"""
+
+    try:
+        return parse_question_draft(payload)
     except AiClientError as exc:
         raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc
 
