@@ -1,5 +1,7 @@
 """中文说明：覆盖 AI 讲题助手的权限、上下文隔离和 thread 复用。"""
 
+import json
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -9,7 +11,7 @@ from app.models.attempt import Attempt
 from app.models.question import Question
 from app.schemas.ai import AiConfig
 from app.services.llm import ai_tutor_service
-from app.services.llm.ai_tutor_service import get_thread_response, run_action, run_user_message, stream_action, stream_previous_summary
+from app.services.llm.ai_tutor_service import get_thread_response, run_action, run_user_message, stream_action, stream_previous_summary, stream_user_message
 from app.services.llm.deepseek_client import AiClientError
 
 
@@ -203,3 +205,111 @@ def test_pre_submit_stream_never_sends_raw_answer_chunks(monkeypatch) -> None:
 
     assert "正确答案是 B" not in payload
     assert "不能直接给出标准答案" in payload
+
+
+def test_stream_user_message_falls_back_after_unexpected_stream_error(monkeypatch) -> None:
+    """中文说明：流式供应商异常不能留下只有用户消息的半完成对话。"""
+
+    db = make_db()
+    db.add(Attempt(id="a1", question_id="q-ai", user_answer_raw="B", is_correct=True, question_version=1, question_snapshot={}))
+    db.commit()
+    fallback_calls: list[object] = []
+
+    def broken_stream(**kwargs):
+        raise RuntimeError("unexpected provider frame")
+        yield "unreachable"
+
+    def fake_fallback(**kwargs):
+        fallback_calls.append(kwargs["messages"])
+        return "回退回复"
+
+    monkeypatch.setattr(ai_tutor_service, "stream_chat_completion", broken_stream)
+    monkeypatch.setattr(ai_tutor_service, "chat_completion", fake_fallback)
+
+    payloads = [json.loads(event.removeprefix("data: ").strip()) for event in stream_user_message(db, "q-ai", "a1", "为什么是这样？", AiConfig(api_key="sk-test"))]
+
+    assert [payload["type"] for payload in payloads] == ["delta", "done"]
+    assert payloads[0]["content"] == "回退回复"
+    assert fallback_calls
+    messages = db.query(ai_tutor_service.AiTutorMessage).order_by(ai_tutor_service.AiTutorMessage.created_at).all()
+    assert [(message.role, message.content) for message in messages] == [
+        ("user", "为什么是这样？"),
+        ("assistant", "回退回复\n\n> AI 讲解仅供辅助，最终以题库标准答案为准。"),
+    ]
+
+
+def test_pre_submit_stream_user_message_falls_back_and_persists_both_messages(monkeypatch) -> None:
+    """中文说明：答题中的自由追问也要从首个流异常恢复成完整、安全的对话。"""
+
+    db = make_db()
+
+    def broken_stream(**kwargs):
+        raise RuntimeError("unexpected provider frame")
+        yield "unreachable"
+
+    monkeypatch.setattr(ai_tutor_service, "stream_chat_completion", broken_stream)
+    monkeypatch.setattr(ai_tutor_service, "chat_completion", lambda **kwargs: "可以先比较题干中的约束条件，再逐项排除不符合的选项。")
+
+    payloads = [
+        json.loads(event.removeprefix("data: ").strip())
+        for event in stream_user_message(db, "q-ai", None, "我应该从哪里开始分析？", AiConfig(api_key="sk-test"))
+    ]
+
+    assert [payload["type"] for payload in payloads] == ["delta", "done"]
+    assert "逐项排除" in payloads[0]["content"]
+    assert payloads[0]["content"]
+    assert [(message["role"], message["content"]) for message in payloads[1]["thread"]["messages"]] == [
+        ("user", "我应该从哪里开始分析？"),
+        ("assistant", payloads[0]["content"]),
+    ]
+    messages = db.query(ai_tutor_service.AiTutorMessage).order_by(ai_tutor_service.AiTutorMessage.created_at).all()
+    assert [(message.role, message.content) for message in messages] == [
+        ("user", "我应该从哪里开始分析？"),
+        ("assistant", payloads[0]["content"]),
+    ]
+
+
+def test_pre_submit_stream_fallback_sanitizes_answer_leak(monkeypatch) -> None:
+    """中文说明：非流式恢复结果也必须在答题中经过防泄题过滤。"""
+
+    db = make_db()
+
+    def broken_stream(**kwargs):
+        raise RuntimeError("unexpected provider frame")
+        yield "unreachable"
+
+    monkeypatch.setattr(ai_tutor_service, "stream_chat_completion", broken_stream)
+    monkeypatch.setattr(ai_tutor_service, "chat_completion", lambda **kwargs: "正确答案是 B。")
+
+    payloads = [
+        json.loads(event.removeprefix("data: ").strip())
+        for event in stream_user_message(db, "q-ai", None, "我应该从哪里开始分析？", AiConfig(api_key="sk-test"))
+    ]
+
+    assert [payload["type"] for payload in payloads] == ["delta", "done"]
+    assert "正确答案是 B" not in payloads[0]["content"]
+    assert "不能直接给出标准答案" in payloads[0]["content"]
+    assert payloads[1]["thread"]["messages"][-1]["content"] == payloads[0]["content"]
+    assistant = db.query(ai_tutor_service.AiTutorMessage).filter_by(role="assistant").one()
+    assert assistant.content == payloads[0]["content"]
+
+
+def test_stream_user_message_emits_error_after_visible_partial_stream_failure(monkeypatch) -> None:
+    """中文说明：已向浏览器输出部分内容后不重试，必须以终态错误结束。"""
+
+    db = make_db()
+    db.add(Attempt(id="a1", question_id="q-ai", user_answer_raw="B", is_correct=True, question_version=1, question_snapshot={}))
+    db.commit()
+
+    def broken_stream(**kwargs):
+        yield "部分回复"
+        raise RuntimeError("interrupted after visible delta")
+
+    monkeypatch.setattr(ai_tutor_service, "stream_chat_completion", broken_stream)
+    monkeypatch.setattr(ai_tutor_service, "chat_completion", lambda **kwargs: (_ for _ in ()).throw(AssertionError("partial output must not be retried")))
+
+    payloads = [json.loads(event.removeprefix("data: ").strip()) for event in stream_user_message(db, "q-ai", "a1", "为什么是这样？", AiConfig(api_key="sk-test"))]
+
+    assert [payload["type"] for payload in payloads] == ["delta", "error"]
+    assert payloads[0]["content"] == "部分回复"
+    assert payloads[1]["error_code"] == "AI_STREAM_INTERRUPTED"

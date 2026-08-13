@@ -28,6 +28,9 @@ ACTION_STAGE = {
     "interview_followup": "interview_followup",
 }
 
+STREAM_INTERRUPTED_CODE = "AI_STREAM_INTERRUPTED"
+STREAM_INTERRUPTED_MESSAGE = "AI 流式响应中断，请重试。"
+
 
 SUMMARY_STAGE = "previous_summary"
 
@@ -85,6 +88,9 @@ def stream_action(db: Session, question_id: str, attempt_id: str | None, action:
         yield from _append_and_stream(db, thread, question, attempt, submitted, ACTION_STAGE[action], _action_user_content(action), config)
     except AiClientError as exc:
         yield _sse({"type": "error", "error_code": exc.code, "message": exc.message})
+    except Exception:
+        db.rollback()
+        yield _sse({"type": "error", "error_code": STREAM_INTERRUPTED_CODE, "message": STREAM_INTERRUPTED_MESSAGE})
 
 
 def stream_user_message(db: Session, question_id: str, attempt_id: str | None, content: str, config: AiConfig) -> Iterator[str]:
@@ -107,6 +113,9 @@ def stream_user_message(db: Session, question_id: str, attempt_id: str | None, c
         yield from _append_and_stream(db, thread, question, attempt, submitted, _stage_from_intent(intent, submitted), content, config)
     except AiClientError as exc:
         yield _sse({"type": "error", "error_code": exc.code, "message": exc.message})
+    except Exception:
+        db.rollback()
+        yield _sse({"type": "error", "error_code": STREAM_INTERRUPTED_CODE, "message": STREAM_INTERRUPTED_MESSAGE})
 
 
 def stream_previous_summary(db: Session, question_id: str, attempt_id: str, config: AiConfig) -> Iterator[str]:
@@ -148,6 +157,9 @@ def stream_previous_summary(db: Session, question_id: str, attempt_id: str, conf
         yield _sse({"type": "done", "thread": _thread_response(db, thread, True).model_dump(mode="json")})
     except AiClientError as exc:
         yield _sse({"type": "error", "error_code": exc.code, "message": exc.message})
+    except Exception:
+        db.rollback()
+        yield _sse({"type": "error", "error_code": STREAM_INTERRUPTED_CODE, "message": STREAM_INTERRUPTED_MESSAGE})
 
 
 def test_connection(config: AiConfig) -> str:
@@ -207,12 +219,27 @@ def _append_and_stream(
     db.commit()
     messages = build_messages(question=question, attempt=attempt, submitted=submitted, stage=stage, user_content=user_content, history=history)
     chunks: list[str] = []
-    for chunk in stream_chat_completion(api_key=api_key, base_url=base_url, model=model, messages=messages):
-        chunks.append(chunk)
-        # 未提交时不能把原始模型分片直接发往浏览器，否则即使最终存储内容
-        # 经过去答案处理，前面的 SSE 分片仍可能已经泄露标准答案。
+    try:
+        for chunk in stream_chat_completion(api_key=api_key, base_url=base_url, model=model, messages=messages):
+            if not chunk.strip():
+                continue
+            chunks.append(chunk)
+            # 未提交时不能把原始模型分片直接发往浏览器，否则即使最终存储内容
+            # 经过去答案处理，前面的 SSE 分片仍可能已经泄露标准答案。
+            if submitted:
+                yield _sse({"type": "delta", "content": chunk})
+    except Exception as exc:
+        if submitted and chunks:
+            raise AiClientError(STREAM_INTERRUPTED_CODE, STREAM_INTERRUPTED_MESSAGE) from exc
+        fallback = _fallback_completion(api_key=api_key, base_url=base_url, model=model, messages=messages)
+        chunks = [fallback]
         if submitted:
-            yield _sse({"type": "delta", "content": chunk})
+            yield _sse({"type": "delta", "content": fallback})
+    if not chunks:
+        fallback = _fallback_completion(api_key=api_key, base_url=base_url, model=model, messages=messages)
+        chunks = [fallback]
+        if submitted:
+            yield _sse({"type": "delta", "content": fallback})
     content = sanitize_output("".join(chunks), submitted=submitted)
     if not submitted:
         yield _sse({"type": "delta", "content": content})
@@ -221,6 +248,20 @@ def _append_and_stream(
     db.commit()
     db.refresh(thread)
     yield _sse({"type": "done", "thread": _thread_response(db, thread, submitted, include_unsubmitted_messages=True).model_dump(mode="json")})
+
+
+def _fallback_completion(*, api_key: str, base_url: str, model: str, messages: list[dict[str, str]]) -> str:
+    """中文说明：尚未向用户发送文本时，用非流式请求恢复一次被中断的流。"""
+
+    try:
+        content = chat_completion(api_key=api_key, base_url=base_url, model=model, messages=messages)
+    except AiClientError:
+        raise
+    except Exception as exc:
+        raise AiClientError(STREAM_INTERRUPTED_CODE, STREAM_INTERRUPTED_MESSAGE) from exc
+    if not content.strip():
+        raise AiClientError("AI_EMPTY_RESPONSE", "模型没有返回有效内容，请重试。")
+    return content
 
 
 def _resolve_config(config: AiConfig) -> tuple[str, str, str]:
