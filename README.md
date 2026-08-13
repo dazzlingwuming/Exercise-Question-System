@@ -238,40 +238,80 @@ docs/
   格式和系统设计说明
 ```
 
-## 启动后端
+## 本地启动（前后端必须同时运行）
+
+这个项目由两个独立的开发服务组成：FastAPI 后端运行在 `8000` 端口，Vite 前端运行在
+`5173` 端口。**必须打开两个终端，并让两个进程保持运行**；只运行测试或构建命令不会启动服务。
+
+首次启动时，在项目根目录安装依赖：
 
 ```bash
-conda activate tiku
+# 激活项目使用的 Python 环境；使用根目录 .venv 时执行：
+source .venv/bin/activate
+
+python -m pip install -r backend/requirements.txt
+
+cd frontend
+npm install
+cd ..
+```
+
+如果使用 Conda，可以用 `conda activate tiku` 代替 `source .venv/bin/activate`。
+
+### 1. 在终端 1 启动后端
+
+先进入项目根目录，然后执行：
+
+```bash
+source .venv/bin/activate  # 如果当前终端尚未激活 Python 环境
 cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-后端地址：
+不要关闭这个终端。看到下面的日志表示后端已经启动：
 
 ```text
-http://localhost:8000
+Uvicorn running on http://127.0.0.1:8000
+Application startup complete.
 ```
 
-API 文档：
+可以另开终端验证后端：
 
-```text
-http://localhost:8000/docs
+```bash
+curl http://localhost:8000/api/health
 ```
 
-## 启动前端
+预期返回：
+
+```json
+{"status":"ok"}
+```
+
+后端地址为 `http://localhost:8000`，API 文档为 `http://localhost:8000/docs`。
+
+### 2. 在终端 2 启动前端
+
+在新的终端中重新进入项目根目录，然后执行：
 
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
-前端地址：
+不要关闭这个终端。看到 `Local: http://localhost:5173/` 后，在浏览器打开：
 
 ```text
 http://localhost:5173
 ```
+
+### 常见启动问题
+
+- 页面显示 `Failed to fetch`：通常表示前端已经启动，但后端没有运行。先访问
+  `http://localhost:8000/api/health`；如果无法连接，请回到终端 1 启动后端或查看其报错。
+- `python -m pytest`：只运行后端测试，测试结束后不会继续提供 API 服务。
+- `npm run build`：只检查并构建前端产物，不会启动开发服务器；本地访问需要运行 `npm run dev`。
+- 当前目录已经是 `backend` 时，`frontend` 是它的同级目录，应使用 `cd ../frontend`，不能使用
+  `cd frontend`。
 
 ## AI 配置
 
