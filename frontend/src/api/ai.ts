@@ -219,29 +219,48 @@ type AiStreamEvent =
   | { type: "error"; error_code?: string; message: string };
 
 async function streamAi(path: string, payload: unknown, onEvent: (event: AiStreamEvent) => void) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    throw new Error("无法连接 AI 服务，请确认后端正在运行后重试。");
+  }
   if (!response.ok || !response.body) {
     throw new Error(await response.text() || `AI 流式请求失败：${response.status}`);
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split("\n\n");
-    buffer = events.pop() ?? "";
-    for (const eventText of events) {
-      const line = eventText.split("\n").find((item) => item.startsWith("data:"));
-      if (!line) continue;
-      onEvent(JSON.parse(line.slice(5).trim()) as AiStreamEvent);
-    }
+  let receivedTerminalEvent = false;
+
+  function dispatchEvent(eventText: string) {
+    const line = eventText.split(/\r?\n/).find((item) => item.startsWith("data:"));
+    if (!line) return;
+    const event = JSON.parse(line.slice(5).trim()) as AiStreamEvent;
+    if (event.type === "done" || event.type === "error") receivedTerminalEvent = true;
+    onEvent(event);
   }
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (value) buffer += decoder.decode(value, { stream: !done });
+      if (done) buffer += decoder.decode();
+      const events = buffer.split(/\r?\n\r?\n/);
+      buffer = events.pop() ?? "";
+      for (const eventText of events) dispatchEvent(eventText);
+      if (done) break;
+    }
+    if (buffer.trim()) dispatchEvent(buffer);
+  } catch {
+    throw new Error("AI 流式响应中断，请重试。");
+  }
+
+  if (!receivedTerminalEvent) throw new Error("AI 流式响应意外结束，请重试。");
 }
 
 export const runAiActionStream = (questionId: string, action: string, config: AiConfig, attemptId: string | undefined, onEvent: (event: AiStreamEvent) => void) =>

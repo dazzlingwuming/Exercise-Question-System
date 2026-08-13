@@ -100,6 +100,7 @@ export function AiTutorPanel({
       appendStreamingMessages(action, ACTION_USER_TEXT[action] ?? action);
       await runAiActionStream(question.id, action, aiConfigForRole(config, "tutor"), attemptId, handleStreamEvent);
     } catch (err) {
+      removeStreamingAssistantMessage();
       setNotice((err as Error).message);
     } finally {
       setLoading("");
@@ -116,6 +117,8 @@ export function AiTutorPanel({
       appendStreamingMessages("free_chat", content);
       await sendAiMessageStream(question.id, content, aiConfigForRole(config, "tutor"), attemptId, handleStreamEvent);
     } catch (err) {
+      removeStreamingAssistantMessage();
+      setInput((current) => current.trim() ? current : content);
       setNotice((err as Error).message);
     } finally {
       setLoading("");
@@ -132,10 +135,17 @@ export function AiTutorPanel({
     setThread((current) => current ? { ...current, messages: [...current.messages, ...optimisticMessages] } : current);
   }
 
+  function removeStreamingAssistantMessage() {
+    setThread((current) => current ? {
+      ...current,
+      messages: current.messages.filter((message) => !String(message.created_at ?? "").includes("assistant-streaming")),
+    } : current);
+  }
+
   function handleStreamEvent(event: { type: string; content?: string; message?: string; thread?: AiThread }) {
     if (event.type === "error") {
       setNotice(event.message ?? "AI 调用失败");
-      setThread((current) => current ? { ...current, messages: current.messages.filter((message) => !String(message.created_at ?? "").includes("assistant-streaming")) } : current);
+      removeStreamingAssistantMessage();
       return;
     }
     if (event.type === "delta" && event.content) {
