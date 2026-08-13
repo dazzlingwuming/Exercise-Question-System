@@ -40,13 +40,15 @@ class ImportPreviewRequest(BaseModel):
     """中文说明：导入预览请求，text 为空时读取根目录默认题库。"""
 
     text: str | None = None
+    batch_name: str | None = None
+    # 旧客户端兼容字段；服务会映射为 batch_name。
     source_name: str | None = None
 
 
 class ImportPreviewResponse(BaseModel):
     """中文说明：导入预览响应，包含题目、统计、警告和错误。"""
 
-    source_name: str
+    batch_name: str
     format_version: str = "legacy"
     is_legacy: bool = True
     success_count: int
@@ -63,6 +65,9 @@ class ImportCommitRequest(BaseModel):
     """中文说明：确认导入请求，默认重新读取根目录题库并导入。"""
 
     text: str | None = None
+    batch_name: str | None = None
+    collection_id: str | None = None
+    # 旧客户端兼容字段；缺省 collection_id 时导入至未归类。
     source_name: str | None = None
 
 

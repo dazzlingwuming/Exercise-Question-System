@@ -107,8 +107,8 @@ def get_generation(db: Session, generation_id: str) -> AiQuestionGenerationRespo
     return _generation_response(db, generation_id)
 
 
-def accept_candidate(db: Session, candidate_id: str) -> AiQuestionCandidateAcceptResponse:
-    """中文说明：用户确认后把候选题写入正式题库。"""
+def accept_candidate(db: Session, candidate_id: str, collection_id: str) -> AiQuestionCandidateAcceptResponse:
+    """中文说明：用户确认归档集合后，把候选题写入正式题库。"""
 
     candidate = _get_candidate(db, candidate_id)
     if candidate.status == "accepted" and candidate.accepted_question_id:
@@ -121,8 +121,16 @@ def accept_candidate(db: Session, candidate_id: str) -> AiQuestionCandidateAccep
     if not structure.ok:
         raise AiClientError("AI_CANDIDATE_INVALID", "候选题结构校验未通过，请重新生成。")
     payload = QuestionCreate.model_validate(candidate.candidate_json)
-    payload.reason = payload.reason or "AI 题目生成确认入库"
-    question = create_question(db, payload)
+    payload = payload.model_copy(
+        update={
+            "collection_id": collection_id,
+            "reason": payload.reason or "AI 题目生成确认入库",
+        }
+    )
+    try:
+        question = create_question(db, payload)
+    except ValueError as exc:
+        raise AiClientError("AI_CANDIDATE_COLLECTION_INVALID", str(exc)) from exc
     candidate.status = "accepted"
     candidate.accepted_question_id = question.id
     db.add(candidate)

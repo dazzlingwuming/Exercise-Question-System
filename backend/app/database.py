@@ -4,10 +4,13 @@ from collections.abc import Generator
 
 import json
 import re
+import sqlite3
+from datetime import datetime
+from pathlib import Path
 import unicodedata
 from uuid import uuid4
 
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
@@ -19,6 +22,17 @@ class Base(DeclarativeBase):
 
 settings.data_dir.mkdir(parents=True, exist_ok=True)
 engine = create_engine(settings.database_url, connect_args={"check_same_thread": False})
+
+
+@event.listens_for(engine, "connect")
+def _enable_sqlite_foreign_keys(dbapi_connection: object, _connection_record: object) -> None:
+    """SQLite 默认关闭 FK 校验；每条连接都显式开启。"""
+
+    cursor = dbapi_connection.cursor()  # type: ignore[attr-defined]
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
@@ -35,8 +49,9 @@ def get_db() -> Generator[Session, None, None]:
 def init_db() -> None:
     """中文说明：本地应用启动时自动创建缺失的数据表，并执行轻量字段迁移。"""
 
-    from app.models import ai_grading, ai_question_generation, ai_tutor, attempt, import_batch, practice_session, question, question_revision, question_source, user_question_state  # noqa: F401
+    from app.models import ai_grading, ai_question_generation, ai_tutor, attempt, import_batch, practice_session, question, question_collection, question_revision, question_source, user_question_state  # noqa: F401
 
+    _backup_before_collection_migration()
     Base.metadata.create_all(bind=engine)
     run_lightweight_migrations()
 
@@ -67,7 +82,13 @@ def run_lightweight_migrations() -> None:
                 connection.execute(text("ALTER TABLE questions ADD COLUMN deleted_source VARCHAR(80)"))
             if "source_id" not in question_columns:
                 connection.execute(text("ALTER TABLE questions ADD COLUMN source_id VARCHAR(80)"))
+            if "collection_id" not in question_columns:
+                connection.execute(text("ALTER TABLE questions ADD COLUMN collection_id VARCHAR(80)"))
+            if "collection_deletion_id" not in question_columns:
+                connection.execute(text("ALTER TABLE questions ADD COLUMN collection_deletion_id VARCHAR(80)"))
             connection.execute(text("CREATE INDEX IF NOT EXISTS ix_questions_source_id ON questions (source_id)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_questions_collection_id ON questions (collection_id)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_questions_collection_deletion_id ON questions (collection_deletion_id)"))
         if "attempts" in existing_tables:
             attempt_columns = {column["name"] for column in inspector.get_columns("attempts")}
             if "question_version" not in attempt_columns:
@@ -82,10 +103,42 @@ def run_lightweight_migrations() -> None:
                 connection.execute(text("ALTER TABLE import_batches ADD COLUMN format_version VARCHAR(20) NOT NULL DEFAULT 'legacy'"))
             if "source_id" not in import_batch_columns:
                 connection.execute(text("ALTER TABLE import_batches ADD COLUMN source_id VARCHAR(80)"))
+            if "collection_id" not in import_batch_columns:
+                connection.execute(text("ALTER TABLE import_batches ADD COLUMN collection_id VARCHAR(80)"))
             connection.execute(text("CREATE INDEX IF NOT EXISTS ix_import_batches_source_id ON import_batches (source_id)"))
+            connection.execute(text("CREATE INDEX IF NOT EXISTS ix_import_batches_collection_id ON import_batches (collection_id)"))
     backfill_question_order_and_directions()
     backfill_user_question_states()
     backfill_question_sources()
+    backfill_question_collections()
+
+
+def _backup_before_collection_migration() -> None:
+    """用 SQLite backup API 保存一致性快照；中途已迁移的库补一份诚实命名的安全副本。"""
+
+    database = engine.url.database
+    if not database or database == ":memory:":
+        return
+    database_path = Path(database)
+    if not database_path.exists():
+        return
+    existing_backups = [
+        *database_path.parent.glob(f"{database_path.stem}.before_collections_*{database_path.suffix}"),
+        *database_path.parent.glob(f"{database_path.stem}.collections_safety_*{database_path.suffix}"),
+    ]
+    if existing_backups:
+        return
+    has_collection_table = "question_collections" in set(inspect(engine).get_table_names())
+    label = "collections_safety" if has_collection_table else "before_collections"
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    backup_path = database_path.with_name(f"{database_path.stem}.{label}_{timestamp}{database_path.suffix}")
+    source = sqlite3.connect(f"file:{database_path.resolve()}?mode=ro", uri=True)
+    destination = sqlite3.connect(backup_path)
+    try:
+        source.backup(destination)
+    finally:
+        destination.close()
+        source.close()
 
 
 def normalize_source_name(name: str) -> str:
@@ -137,6 +190,95 @@ def backfill_question_sources() -> None:
         source_id = source_ids.get(str(only_batch["id"])) or only_batch["source_id"]
         if source_id is not None and int(only_batch["imported_count"] or 0) == question_count:
             connection.execute(text("UPDATE questions SET source_id = :source_id WHERE source_id IS NULL"), {"source_id": source_id})
+
+
+def backfill_question_collections() -> None:
+    """创建系统集合并将历史来源、题目和导入批次映射到集合，重复运行不改变结果。"""
+
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    required = {"question_collections", "questions", "import_batches", "question_sources"}
+    if not required.issubset(tables):
+        return
+    from app.models.question_collection import ROOT_COLLECTION_ID, UNFILED_COLLECTION_ID
+
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT OR IGNORE INTO question_collections
+                    (id, parent_id, name, normalized_name, description, is_system, is_deleted)
+                VALUES (:id, NULL, :name, :normalized_name, :description, 1, 0)
+                """
+            ),
+            {"id": ROOT_COLLECTION_ID, "name": "题库", "normalized_name": "题库", "description": "系统根集合"},
+        )
+        connection.execute(
+            text(
+                """
+                INSERT OR IGNORE INTO question_collections
+                    (id, parent_id, name, normalized_name, description, is_system, is_deleted)
+                VALUES (:id, :parent_id, :name, :normalized_name, :description, 1, 0)
+                """
+            ),
+            {"id": UNFILED_COLLECTION_ID, "parent_id": ROOT_COLLECTION_ID, "name": "未归类", "normalized_name": "未归类", "description": "无历史来源的题目"},
+        )
+        existing_names = {
+            str(row[0])
+            for row in connection.execute(
+                text("SELECT normalized_name FROM question_collections WHERE parent_id = :parent_id"),
+                {"parent_id": ROOT_COLLECTION_ID},
+            ).all()
+        }
+        sources = connection.execute(text("SELECT id, name, normalized_name FROM question_sources ORDER BY id")).mappings().all()
+        for source in sources:
+            source_id = str(source["id"])
+            exists = connection.execute(
+                text("SELECT 1 FROM question_collections WHERE id = :id"), {"id": source_id}
+            ).scalar_one_or_none()
+            if exists:
+                continue
+            name = str(source["name"] or "未命名来源").strip()[:255] or "未命名来源"
+            normalized = normalize_source_name(name)
+            candidate_name = name
+            candidate_normalized = normalized
+            number = 2
+            while candidate_normalized in existing_names:
+                suffix = f"（来源 {number}）"
+                candidate_name = f"{name[: max(1, 255 - len(suffix))]}{suffix}"
+                candidate_normalized = normalize_source_name(candidate_name)
+                number += 1
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO question_collections
+                        (id, parent_id, name, normalized_name, description, is_system, is_deleted)
+                    VALUES (:id, :parent_id, :name, :normalized_name, NULL, 0, 0)
+                    """
+                ),
+                {"id": source_id, "parent_id": ROOT_COLLECTION_ID, "name": candidate_name, "normalized_name": candidate_normalized},
+            )
+            existing_names.add(candidate_normalized)
+        connection.execute(
+            text(
+                """
+                UPDATE questions
+                SET collection_id = COALESCE(source_id, :unfiled_id)
+                WHERE collection_id IS NULL
+                """
+            ),
+            {"unfiled_id": UNFILED_COLLECTION_ID},
+        )
+        connection.execute(
+            text(
+                """
+                UPDATE import_batches
+                SET collection_id = COALESCE(source_id, :unfiled_id)
+                WHERE collection_id IS NULL
+                """
+            ),
+            {"unfiled_id": UNFILED_COLLECTION_ID},
+        )
 
 
 def backfill_question_order_and_directions() -> None:

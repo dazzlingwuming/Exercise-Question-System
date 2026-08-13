@@ -14,7 +14,7 @@ router = APIRouter(prefix="/imports", tags=["imports"])
 def preview(payload: ImportPreviewRequest, db: Session = Depends(get_db)) -> ImportPreviewResponse:
     """中文说明：解析题库但不写入数据库。"""
 
-    return preview_import(text=payload.text, source_name=payload.source_name, db=db)
+    return preview_import(text=payload.text, batch_name=payload.batch_name, source_name=payload.source_name, db=db)
 
 
 @router.post("/commit", response_model=ImportCommitResponse)
@@ -22,8 +22,8 @@ def commit(payload: ImportCommitRequest, db: Session = Depends(get_db)) -> Impor
     """中文说明：确认追加导入；错误或内容冲突会阻止写入。"""
 
     try:
-        return commit_import(db, payload.text, payload.source_name)
-    except ImportValidationError as exc:
+        return commit_import(db, payload.text, payload.batch_name, payload.collection_id, payload.source_name)
+    except (ImportValidationError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
@@ -32,6 +32,6 @@ def reset_commit(payload: ImportCommitRequest, db: Session = Depends(get_db)) ->
     """中文说明：物理清空旧题库和依赖数据后重新导入。"""
 
     try:
-        return reset_and_commit_import(db, payload.text, payload.source_name)
-    except ImportValidationError as exc:
+        return reset_and_commit_import(db, payload.text, payload.batch_name, payload.collection_id, payload.source_name)
+    except (ImportValidationError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

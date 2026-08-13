@@ -1,24 +1,36 @@
 import { Check, ChevronDown, ChevronUp, Copy, Download, FileText, Play, RotateCcw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getCollectionTree } from "../api/collections";
 import { commitImport, previewImport, resetCommitImport, type ImportPreview as ImportPreviewType } from "../api/imports";
 import { Badge } from "../components/common/Badge";
 import { ErrorState } from "../components/common/ErrorState";
+import { CollectionPicker } from "../components/collection/CollectionPicker";
 import { RichContent } from "../components/content/RichContent";
 import { ImportErrorList } from "../components/import/ImportErrorList";
 import { ImportPreview } from "../components/import/ImportPreview";
 import { QUESTION_BANK_GPT_TEMPLATE_V2 } from "../constants/questionBankTemplate";
+import type { CollectionNode } from "../types/collection";
 
 export function ImportPage() {
   const [text, setText] = useState("");
-  const [sourceName, setSourceName] = useState("");
+  const [batchName, setBatchName] = useState("");
+  const [collectionId, setCollectionId] = useState<string | null>(null);
+  const [collectionTree, setCollectionTree] = useState<CollectionNode[]>([]);
   const [preview, setPreview] = useState<ImportPreviewType | null>(null);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [expandedQuestionIds, setExpandedQuestionIds] = useState<Set<string>>(() => new Set());
 
-  const source = () => text.trim() ? { text, sourceName: sourceName.trim() } : {};
-  const canCommit = Boolean(preview && preview.blocking_error_count === 0);
+  const importInput = () => ({
+    ...(text.trim() ? { text, batchName: batchName.trim() } : {}),
+    ...(collectionId ? { collectionId } : {}),
+  });
+  const canCommit = Boolean(preview && preview.blocking_error_count === 0 && collectionId);
+
+  useEffect(() => {
+    getCollectionTree().then(setCollectionTree).catch((err) => setError((err as Error).message));
+  }, []);
 
   const updateText = (value: string) => {
     setText(value);
@@ -37,15 +49,19 @@ export function ImportPage() {
   };
 
   const runPreview = async ({ preserveMessage = false } = {}) => {
-    if (text.trim() && !sourceName.trim()) {
-      setError("请先填写题目来源名称，例如论文、课程、书籍或专题名称。");
+    if (text.trim() && !batchName.trim()) {
+      setError("请填写本次导入批次名称，通常保留原 Markdown 文件名即可。");
+      return;
+    }
+    if (!collectionId) {
+      setError("请先选择这批题目的目标集合；也可以明确选择“未归类”。");
       return;
     }
     setLoading(true);
     setError("");
     if (!preserveMessage) setMessage("");
     try {
-      setPreview(await previewImport(source()));
+      setPreview(await previewImport(importInput()));
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -58,7 +74,7 @@ export function ImportPage() {
     setLoading(true);
     setError("");
     try {
-      const result = await commitImport(source());
+      const result = await commitImport(importInput());
       setMessage(`已追加导入 ${result.imported_count} 道题；跳过 ${result.skipped_count} 道内容相同的已有题。`);
       await runPreview({ preserveMessage: true });
     } catch (err) {
@@ -78,8 +94,8 @@ export function ImportPage() {
     setLoading(true);
     setError("");
     try {
-      const result = await resetCommitImport(source());
-      setMessage(`已重置题库并导入 ${result.imported_count} 道题。旧题目及关联练习数据已删除。`);
+      const result = await resetCommitImport(importInput());
+      setMessage(`已重置题目数据并导入 ${result.imported_count} 道题。集合树仍然保留，旧题目及关联练习数据已删除。`);
       await runPreview({ preserveMessage: true });
     } catch (err) {
       setError((err as Error).message);
@@ -117,7 +133,7 @@ export function ImportPage() {
   const readFile = async (file: File) => {
     try {
       updateText(await file.text());
-      setSourceName(file.name);
+      setBatchName(file.name);
       setMessage(`已读取 ${file.name}，请先解析预览。`);
     } catch (err) {
       setError(`读取文件失败：${(err as Error).message}`);
@@ -177,17 +193,20 @@ export function ImportPage() {
             />
             <button className="block text-sm text-accent underline-offset-2 hover:underline" type="button" onClick={() => {
               updateText("");
-              setSourceName("agent基础题目.md");
+              setBatchName("agent基础题目.md");
               setMessage("已切换为项目默认题库 data/个人题库/agent基础题目.md。");
             }}>使用项目默认题库</button>
           </div>
           <div>
-            <label className="block text-sm font-medium">题目来源名称 <span className="text-red-600">*</span></label>
-            <input className="focus-ring mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" value={sourceName} onChange={(event) => {
-              setSourceName(event.target.value);
+            <label className="block text-sm font-medium">导入批次名称 <span className="text-red-600">*</span></label>
+            <input className="focus-ring mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" value={batchName} onChange={(event) => {
+              setBatchName(event.target.value);
               setPreview(null);
-            }} placeholder="例如：Mage-VL 论文、JavaScript 基础课程、面试专题" />
-            <p className="mt-1 text-xs leading-5 text-muted">相同名称的后续导入会归入同一个来源；导入后可在题库和练习页按来源筛选。</p>
+            }} placeholder="例如：bias_variance_A批次.md" />
+            <p className="mt-1 text-xs leading-5 text-muted">批次名和原文件名只用于导入审计，不决定题目归档位置。</p>
+            <label className="mt-3 block text-sm font-medium">目标集合 <span className="text-red-600">*</span></label>
+            <div className="mt-1"><CollectionPicker tree={collectionTree} selectedId={collectionId} onSelect={(id) => { setCollectionId(id); setPreview(null); }} allowUnfiled label="请选择这批题目的归档集合" /></div>
+            <p className="mt-1 text-xs leading-5 text-muted">同一主题的 A/B 批次可以导入同一个集合；之后仍可在题库中重命名、移动或合并集合。</p>
             <label className="mt-3 block text-sm font-medium">题库 Markdown</label>
             <textarea className="focus-ring mt-1 min-h-[310px] w-full rounded-md border border-line px-3 py-2 font-mono text-sm leading-6" value={text} onChange={(event) => updateText(event.target.value)} placeholder="粘贴 question-bank-format v2 内容；留空则读取项目默认题库。" />
           </div>
@@ -211,7 +230,7 @@ export function ImportPage() {
       {preview && (
         <>
           <section className="flex flex-wrap items-center gap-2 text-sm text-muted">
-            <span>来源：{preview.source_name}</span>
+            <span>导入批次：{preview.batch_name}</span>
             <Badge tone={preview.is_legacy ? "neutral" : "accent"}>{preview.is_legacy ? "旧格式兼容解析" : preview.format_version}</Badge>
             {preview.blocking_error_count > 0 && <span className="text-red-600">存在 {preview.blocking_error_count} 个阻断问题，不能导入。</span>}
           </section>

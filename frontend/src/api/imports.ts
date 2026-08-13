@@ -2,7 +2,7 @@ import { request } from "./client";
 import type { Question } from "../types/question";
 
 export type ImportPreview = {
-  source_name: string;
+  batch_name: string;
   format_version: string;
   is_legacy: boolean;
   success_count: number;
@@ -24,10 +24,10 @@ export type ImportCommit = {
   extra?: Record<string, unknown>;
 };
 
-export type ImportSource = { text?: string; sourceName?: string };
+export type ImportSource = { text?: string; batchName?: string; collectionId?: string };
 
 function importBody(source: ImportSource = {}) {
-  return JSON.stringify({ text: source.text, source_name: source.sourceName });
+  return JSON.stringify({ text: source.text, batch_name: source.batchName, collection_id: source.collectionId });
 }
 
 export const previewImport = (source: ImportSource = {}) => request<ImportPreview>("/imports/preview", { method: "POST", body: importBody(source) });

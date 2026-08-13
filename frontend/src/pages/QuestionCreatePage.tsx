@@ -1,13 +1,17 @@
 import { Save, Sparkles, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import type { AiParseIssue } from "../api/ai";
+import { useEffect, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { recommendCollectionPlacements, type AiParseIssue } from "../api/ai";
+import { getCollectionTree } from "../api/collections";
 import { createQuestion } from "../api/questions";
 import { ErrorState } from "../components/common/ErrorState";
+import { AiCollectionPlacement, type CollectionRecommendation } from "../components/collection/AiCollectionPlacement";
 import { AnswerEditor } from "../components/question/AnswerEditor";
 import { AiQuestionParseDialog } from "../components/question/AiQuestionParseDialog";
+import { ROOT_COLLECTION_ID, UNFILED_COLLECTION_ID, type CollectionNode } from "../types/collection";
 import type { Option, QuestionCreatePayload } from "../types/question";
+import { aiConfigForRole, loadStoredAiConfig } from "../utils/aiConfigStorage";
 
 const TYPE_OPTIONS: Array<[string, string]> = [
   ["single_choice", "单选题"],
@@ -36,6 +40,8 @@ const DEFAULT_OPTIONS: Option[] = [
 
 export function QuestionCreatePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedCollectionId = searchParams.get("collection_id");
   const [form, setForm] = useState<QuestionCreatePayload>({
     type: "single_choice",
     type_label: "单选题",
@@ -56,8 +62,23 @@ export function QuestionCreatePage() {
   const [error, setError] = useState("");
   const [parseOpen, setParseOpen] = useState(false);
   const [aiParseIssues, setAiParseIssues] = useState<AiParseIssue[]>([]);
+  const [collectionTree, setCollectionTree] = useState<CollectionNode[]>([]);
+  const [collectionId, setCollectionId] = useState<string | null>(requestedCollectionId && requestedCollectionId !== ROOT_COLLECTION_ID ? requestedCollectionId : null);
+  const [placementConfirmed, setPlacementConfirmed] = useState(Boolean(requestedCollectionId && requestedCollectionId !== ROOT_COLLECTION_ID));
+  const [recommendation, setRecommendation] = useState<CollectionRecommendation | null>(null);
+  const [placementLoading, setPlacementLoading] = useState(false);
 
-  const update = <K extends keyof QuestionCreatePayload>(key: K, value: QuestionCreatePayload[K]) => setForm({ ...form, [key]: value });
+  useEffect(() => {
+    getCollectionTree().then(setCollectionTree).catch((err) => setError((err as Error).message));
+  }, []);
+
+  const update = <K extends keyof QuestionCreatePayload>(key: K, value: QuestionCreatePayload[K]) => {
+    setForm({ ...form, [key]: value });
+    if (recommendation && ["type", "stem", "material", "tags", "directions", "exam_points"].includes(String(key))) {
+      setRecommendation(null);
+      setPlacementConfirmed(false);
+    }
+  };
   const updateOption = (index: number, value: Partial<Option>) => {
     const options = [...form.options];
     options[index] = { ...options[index], ...value };
@@ -72,12 +93,53 @@ export function QuestionCreatePage() {
       setError(validation);
       return;
     }
+    if (!collectionId) {
+      setError("请先选择题目的归档集合；也可以明确选择“未归类”。");
+      return;
+    }
+    if (!placementConfirmed) {
+      setError("AI 已预填归档建议，请确认该位置后再保存。");
+      return;
+    }
     setError("");
     try {
-      const created = await createQuestion(normalizePayload(form));
+      const created = await createQuestion({ ...normalizePayload(form), collection_id: collectionId });
       navigate(`/questions/${created.id}`);
     } catch (err) {
       setError((err as Error).message);
+    }
+  };
+
+  const recommendPlacement = async () => {
+    if (!form.stem.trim()) {
+      setError("请先填写题干，再让 AI 推荐归档位置。");
+      return;
+    }
+    setPlacementLoading(true);
+    setError("");
+    try {
+      const response = await recommendCollectionPlacements({
+        ...aiConfigForRole(loadStoredAiConfig(), "generation"),
+        questions: [{
+          reference_id: "manual-draft",
+          type: form.type,
+          stem: form.stem,
+          material: form.material,
+          tags: form.tags,
+          directions: form.directions,
+          exam_points: form.exam_points,
+          current_collection_id: collectionId,
+        }],
+      });
+      const item = response.items[0];
+      if (!item) throw new Error("AI 没有返回归档建议");
+      setCollectionId(item.recommended_collection_id);
+      setRecommendation({ collectionId: item.recommended_collection_id, confidence: item.confidence, reason: item.reason });
+      setPlacementConfirmed(false);
+    } catch (err) {
+      setError(`AI 推荐失败：${(err as Error).message} 请在下方人工选择集合。`);
+    } finally {
+      setPlacementLoading(false);
     }
   };
 
@@ -87,7 +149,11 @@ export function QuestionCreatePage() {
   const applyAiDraft = (candidate: QuestionCreatePayload, issues: AiParseIssue[]) => {
     if (form.stem.trim() && !window.confirm("当前表单已有内容。应用 AI 草稿会覆盖已有字段，是否继续？")) return;
     const typeLabel = TYPE_OPTIONS.find(([value]) => value === candidate.type)?.[1] ?? candidate.type_label ?? candidate.type;
-    setForm({ ...candidate, type_label: typeLabel, reason: candidate.reason || "AI 原始文本解析草稿，请人工确认后保存" });
+    setForm({ ...candidate, collection_id: undefined, type_label: typeLabel, reason: candidate.reason || "AI 原始文本解析草稿，请人工确认后保存" });
+    if (recommendation) {
+      setRecommendation(null);
+      setPlacementConfirmed(false);
+    }
     setAiParseIssues(issues);
     setError("");
     setParseOpen(false);
@@ -127,6 +193,8 @@ export function QuestionCreatePage() {
                 const label = TYPE_OPTIONS.find(([value]) => value === type)?.[1] ?? type;
                 const options = type === "true_false" ? [{ key: "A", text: "正确" }, { key: "B", text: "错误" }] : isObjectiveChoice(type) ? DEFAULT_OPTIONS : [];
                 setForm({ ...form, type, type_label: label, options, standard_answer: type === "true_false" ? "正确" : "" });
+                setRecommendation(null);
+                setPlacementConfirmed(false);
               }}
             >
               {TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -142,6 +210,23 @@ export function QuestionCreatePage() {
             <input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.directions.join("、")} onChange={(event) => update("directions", splitList(event.target.value))} placeholder="Tool Calling、Agent 基础" />
           </Field>
         </div>
+      </EditSection>
+      <EditSection title="归档位置">
+        <AiCollectionPlacement
+          tree={collectionTree}
+          selectedId={collectionId}
+          recommendation={recommendation}
+          confirmed={placementConfirmed}
+          loading={placementLoading}
+          onRecommend={() => void recommendPlacement()}
+          onConfirm={() => setPlacementConfirmed(true)}
+          onSelect={(id) => {
+            setCollectionId(id);
+            setRecommendation(null);
+            setPlacementConfirmed(Boolean(id));
+            if (id === UNFILED_COLLECTION_ID) setError("");
+          }}
+        />
       </EditSection>
       <EditSection title="题干内容">
         <textarea className="focus-ring min-h-32 w-full rounded-md border border-line px-3 py-2 leading-7" value={form.stem} onChange={(event) => update("stem", event.target.value)} />

@@ -13,8 +13,8 @@ export type Question = {
   tags: string[];
   directions: string[];
   import_order?: number | null;
-  source_id?: string | null;
-  source_name?: string | null;
+  collection_id?: string | null;
+  collection_path?: string | null;
   stem: string;
   material?: string | null;
   options: Option[];
@@ -45,8 +45,8 @@ export type PracticeQuestion = {
   tags: string[];
   directions: string[];
   import_order?: number | null;
-  source_id?: string | null;
-  source_name?: string | null;
+  collection_id?: string | null;
+  collection_path?: string | null;
   stem: string;
   material?: string | null;
   options: Option[];
@@ -74,7 +74,6 @@ export type FilterOptions = {
   tags: string[];
   exam_points: string[];
   directions: string[];
-  sources: Array<{ id: string; name: string; question_count: number }>;
 };
 
 export type QuestionUpdatePayload = Partial<{
@@ -102,6 +101,7 @@ export type QuestionCreatePayload = {
   difficulty?: string | null;
   tags: string[];
   directions: string[];
+  collection_id?: string | null;
   stem: string;
   material?: string | null;
   options: Option[];
@@ -137,6 +137,7 @@ export type RevisionRestorePayload = {
 
 export type QuestionDeletePayload = {
   reason?: string | null;
+  target_collection_id?: string | null;
 };
 
 export type QuestionDeleteStatus = {

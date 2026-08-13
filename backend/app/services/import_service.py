@@ -17,12 +17,13 @@ from app.models.attempt import Attempt
 from app.models.import_batch import ImportBatch
 from app.models.practice_session import PracticeSession
 from app.models.question import Question
-from app.models.question_source import QuestionSource
 from app.models.question_revision import QuestionRevision
 from app.models.user_question_state import UserQuestionState
 from app.parsers.markdown_parser import parse_markdown_question_bank
 from app.schemas.import_schema import ImportCommitResponse, ImportConflictItem, ImportPreviewResponse, ImportWarningItem
 from app.schemas.question import QuestionRead
+from app.services.question_service import active_collection_or_error
+from app.services.collection_service import ensure_system_collections
 
 
 class ImportValidationError(ValueError):
@@ -37,19 +38,20 @@ def load_default_question_bank() -> str:
 
 def preview_import(
     text: str | None = None,
+    batch_name: str | None = None,
     source_name: str | None = None,
     db: Session | None = None,
 ) -> ImportPreviewResponse:
     """中文说明：只解析不入库，用于前端确认导入前检查 warning/error。"""
 
-    raw_text, resolved_source_name = _resolve_source(text, source_name)
+    raw_text, resolved_batch_name = _resolve_batch(text, batch_name, source_name)
     result = parse_markdown_question_bank(raw_text)
     type_distribution = Counter(question.type_label for question in result.questions)
     difficulty_distribution = Counter(question.difficulty or "未标注" for question in result.questions)
     warnings = _warnings_for_preview(result)
     conflicts = _find_database_conflicts(db, result.questions) if db is not None else []
     return ImportPreviewResponse(
-        source_name=resolved_source_name,
+        batch_name=resolved_batch_name,
         format_version=result.format_version,
         is_legacy=result.is_legacy,
         success_count=len(result.questions),
@@ -63,15 +65,22 @@ def preview_import(
     )
 
 
-def commit_import(db: Session, text: str | None = None, source_name: str | None = None) -> ImportCommitResponse:
+def commit_import(
+    db: Session,
+    text: str | None = None,
+    batch_name: str | None = None,
+    collection_id: str | None = None,
+    source_name: str | None = None,
+) -> ImportCommitResponse:
     """中文说明：追加导入经完整预校验的题目；相同题目跳过，冲突题目不会覆盖。"""
 
-    raw_text, resolved_source_name = _resolve_source(text, source_name)
+    raw_text, resolved_batch_name = _resolve_batch(text, batch_name, source_name)
     result = parse_markdown_question_bank(raw_text)
     conflicts = _find_database_conflicts(db, result.questions)
     _ensure_committable(result.errors, conflicts)
 
-    source = _get_or_create_source(db, resolved_source_name)
+    ensure_system_collections(db)
+    collection = active_collection_or_error(db, collection_id, default_to_unfiled=True)
     conflict_by_question_id = {item.question_id: item for item in conflicts}
     imported_count = 0
     skipped_count = 0
@@ -81,14 +90,15 @@ def commit_import(db: Session, text: str | None = None, source_name: str | None 
             skipped_count += 1
             continue
         import_order += 1
-        db.add(_question_schema_to_model(item, import_order, source.id))
+        db.add(_question_schema_to_model(item, import_order, collection.id))
         imported_count += 1
 
     warnings = _warnings_for_preview(result)
     batch = ImportBatch(
         id=str(uuid4()),
-        source_name=resolved_source_name,
-        source_id=source.id,
+        source_name=resolved_batch_name,
+        source_id=None,
+        collection_id=collection.id,
         format_version=result.format_version,
         imported_count=imported_count,
         skipped_count=skipped_count,
@@ -107,23 +117,31 @@ def commit_import(db: Session, text: str | None = None, source_name: str | None 
     )
 
 
-def reset_and_commit_import(db: Session, text: str | None = None, source_name: str | None = None) -> ImportCommitResponse:
+def reset_and_commit_import(
+    db: Session,
+    text: str | None = None,
+    batch_name: str | None = None,
+    collection_id: str | None = None,
+    source_name: str | None = None,
+) -> ImportCommitResponse:
     """中文说明：物理清空旧题库及其依赖数据，然后重新导入当前题库。"""
 
-    raw_text, resolved_source_name = _resolve_source(text, source_name)
+    raw_text, resolved_batch_name = _resolve_batch(text, batch_name, source_name)
     result = parse_markdown_question_bank(raw_text)
     _ensure_committable(result.errors, [])
     _hard_delete_all_question_data(db)
-    source = _get_or_create_source(db, resolved_source_name)
+    ensure_system_collections(db)
+    collection = active_collection_or_error(db, collection_id, default_to_unfiled=True)
     imported_count = 0
     for index, item in enumerate(result.questions, start=1):
-        db.add(_question_schema_to_model(item, index, source.id))
+        db.add(_question_schema_to_model(item, index, collection.id))
         imported_count += 1
     warnings = _warnings_for_preview(result)
     batch = ImportBatch(
         id=str(uuid4()),
-        source_name=resolved_source_name,
-        source_id=source.id,
+        source_name=resolved_batch_name,
+        source_id=None,
+        collection_id=collection.id,
         format_version=result.format_version,
         imported_count=imported_count,
         skipped_count=0,
@@ -142,28 +160,13 @@ def reset_and_commit_import(db: Session, text: str | None = None, source_name: s
     )
 
 
-def _resolve_source(text: str | None, source_name: str | None) -> tuple[str, str]:
-    """中文说明：统一处理默认题库、粘贴文本和用户上传文件名。"""
+def _resolve_batch(text: str | None, batch_name: str | None, source_name: str | None = None) -> tuple[str, str]:
+    """中文说明：统一处理默认题库、粘贴文本和导入批次名称。"""
 
     if text is None:
         return load_default_question_bank(), settings.question_bank_path.name
-    normalized_name = (source_name or "粘贴文本").strip() or "粘贴文本"
+    normalized_name = (batch_name or source_name or "粘贴文本").strip() or "粘贴文本"
     return text, normalized_name[:255]
-
-
-def _get_or_create_source(db: Session, source_name: str) -> QuestionSource:
-    """中文说明：按稳定规范化名称复用来源，避免同名追加产生多个业务分类。"""
-
-    from app.database import normalize_source_name
-
-    normalized_name = normalize_source_name(source_name)
-    source = db.scalar(select(QuestionSource).where(QuestionSource.normalized_name == normalized_name))
-    if source is not None:
-        return source
-    source = QuestionSource(id=uuid4().hex, name=source_name, normalized_name=normalized_name)
-    db.add(source)
-    db.flush()
-    return source
 
 
 def _warnings_for_preview(result: object) -> list[ImportWarningItem]:
@@ -284,11 +287,10 @@ def _hard_delete_all_question_data(db: Session) -> None:
     db.query(UserQuestionState).delete(synchronize_session=False)
     db.query(ImportBatch).delete(synchronize_session=False)
     db.query(Question).delete(synchronize_session=False)
-    db.query(QuestionSource).delete(synchronize_session=False)
     db.flush()
 
 
-def _question_schema_to_model(item: QuestionRead, import_order: int | None = None, source_id: str | None = None) -> Question:
+def _question_schema_to_model(item: QuestionRead, import_order: int | None = None, collection_id: str | None = None) -> Question:
     """中文说明：将 API schema 转成 ORM 模型，并显式处理 JSON 字段。"""
 
     return Question(
@@ -301,7 +303,7 @@ def _question_schema_to_model(item: QuestionRead, import_order: int | None = Non
         tags=item.tags,
         directions=item.directions or item.exam_points,
         import_order=import_order,
-        source_id=source_id,
+        collection_id=collection_id,
         stem=item.stem,
         material=item.material,
         options=[option.model_dump() for option in item.options],

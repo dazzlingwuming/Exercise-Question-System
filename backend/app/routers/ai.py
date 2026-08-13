@@ -13,6 +13,9 @@ from app.schemas.ai import (
     AiGradingRequest,
     AiGradingResultRead,
     AiGeneratedQuestionCandidate,
+    AiCollectionPlacementRequest,
+    AiCollectionPlacementResponse,
+    AiQuestionCandidateAcceptRequest,
     AiQuestionCandidateAcceptResponse,
     AiQuestionCandidateRejectRequest,
     AiQuestionCandidateRejectResponse,
@@ -32,6 +35,7 @@ from app.services.llm.ai_grading_service import ask_grading_question, grade_subj
 from app.services.llm.ai_question_generation_service import accept_candidate, generate_question_candidates, get_generation, reject_candidate, update_candidate
 from app.services.llm.ai_question_parse_service import parse_question_draft
 from app.services.llm.ai_tutor_service import get_thread_response, run_action, run_user_message, stream_action, stream_previous_summary, stream_user_message, test_connection
+from app.services.llm.collection_placement_service import recommend_collection_placements
 from app.services.llm.deepseek_client import AiClientError
 
 router = APIRouter(prefix="/ai", tags=["ai"])
@@ -159,6 +163,19 @@ def question_generation_api(payload: AiQuestionGenerationRequest, db: Session = 
         raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc
 
 
+@router.post("/collection-placement/recommend", response_model=AiCollectionPlacementResponse)
+def collection_placement_recommend_api(
+    payload: AiCollectionPlacementRequest,
+    db: Session = Depends(get_db),
+) -> AiCollectionPlacementResponse:
+    """中文说明：只推荐归档位置；最终集合仍由用户确认并在保存时提交。"""
+
+    try:
+        return recommend_collection_placements(db, payload)
+    except AiClientError as exc:
+        raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc
+
+
 @router.post("/question-parse", response_model=AiQuestionParseResponse)
 def question_parse_api(payload: AiQuestionParseRequest) -> AiQuestionParseResponse:
     """中文说明：把一段原始题目文本解析为未保存的表单草稿。"""
@@ -180,11 +197,15 @@ def question_generation_detail_api(generation_id: str, db: Session = Depends(get
 
 
 @router.post("/question-generation/candidates/{candidate_id}/accept", response_model=AiQuestionCandidateAcceptResponse)
-def question_candidate_accept_api(candidate_id: str, db: Session = Depends(get_db)) -> AiQuestionCandidateAcceptResponse:
+def question_candidate_accept_api(
+    candidate_id: str,
+    payload: AiQuestionCandidateAcceptRequest,
+    db: Session = Depends(get_db),
+) -> AiQuestionCandidateAcceptResponse:
     """中文说明：用户确认候选题后加入正式题库。"""
 
     try:
-        return accept_candidate(db, candidate_id)
+        return accept_candidate(db, candidate_id, payload.collection_id)
     except AiClientError as exc:
         raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc
 

@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.question import Question
+from app.services.question_service import collection_subtree_ids
 from app.services.user_question_state_service import answered_question_ids, due_question_ids, wrong_question_ids
 
 
@@ -44,6 +45,8 @@ def build_practice_questions(
     difficulty: str | None = None,
     exam_point: str | None = None,
     direction: str | None = None,
+    collection_id: str | None = None,
+    include_descendants: bool = True,
     source_id: str | None = None,
     only_wrong: bool = False,
     only_unanswered: bool = False,
@@ -61,7 +64,17 @@ def build_practice_questions(
     """
 
     items = _base_questions(db)
-    items = _apply_common_filters(items, type, difficulty, exam_point, direction, source_id)
+    items = _apply_common_filters(
+        db,
+        items,
+        type,
+        difficulty,
+        exam_point,
+        direction,
+        collection_id,
+        include_descendants,
+        source_id,
+    )
     if mode == "wrong" or only_wrong:
         wrong_ids = wrong_question_ids(db)
         items = [item for item in items if item.id in wrong_ids]
@@ -91,6 +104,8 @@ def get_next_practice_question(
     difficulty: str | None = None,
     exam_point: str | None = None,
     direction: str | None = None,
+    collection_id: str | None = None,
+    include_descendants: bool = True,
     source_id: str | None = None,
     order: str = "import_order",
 ) -> Question | None:
@@ -103,6 +118,8 @@ def get_next_practice_question(
         difficulty=difficulty,
         exam_point=exam_point,
         direction=direction,
+        collection_id=collection_id,
+        include_descendants=include_descendants,
         source_id=source_id,
         order=order,
         page=1,
@@ -134,14 +151,17 @@ def _base_questions(db: Session) -> list[Question]:
 
 
 def _apply_common_filters(
+    db: Session,
     items: list[Question],
     type: str | None,
     difficulty: str | None,
     exam_point: str | None,
     direction: str | None,
+    collection_id: str | None,
+    include_descendants: bool,
     source_id: str | None,
 ) -> list[Question]:
-    """中文说明：应用题型、难度、考察点、方向和来源筛选。"""
+    """中文说明：应用题型、难度、考察点、方向和集合筛选。"""
 
     if type:
         items = [item for item in items if item.type == type or item.type_label == type]
@@ -151,7 +171,10 @@ def _apply_common_filters(
         items = [item for item in items if exam_point in (item.exam_points or [])]
     if direction:
         items = [item for item in items if direction in (item.directions or [])]
-    if source_id:
+    if collection_id:
+        collection_ids = collection_subtree_ids(db, collection_id, include_descendants=include_descendants)
+        items = [item for item in items if item.collection_id in collection_ids]
+    elif source_id:
         items = [item for item in items if item.source_id == source_id]
     return items
 

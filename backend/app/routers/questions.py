@@ -1,25 +1,25 @@
 """中文说明：题目列表、详情和提交答案 API。"""
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.question import Question
-from app.models.question_source import QuestionSource
 from app.models.question_revision import QuestionRevision
 from app.models.attempt import Attempt
 from app.schemas.attempt import AttemptRead, QuestionHistoryResponse, SubmitAnswerRequest, SubmitAnswerResponse
 from app.schemas.question import (
     FilterOptionsResponse,
     QuestionCreate,
+    QuestionBulkMoveRequest,
+    QuestionBulkMoveResponse,
     QuestionDeleteRequest,
     QuestionDeleteStatus,
     QuestionListResponse,
     QuestionRead,
     QuestionRevisionRead,
     QuestionRevisionSummary,
-    QuestionSourceOption,
     QuestionUpdate,
     RevisionRestoreRequest,
 )
@@ -28,7 +28,7 @@ from app.services.question_create_service import create_question
 from app.services.question_delete_service import list_deleted_questions, restore_deleted_question, soft_delete_question
 from app.services.question_revision_service import list_revisions, restore_revision, update_question
 from app.services.question_validation_service import QuestionValidationError
-from app.services.question_service import list_questions
+from app.services.question_service import bulk_move_questions, list_questions, question_read
 
 router = APIRouter(prefix="/questions", tags=["questions"])
 
@@ -41,7 +41,7 @@ def create_api(payload: QuestionCreate, db: Session = Depends(get_db)) -> Questi
         question = create_question(db, payload)
     except (QuestionValidationError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return QuestionRead.model_validate(question)
+    return question_read(db, question)
 
 
 @router.get("", response_model=QuestionListResponse)
@@ -51,6 +51,8 @@ def list_api(
     tag: str | None = None,
     exam_point: str | None = None,
     direction: str | None = None,
+    collection_id: str | None = None,
+    include_descendants: bool = True,
     source_id: str | None = None,
     keyword: str | None = None,
     only_wrong: bool = False,
@@ -62,22 +64,27 @@ def list_api(
 ) -> QuestionListResponse:
     """中文说明：支持题型、难度、标签、关键词和错题筛选的题目列表。"""
 
-    total, items = list_questions(
-        db,
-        page,
-        page_size,
-        type=type,
-        difficulty=difficulty,
-        tag=tag,
-        exam_point=exam_point,
-        direction=direction,
-        source_id=source_id,
-        keyword=keyword,
-        only_wrong=only_wrong,
-        include_deleted=include_deleted,
-        only_deleted=only_deleted,
-    )
-    return QuestionListResponse(total=total, page=page, page_size=page_size, items=[QuestionRead.model_validate(item) for item in items])
+    try:
+        total, items = list_questions(
+            db,
+            page,
+            page_size,
+            type=type,
+            difficulty=difficulty,
+            tag=tag,
+            exam_point=exam_point,
+            direction=direction,
+            collection_id=collection_id,
+            include_descendants=include_descendants,
+            source_id=source_id,
+            keyword=keyword,
+            only_wrong=only_wrong,
+            include_deleted=include_deleted,
+            only_deleted=only_deleted,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return QuestionListResponse(total=total, page=page, page_size=page_size, items=[question_read(db, item) for item in items])
 
 
 @router.get("/filter-options", response_model=FilterOptionsResponse)
@@ -85,23 +92,12 @@ def filter_options_api(db: Session = Depends(get_db)) -> FilterOptionsResponse:
     """中文说明：返回题库筛选和练习配置可用的题型、难度、标签、考察点和方向。"""
 
     questions = db.query(Question).filter(Question.is_deleted.is_(False)).all()
-    source_rows = db.execute(
-        select(QuestionSource.id, QuestionSource.name, func.count(Question.id))
-        .join(Question, Question.source_id == QuestionSource.id)
-        .where(Question.is_deleted.is_(False))
-        .group_by(QuestionSource.id, QuestionSource.name)
-    ).all()
-    sources = sorted(
-        [QuestionSourceOption(id=source_id, name=name, question_count=question_count) for source_id, name, question_count in source_rows],
-        key=lambda item: item.name.casefold(),
-    )
     return FilterOptionsResponse(
         types=sorted({item.type for item in questions if item.type}),
         difficulties=sorted({item.difficulty for item in questions if item.difficulty}),
         tags=sorted({tag for item in questions for tag in (item.tags or []) if tag}),
         exam_points=sorted({point for item in questions for point in (item.exam_points or []) if point}),
         directions=sorted({direction for item in questions for direction in (item.directions or []) if direction}),
-        sources=sources,
     )
 
 
@@ -111,6 +107,8 @@ def deleted_questions_api(
     difficulty: str | None = None,
     exam_point: str | None = None,
     direction: str | None = None,
+    collection_id: str | None = None,
+    include_descendants: bool = True,
     keyword: str | None = None,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -118,17 +116,33 @@ def deleted_questions_api(
 ) -> QuestionListResponse:
     """中文说明：返回回收站中的已删除题目。"""
 
-    total, items = list_deleted_questions(
-        db,
-        page,
-        page_size,
-        type=type,
-        difficulty=difficulty,
-        exam_point=exam_point,
-        direction=direction,
-        keyword=keyword,
-    )
-    return QuestionListResponse(total=total, page=page, page_size=page_size, items=[QuestionRead.model_validate(item) for item in items])
+    try:
+        total, items = list_deleted_questions(
+            db,
+            page,
+            page_size,
+            type=type,
+            difficulty=difficulty,
+            exam_point=exam_point,
+            direction=direction,
+            collection_id=collection_id,
+            include_descendants=include_descendants,
+            keyword=keyword,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return QuestionListResponse(total=total, page=page, page_size=page_size, items=[question_read(db, item) for item in items])
+
+
+@router.post("/bulk-move", response_model=QuestionBulkMoveResponse)
+def bulk_move_api(payload: QuestionBulkMoveRequest, db: Session = Depends(get_db)) -> QuestionBulkMoveResponse:
+    """中文说明：原子移动多道未删除题目到目标集合，不生成内容版本。"""
+
+    try:
+        moved_ids = bulk_move_questions(db, [(item.question_id, item.collection_id) for item in payload.placements])
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return QuestionBulkMoveResponse(moved_count=len(moved_ids), moved_ids=moved_ids)
 
 
 @router.get("/{question_id}", response_model=QuestionRead)
@@ -138,7 +152,7 @@ def detail_api(question_id: str, db: Session = Depends(get_db)) -> QuestionRead:
     question = db.get(Question, question_id)
     if not question:
         raise HTTPException(status_code=404, detail="题目不存在")
-    return QuestionRead.model_validate(question)
+    return question_read(db, question)
 
 
 @router.patch("/{question_id}", response_model=QuestionRead)
@@ -154,7 +168,7 @@ def update_api(question_id: str, payload: QuestionUpdate, db: Session = Depends(
         updated = update_question(db, question, payload)
     except QuestionValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return QuestionRead.model_validate(updated)
+    return question_read(db, updated)
 
 
 @router.delete("/{question_id}", response_model=QuestionDeleteStatus)
@@ -185,10 +199,10 @@ def restore_deleted_api(question_id: str, payload: QuestionDeleteRequest, db: Se
     if not question:
         raise HTTPException(status_code=404, detail="题目不存在")
     try:
-        restored = restore_deleted_question(db, question, payload.reason)
+        restored = restore_deleted_question(db, question, payload.reason, payload.target_collection_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return QuestionRead.model_validate(restored)
+    return question_read(db, restored)
 
 
 @router.get("/{question_id}/revisions", response_model=list[QuestionRevisionSummary])
@@ -241,7 +255,7 @@ def restore_api(
         restored = restore_revision(db, question, revision, payload.restore_target, payload.reason)
     except (QuestionValidationError, ValueError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return QuestionRead.model_validate(restored)
+    return question_read(db, restored)
 
 
 @router.post("/{question_id}/submit", response_model=SubmitAnswerResponse)

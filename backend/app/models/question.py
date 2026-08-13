@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.models.question_source import QuestionSource  # noqa: F401
+from app.models.question_collection import QuestionCollection  # noqa: F401
 
 
 class Question(Base):
@@ -24,6 +25,8 @@ class Question(Base):
     directions: Mapped[list[str]] = mapped_column(JSON, default=list)
     import_order: Mapped[int | None] = mapped_column(Integer, index=True, nullable=True)
     source_id: Mapped[str | None] = mapped_column(ForeignKey("question_sources.id"), index=True, nullable=True)
+    collection_id: Mapped[str | None] = mapped_column(ForeignKey("question_collections.id"), index=True, nullable=True)
+    collection_deletion_id: Mapped[str | None] = mapped_column(ForeignKey("collection_deletions.id"), index=True, nullable=True)
     stem: Mapped[str] = mapped_column(Text)
     material: Mapped[str | None] = mapped_column(Text)
     options: Mapped[list[dict]] = mapped_column(JSON, default=list)

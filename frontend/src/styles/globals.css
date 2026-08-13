@@ -185,3 +185,23 @@ textarea {
   padding: 0.625rem 0.75rem;
   font-size: 0.875rem;
 }
+
+.collection-tree { min-width: 0; }
+.collection-tree__row { display: flex; width: 100%; min-height: 2.25rem; align-items: center; gap: .35rem; border-radius: .375rem; padding: .35rem .4rem; color: #50615a; font-size: .875rem; }
+.collection-tree__row:hover, .collection-tree__row.is-selected { background: #edf2ef; color: #17201c; }
+.collection-tree__row.is-selected { box-shadow: inset 3px 0 #0f8f72; }
+.collection-tree__chevron { display: inline-flex; width: 1rem; height: 1rem; align-items: center; justify-content: center; }
+.collection-tree__more { display: inline-flex; border-radius: .25rem; padding: .15rem; }
+.collection-tree__more:hover { background: white; }
+.collection-tree__menu { position: absolute; z-index: 30; right: 0; top: 1.75rem; min-width: 8rem; overflow: hidden; border: 1px solid #dfe7e2; border-radius: .375rem; background: white; box-shadow: 0 10px 25px rgba(22,32,28,.12); }
+.collection-tree__menu button { display: block; width: 100%; padding: .5rem .75rem; text-align: left; font-size: .8125rem; }
+.collection-tree__menu button:hover { background: #f5f7f4; }
+.collection-picker__button { display: inline-flex; min-height: 2.5rem; width: 100%; align-items: center; justify-content: space-between; gap: .5rem; border: 1px solid #dfe7e2; border-radius: .375rem; background: white; padding: .5rem .75rem; text-align: left; font-size: .875rem; }
+.collection-picker__button:disabled { cursor: not-allowed; opacity: .55; }
+.collection-picker__popover { position: absolute; z-index: 40; top: calc(100% + .25rem); left: 0; width: min(22rem, calc(100vw - 2rem)); overflow: hidden; border: 1px solid #dfe7e2; border-radius: .5rem; background: white; box-shadow: 0 14px 32px rgba(22,32,28,.14); }
+.collection-picker__list { max-height: 18rem; overflow: auto; padding: .25rem; }
+.collection-picker__row { display: flex; width: 100%; min-height: 2.25rem; align-items: center; gap: .5rem; border-radius: .25rem; padding: .35rem .75rem; text-align: left; font-size: .875rem; }
+.collection-picker__row:hover, .collection-picker__row.is-selected { background: #edf2ef; }
+.collection-picker__row:disabled { cursor: not-allowed; opacity: .45; }
+.collection-mobile-trigger { width: 100%; border: 1px solid #dfe7e2; border-radius: .5rem; background: white; padding: .65rem .75rem; text-align: left; font-size: .875rem; }
+.collection-mobile-sheet { position: fixed; z-index: 45; inset: 0; overflow: auto; background: #f5f7f4; padding: 1rem; }

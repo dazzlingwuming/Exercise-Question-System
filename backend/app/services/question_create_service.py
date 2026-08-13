@@ -10,6 +10,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.question import Question
+from app.services.question_service import active_collection_or_error
+from app.services.collection_service import ensure_system_collections
 from app.services.question_revision_service import _build_revision, question_to_snapshot
 from app.schemas.question import QuestionCreate, QuestionType
 from app.services.direction_service import normalize_directions
@@ -45,8 +47,10 @@ def create_question(db: Session, payload: QuestionCreate) -> Question:
 
     if payload.type not in TYPE_LABELS:
         raise ValueError("不支持的题型")
+    ensure_system_collections(db)
+    collection = active_collection_or_error(db, payload.collection_id, default_to_unfiled=True)
     import_order = next_import_order(db)
-    question_data = _payload_to_question_data(payload, import_order)
+    question_data = _payload_to_question_data(payload, import_order, collection.id)
     validate_question_for_save(question_data)
     question = Question(**question_data)
     db.add(question)
@@ -102,7 +106,7 @@ def build_manual_source_text(payload: QuestionCreate) -> str:
     return "\n".join(lines)
 
 
-def _payload_to_question_data(payload: QuestionCreate, import_order: int) -> dict[str, Any]:
+def _payload_to_question_data(payload: QuestionCreate, import_order: int, collection_id: str) -> dict[str, Any]:
     part_id = build_manual_part_id(import_order)
     type_label = payload.type_label or TYPE_LABELS[payload.type]
     options = [_normalize_option(option) for option in payload.options]
@@ -116,6 +120,7 @@ def _payload_to_question_data(payload: QuestionCreate, import_order: int) -> dic
         "tags": payload.tags or ["手动新增"],
         "directions": normalize_directions(payload.directions),
         "import_order": import_order,
+        "collection_id": collection_id,
         "stem": payload.stem,
         "material": payload.material,
         "options": options,

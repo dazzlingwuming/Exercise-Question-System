@@ -12,6 +12,7 @@ import type {
   RevisionRestorePayload,
 } from "../types/question";
 import type { SubmitAnswerResponse } from "../types/attempt";
+import type { BulkMoveResponse, QuestionPlacement } from "../types/collection";
 
 export type QuestionFilters = {
   type?: string;
@@ -23,7 +24,8 @@ export type QuestionFilters = {
   page_size?: number;
   exam_point?: string;
   direction?: string;
-  source_id?: string;
+  collection_id?: string;
+  include_descendants?: boolean;
   include_deleted?: boolean;
   only_deleted?: boolean;
 };
@@ -31,7 +33,7 @@ export type QuestionFilters = {
 function toQuery(filters: QuestionFilters): string {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== "" && value !== false) params.set(key, String(value));
+    if (value !== undefined && value !== "") params.set(key, String(value));
   });
   return params.toString() ? `?${params.toString()}` : "";
 }
@@ -50,6 +52,8 @@ export const deleteQuestion = (id: string, payload: QuestionDeletePayload) =>
   request<QuestionDeleteStatus>(`/questions/${id}`, { method: "DELETE", body: JSON.stringify(payload) });
 export const restoreDeletedQuestion = (id: string, payload: QuestionDeletePayload) =>
   request<Question>(`/questions/${id}/restore`, { method: "POST", body: JSON.stringify(payload) });
+export const bulkMoveQuestions = (placements: QuestionPlacement[]) =>
+  request<BulkMoveResponse>("/questions/bulk-move", { method: "POST", body: JSON.stringify({ placements }) });
 export const getQuestionRevisions = (id: string) => request<QuestionRevision[]>(`/questions/${id}/revisions`);
 export const getQuestionRevisionDetail = (questionId: string, revisionId: string) =>
   request<QuestionRevisionDetail>(`/questions/${questionId}/revisions/${revisionId}`);

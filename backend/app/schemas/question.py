@@ -49,8 +49,8 @@ class QuestionRead(BaseModel):
     tags: list[str] = []
     directions: list[str] = []
     import_order: int | None = None
-    source_id: str | None = None
-    source_name: str | None = None
+    collection_id: str | None = None
+    collection_path: str | None = None
     stem: str
     material: str | None = None
     options: list[OptionSchema] = []
@@ -86,8 +86,8 @@ class PracticeQuestionRead(BaseModel):
     tags: list[str] = []
     directions: list[str] = []
     import_order: int | None = None
-    source_id: str | None = None
-    source_name: str | None = None
+    collection_id: str | None = None
+    collection_path: str | None = None
     stem: str
     material: str | None = None
     options: list[OptionSchema] = []
@@ -133,6 +133,7 @@ class QuestionCreate(BaseModel):
     difficulty: str | None = None
     tags: list[str] = []
     directions: list[str] = []
+    collection_id: str | None = None
     stem: str
     material: str | None = None
     options: list[OptionSchema] = []
@@ -178,6 +179,27 @@ class QuestionDeleteRequest(BaseModel):
     """中文说明：软删除或恢复题目时填写原因。"""
 
     reason: str | None = None
+    target_collection_id: str | None = None
+
+
+class QuestionPlacement(BaseModel):
+    """中文说明：批量移动题目时的一条目标集合放置记录。"""
+
+    question_id: str
+    collection_id: str | None = None
+
+
+class QuestionBulkMoveRequest(BaseModel):
+    """中文说明：题目位置变更与内容编辑分离，不增加题目版本。"""
+
+    placements: list[QuestionPlacement]
+
+
+class QuestionBulkMoveResponse(BaseModel):
+    """中文说明：原子批量移动成功后的摘要。"""
+
+    moved_count: int
+    moved_ids: list[str]
 
 
 class QuestionDeleteStatus(BaseModel):
@@ -190,14 +212,6 @@ class QuestionDeleteStatus(BaseModel):
     deleted_source: str | None = None
 
 
-class QuestionSourceOption(BaseModel):
-    """中文说明：题库和练习页展示的稳定来源筛选项。"""
-
-    id: str
-    name: str
-    question_count: int
-
-
 class FilterOptionsResponse(BaseModel):
     """中文说明：前端练习和题库筛选所需的去重选项。"""
 
@@ -206,7 +220,6 @@ class FilterOptionsResponse(BaseModel):
     tags: list[str]
     exam_points: list[str]
     directions: list[str]
-    sources: list[QuestionSourceOption] = []
 
 
 class QuestionPageResponse(BaseModel):

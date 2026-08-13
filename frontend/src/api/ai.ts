@@ -133,6 +133,29 @@ export type AiQuestionCandidateAcceptResponse = {
   question_id?: string | null;
 };
 
+export type AiCollectionPlacementQuestion = {
+  reference_id: string;
+  type?: string | null;
+  stem: string;
+  material?: string | null;
+  tags?: string[];
+  directions?: string[];
+  exam_points?: string[];
+  current_collection_id?: string | null;
+};
+
+export type AiCollectionPlacement = {
+  reference_id: string;
+  recommended_collection_id: string;
+  confidence: number;
+  reason: string;
+  alternatives: Array<{ collection_id: string; confidence: number }>;
+};
+
+export type AiCollectionPlacementRequest = AiConfig & {
+  questions: AiCollectionPlacementQuestion[];
+};
+
 export type AiParseIssue = {
   severity: "error" | "warning" | "info" | string;
   code: string;
@@ -244,8 +267,17 @@ export const parseAiQuestionDraft = (payload: AiQuestionParseRequest) =>
 export const getAiQuestionGeneration = (generationId: string) =>
   request<AiQuestionGeneration>(`/ai/question-generation/${generationId}`);
 
-export const acceptAiQuestionCandidate = (candidateId: string) =>
-  request<AiQuestionCandidateAcceptResponse>(`/ai/question-generation/candidates/${candidateId}/accept`, { method: "POST" });
+export const acceptAiQuestionCandidate = (candidateId: string, collectionId: string) =>
+  request<AiQuestionCandidateAcceptResponse>(`/ai/question-generation/candidates/${candidateId}/accept`, {
+    method: "POST",
+    body: JSON.stringify({ collection_id: collectionId }),
+  });
+
+export const recommendCollectionPlacements = (payload: AiCollectionPlacementRequest) =>
+  request<{ items: AiCollectionPlacement[] }>("/ai/collection-placement/recommend", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 
 export const rejectAiQuestionCandidate = (candidateId: string, reason?: string) =>
   request<{ candidate_id: string; status: string }>(`/ai/question-generation/candidates/${candidateId}/reject`, { method: "POST", body: JSON.stringify({ reason }) });

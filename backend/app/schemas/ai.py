@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.question import QuestionCreate, QuestionRead
 
@@ -203,6 +203,48 @@ class AiQuestionCandidateRejectResponse(BaseModel):
 
 class AiQuestionCandidateUpdateRequest(BaseModel):
     question: QuestionCreate
+
+
+class AiQuestionCandidateAcceptRequest(BaseModel):
+    """中文说明：确认 AI 候选题时由用户明确指定最终归档集合。"""
+
+    collection_id: str
+
+
+class AiCollectionPlacementQuestion(BaseModel):
+    """中文说明：AI 集合推荐只接收分类所需字段，不发送答案和解析。"""
+
+    reference_id: str = Field(min_length=1, max_length=120)
+    type: str | None = None
+    stem: str = Field(min_length=1, max_length=12000)
+    material: str | None = Field(default=None, max_length=4000)
+    tags: list[str] = []
+    directions: list[str] = []
+    exam_points: list[str] = []
+    current_collection_id: str | None = None
+
+
+class AiCollectionPlacementRequest(AiConfig):
+    """中文说明：一次最多推荐 20 道题，更多题由前端分批处理。"""
+
+    questions: list[AiCollectionPlacementQuestion] = Field(min_length=1, max_length=20)
+
+
+class AiCollectionPlacementAlternative(BaseModel):
+    collection_id: str
+    confidence: float = Field(ge=0, le=1)
+
+
+class AiCollectionPlacementItem(BaseModel):
+    reference_id: str
+    recommended_collection_id: str
+    confidence: float = Field(ge=0, le=1)
+    reason: str
+    alternatives: list[AiCollectionPlacementAlternative] = []
+
+
+class AiCollectionPlacementResponse(BaseModel):
+    items: list[AiCollectionPlacementItem]
 
 
 class AiQuestionParseRequest(AiConfig):

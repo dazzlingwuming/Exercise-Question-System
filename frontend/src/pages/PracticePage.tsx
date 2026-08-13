@@ -4,6 +4,8 @@ import { Link, useLocation, useNavigate, useSearchParams } from "react-router-do
 import { finalizeAiSummaryStream, type AiConfig } from "../api/ai";
 import { listQuestionStates, selfReview } from "../api/attempts";
 import { deleteQuestion, getFilterOptions } from "../api/questions";
+import { getCollectionTree } from "../api/collections";
+import { CollectionPicker, findNode } from "../components/collection/CollectionPicker";
 import {
   createPracticeSession,
   getPracticeSession,
@@ -23,6 +25,7 @@ import { QuestionCard } from "../components/question/QuestionCard";
 import { QuestionRenderer } from "../components/question/QuestionRenderer";
 import type { QuestionState, SubmitAnswerResponse } from "../types/attempt";
 import type { FilterOptions, PracticeQuestion } from "../types/question";
+import type { CollectionNode } from "../types/collection";
 import { aiConfigForRole, loadStoredAiConfig } from "../utils/aiConfigStorage";
 
 const MODE_LABELS: Record<string, string> = {
@@ -60,7 +63,9 @@ export function PracticePage() {
   const [difficulty, setDifficulty] = useState(searchParams.get("difficulty") ?? "");
   const [examPoint, setExamPoint] = useState(searchParams.get("exam_point") ?? "");
   const [direction, setDirection] = useState(searchParams.get("direction") ?? "");
-  const [sourceId, setSourceId] = useState(searchParams.get("source_id") ?? "");
+  const [collectionId, setCollectionId] = useState<string | null>(searchParams.get("collection_id"));
+  const [includeDescendants, setIncludeDescendants] = useState(searchParams.get("include_descendants") !== "false");
+  const [collectionTree, setCollectionTree] = useState<CollectionNode[]>([]);
   const [order, setOrder] = useState(searchParams.get("order") ?? (searchParams.get("mode") === "random" ? "random" : "import_order"));
   const [pageSize, setPageSize] = useState(20);
   const [sessionId, setSessionId] = useState("");
@@ -87,6 +92,7 @@ export function PracticePage() {
 
   useEffect(() => {
     getFilterOptions().then(setFilters).catch((err) => setError(err.message));
+    getCollectionTree().then(setCollectionTree).catch((err) => setError(err.message));
   }, []);
 
   useEffect(() => {
@@ -101,7 +107,7 @@ export function PracticePage() {
 
   const question = currentGroup[currentIndex - groupStart] ?? null;
   const questionState = question ? questionStates[question.id] : undefined;
-  const sourceName = filters?.sources.find((item) => item.id === sourceId)?.name ?? "";
+  const collectionName = findNode(collectionTree, collectionId)?.path ?? "";
   const returnTo = `${location.pathname}${location.search}`;
   const contextText = useMemo(() => {
     const progress = total && question ? currentIndex + 1 : 0;
@@ -118,9 +124,9 @@ export function PracticePage() {
     if (difficulty) parts.push(`难度：${difficulty}`);
     if (examPoint) parts.push(`考察点：${examPoint}`);
     if (direction) parts.push(`方向：${direction}`);
-    if (sourceName) parts.push(`来源：${sourceName}`);
+    if (collectionName) parts.push(`集合：${collectionName}${includeDescendants ? "（含子集合）" : ""}`);
     return parts;
-  }, [mode, order, pageSize, total, question, currentIndex, groupStart, groupEnd, currentGroup, questionStates, type, difficulty, examPoint, direction, sourceName]);
+  }, [mode, order, pageSize, total, question, currentIndex, groupStart, groupEnd, currentGroup, questionStates, type, difficulty, examPoint, direction, collectionName, includeDescendants]);
 
   useEffect(() => {
     if (!question) return;
@@ -189,7 +195,8 @@ export function PracticePage() {
         difficulty: difficulty || undefined,
         exam_point: examPoint || undefined,
         direction: direction || undefined,
-        source_id: sourceId || undefined,
+        collection_id: collectionId || undefined,
+        include_descendants: collectionId ? includeDescendants : undefined,
         page_size: pageSize,
         start_question_id: startQuestionId,
         order: mode === "random" ? "random" : order,
@@ -222,15 +229,19 @@ export function PracticePage() {
   }
 
   function applySessionState(response: PracticeSessionState) {
+    const filterText = (value: string | number | boolean | null | undefined) => value == null ? "" : String(value);
+    const restoredCollectionId = response.filters.collection_id;
+    const restoredIncludeDescendants = response.filters.include_descendants;
     setSessionId(response.session_id);
     setMode(response.mode);
     setPageSize(response.page_size);
     setOrder(response.order || "import_order");
-    setType(response.filters.type ?? "");
-    setDifficulty(response.filters.difficulty ?? "");
-    setExamPoint(response.filters.exam_point ?? "");
-    setDirection(response.filters.direction ?? "");
-    setSourceId(response.filters.source_id ?? "");
+    setType(filterText(response.filters.type));
+    setDifficulty(filterText(response.filters.difficulty));
+    setExamPoint(filterText(response.filters.exam_point));
+    setDirection(filterText(response.filters.direction));
+    setCollectionId(typeof restoredCollectionId === "string" ? restoredCollectionId : null);
+    setIncludeDescendants(restoredIncludeDescendants !== false && restoredIncludeDescendants !== "false");
     setCurrentGroup(response.current_group);
     setCurrentIndex(response.current_index);
     setGroupStart(response.current_group_start);
@@ -355,7 +366,7 @@ export function PracticePage() {
           <h1 className="mb-4 text-2xl font-semibold">练习配置</h1>
           <div className="grid gap-3 md:grid-cols-4">
             <Select label="练习模式" value={mode} onChange={setMode} options={Object.entries(MODE_LABELS).map(([value, label]) => ({ value, label }))} />
-            <Select label="来源" value={sourceId} onChange={setSourceId} options={(filters?.sources ?? []).map((item) => ({ value: item.id, label: `${item.name}（${item.question_count} 题）` }))} empty="全部来源" />
+            <label className="block"><span className="mb-1 block text-sm text-muted">集合</span><CollectionPicker tree={collectionTree} selectedId={collectionId} onSelect={setCollectionId} allowUnfiled allowEmpty emptyLabel="全部题库" /></label>
             <Select label="题型" value={type} onChange={setType} options={(filters?.types ?? []).map((value) => ({ value, label: value }))} empty="全部题型" />
             <Select label="难度" value={difficulty} onChange={setDifficulty} options={(filters?.difficulties ?? []).map((value) => ({ value, label: value }))} empty="全部难度" />
             <Select label="每组题数" value={String(pageSize)} onChange={(value) => setPageSize(Number(value))} options={[10, 20, 50].map((value) => ({ value: String(value), label: `${value} 题` }))} />
@@ -363,6 +374,7 @@ export function PracticePage() {
             <Select label="考察点" value={examPoint} onChange={setExamPoint} options={(filters?.exam_points ?? []).map((value) => ({ value, label: value }))} empty="全部考察点" />
             <Select label="方向" value={direction} onChange={setDirection} options={(filters?.directions ?? []).map((value) => ({ value, label: value }))} empty="全部方向" />
           </div>
+          {collectionId && <label className="mt-3 inline-flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={includeDescendants} onChange={(event) => setIncludeDescendants(event.target.checked)} />包含子集合题目</label>}
           <p className="mt-3 text-sm text-muted">每次加载多少道题，刷完后可以继续下一组。题目顺序选择“随机打乱”时，会在创建练习会话时一次性打乱，后续上一题、下一组和刷新恢复都保持同一顺序。</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => startPractice()}>开始练习</button>

@@ -15,6 +15,9 @@ class PracticeSessionCreate(BaseModel):
     difficulty: str | None = None
     exam_point: str | None = None
     direction: str | None = None
+    collection_id: str | None = None
+    include_descendants: bool = True
+    # 旧客户端兼容参数；新接口只公开 collection 语义。
     source_id: str | None = None
     order: str = "import_order"
     page_size: int = 20

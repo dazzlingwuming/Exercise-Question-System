@@ -6,7 +6,7 @@
 
 ## 数据模型
 
-`questions` 保存题目主体、题型、难度、标签、选项、标准答案、解析、考察点和原始 Markdown。`attempts` 保存每次作答的原始答案、归一化答案、正确性、得分和自评状态。`import_batches` 记录导入批次摘要。
+`questions` 保存题目主体、题型、难度、标签、选项、标准答案、解析、考察点、原始 Markdown 和唯一的 `collection_id`。`question_collections` 通过 `parent_id` 构成任意深度集合树。`attempts` 保存每次作答的原始答案、归一化答案、正确性、得分和自评状态。`import_batches` 只记录导入批次摘要和当次目标集合，不承担题目分类。
 
 列表类字段使用 JSON 存储，包括 `options`、`tags`、`exam_points`、`standard_answer` 和 `parse_warnings`。服务层负责 schema 与 ORM 之间的显式转换。
 
@@ -22,7 +22,15 @@
 
 个人题库格式通过 `question_id` 作为稳定题目 id，`module` 作为标签和方向，`type` 映射到系统内部题型，`knowledge_points` 写入考察点。客观题使用 `answer` 作为标准答案；主观题使用 `reference_answer` 作为标准答案，`answer_keywords` 和 `scoring_points` 合并为评分标准，`option_analysis`、`architecture_points`、`data_flow`、`evaluation_metrics`、`risk_points`、`pseudocode`、`complexity` 和 `test_cases` 会合并进详细解析。
 
-导入页的“确认重置导入”调用 `/api/imports/reset-commit`。该接口会物理删除旧 `questions`、`attempts`、`question_revisions`、`practice_sessions` 和 `import_batches`，再导入当前默认题库。这个路径用于题库整体换源，不用于日常追加导入。
+导入页的“确认重置导入”调用 `/api/imports/reset-commit`。该接口会物理删除旧 `questions`、`attempts`、`question_revisions`、`practice_sessions` 和 `import_batches`，保留集合树，再把新题写入用户确认的目标集合。这个路径用于整体更换题目数据，不用于日常追加导入。
+
+## 集合树设计
+
+系统根集合 `collection_root` 用于“全部题库”筛选和父级承载，禁止直接存题；`collection_unfiled` 是可存题但不能重命名、移动或删除的“未归类”集合。普通集合在同一父级下按 Unicode NFKC、去首尾空白和大小写折叠后的名称唯一，跨父级允许同名。
+
+集合移动会拒绝自身和后代目标。集合合并会移动源集合直接题目，并按规范化名称递归合并同名子集合；题目位置变化不增加内容版本。选择父集合时，查询和 PracticeSession 默认展开全部后代，也允许只取当前集合。PracticeSession 在创建时保存集合路径快照和题目 ID 快照，之后移动题目不会改变历史会话范围。
+
+`collection_deletions` 记录一次整树删除涉及的集合 ID 和当时仍活动的题目 ID。恢复严格按这个删除批次执行，因此此前已删除的题不会被连带复活。集合删除和恢复都为受影响题目写入 `question_revisions`。首次从旧数据库迁移时，会在原 SQLite 同目录创建时间戳备份；旧来源映射为顶层集合，无法可靠映射的题进入未归类。
 
 ## 题型与判分扩展
 
@@ -41,7 +49,14 @@
 - `GET /api/health`
 - `POST /api/imports/preview`
 - `POST /api/imports/commit`
+- `GET /api/collections/tree`
+- `POST /api/collections`
+- `POST /api/collections/{collection_id}/move`
+- `POST /api/collections/{collection_id}/merge`
+- `GET /api/collections/deleted`
+- `POST /api/collections/deletions/{deletion_id}/restore`
 - `GET /api/questions`
+- `POST /api/questions/bulk-move`
 - `GET /api/questions/{question_id}`
 - `GET /api/practice/next`
 - `POST /api/questions/{question_id}/submit`
@@ -52,7 +67,7 @@
 
 ## 前端页面
 
-前端采用工作台式布局：左侧导航、顶部状态栏、主体工作区。页面包括 Dashboard、题库导入、题库管理、随机练习、错题复习和统计。视觉风格保持低噪声、清晰标签和明确反馈。
+前端采用工作台式布局：左侧导航、顶部状态栏、主体工作区。题库管理页使用左侧集合树和右侧题目区；桌面支持拖放，所有动作同时提供菜单或对话框入口，窄屏使用集合选择面板。页面还包括 Dashboard、题库导入、练习、错题复习和统计。
 
 ## 后续演进
 
@@ -132,4 +147,4 @@ AI 题目生成只从刷题页右侧 AI 讲题助手进入。每条 AI 回复旁
 
 质量校验分两层：第一层是代码校验题干、选项、题型和答案格式，复用 `question_validation_service`；第二层是 AI 自洽性校验，只传入新候选题本身，检查题干、答案、解析和评分点是否一致，并返回质量分、问题和建议。重复检测第一版只比较题干文本相似度，使用 `difflib.SequenceMatcher` 找出最相似的 3 道已有题，作为人工确认提示。
 
-确认页路由为 `/ai/question-generation/{generation_id}`。用户可以查看候选题、质量分、结构问题和相似题，再选择“加入题库”或“取消这道”。加入题库调用 `POST /api/ai/question-generation/candidates/{candidate_id}/accept`，最终仍复用 `question_create_service.create_question` 写入正式题库，并生成正常的题目历史记录；取消只把候选题状态改为 `rejected`。
+确认页路由为 `/ai/question-generation/{generation_id}`。用户可以查看候选题、质量分、结构问题和相似题，再选择“加入题库”或“取消这道”。`POST /api/ai/collection-placement/recommend` 只接收题干、材料、标签、方向和考察点等分类字段，不接收答案；它依据活动集合的完整路径、名称和说明返回建议，但不写库。用户确认最终 `collection_id` 后，加入题库调用 `POST /api/ai/question-generation/candidates/{candidate_id}/accept`，最终仍复用 `question_create_service.create_question` 写入正式题库并生成历史记录；取消只把候选题状态改为 `rejected`。

@@ -2,11 +2,21 @@ import { CheckCircle2, Edit3, Save, Sparkles, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { acceptAiQuestionCandidate, getAiQuestionGeneration, rejectAiQuestionCandidate, updateAiQuestionCandidate, type AiGeneratedQuestionCandidate, type AiQuestionGeneration } from "../api/ai";
+import { acceptAiQuestionCandidate, getAiQuestionGeneration, recommendCollectionPlacements, rejectAiQuestionCandidate, updateAiQuestionCandidate, type AiGeneratedQuestionCandidate, type AiQuestionGeneration } from "../api/ai";
+import { getCollectionTree } from "../api/collections";
 import { ErrorState } from "../components/common/ErrorState";
+import { AiCollectionPlacement, type CollectionRecommendation } from "../components/collection/AiCollectionPlacement";
 import { RichContent } from "../components/content/RichContent";
 import { AnswerEditor } from "../components/question/AnswerEditor";
+import type { CollectionNode } from "../types/collection";
 import type { Option, QuestionCreatePayload } from "../types/question";
+import { aiConfigForRole, loadStoredAiConfig } from "../utils/aiConfigStorage";
+
+type PlacementState = {
+  collectionId: string | null;
+  recommendation: CollectionRecommendation | null;
+  confirmed: boolean;
+};
 
 export function AiQuestionGenerationPage() {
   const { generationId } = useParams();
@@ -20,18 +30,76 @@ export function AiQuestionGenerationPage() {
   const [notice, setNotice] = useState("");
   const [loadingId, setLoadingId] = useState("");
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+  const [collectionTree, setCollectionTree] = useState<CollectionNode[]>([]);
+  const [placements, setPlacements] = useState<Record<string, PlacementState>>({});
+  const [placementLoading, setPlacementLoading] = useState(false);
+  const [placementAttempted, setPlacementAttempted] = useState(false);
 
   useEffect(() => {
     if (!generationId) return;
+    setPlacementAttempted(false);
     getAiQuestionGeneration(generationId).then(setGeneration).catch((err) => setError((err as Error).message));
   }, [generationId]);
 
+  useEffect(() => {
+    getCollectionTree().then(setCollectionTree).catch((err) => setError((err as Error).message));
+  }, []);
+
+  useEffect(() => {
+    if (!generation || !collectionTree.length || placementAttempted) return;
+    setPlacementAttempted(true);
+    void recommendPlacements(generation.candidates);
+  }, [generation, collectionTree, placementAttempted]);
+
+  async function recommendPlacements(candidates: AiGeneratedQuestionCandidate[]) {
+    const pending = candidates.filter((candidate) => candidate.status === "pending");
+    if (!pending.length) return;
+    setPlacementLoading(true);
+    setError("");
+    try {
+      const response = await recommendCollectionPlacements({
+        ...aiConfigForRole(loadStoredAiConfig(), "generation"),
+        questions: pending.map((candidate) => ({
+          reference_id: candidate.candidate_id,
+          type: candidate.question.type,
+          stem: candidate.question.stem,
+          material: candidate.question.material,
+          tags: candidate.question.tags,
+          directions: candidate.question.directions,
+          exam_points: candidate.question.exam_points,
+          current_collection_id: placements[candidate.candidate_id]?.collectionId,
+        })),
+      });
+      setPlacements((current) => {
+        const next = { ...current };
+        response.items.forEach((item) => {
+          next[item.reference_id] = {
+            collectionId: item.recommended_collection_id,
+            recommendation: { collectionId: item.recommended_collection_id, confidence: item.confidence, reason: item.reason },
+            confirmed: false,
+          };
+        });
+        return next;
+      });
+      setNotice("AI 已为候选题预填归档位置，请逐题确认或改选。");
+    } catch (err) {
+      setError(`AI 归档推荐失败：${(err as Error).message} 请在每道候选题中人工选择集合。`);
+    } finally {
+      setPlacementLoading(false);
+    }
+  }
+
   async function accept(candidate: AiGeneratedQuestionCandidate) {
+    const placement = placements[candidate.candidate_id];
+    if (!placement?.collectionId || !placement.confirmed) {
+      setError("请先为这道候选题选择并确认归档集合。");
+      return;
+    }
     setLoadingId(candidate.candidate_id);
     setError("");
     setNotice("");
     try {
-      const response = await acceptAiQuestionCandidate(candidate.candidate_id);
+      const response = await acceptAiQuestionCandidate(candidate.candidate_id, placement.collectionId);
       if (response.question_id) {
         navigate(withReturnTo(`/questions/${response.question_id}`, returnTo || "/questions"), { replace: true });
         return;
@@ -76,6 +144,7 @@ export function AiQuestionGenerationPage() {
         ...current,
         candidates: current.candidates.map((item) => item.candidate_id === candidateId ? updated : item),
       } : current);
+      setPlacements((current) => ({ ...current, [candidateId]: { collectionId: current[candidateId]?.collectionId ?? null, recommendation: null, confirmed: false } }));
       setNotice("候选题修改已保存。");
     } catch (err) {
       setError((err as Error).message);
@@ -98,8 +167,9 @@ export function AiQuestionGenerationPage() {
           <p className="mt-1 text-sm text-muted">AI 生成的题目不会自动入库，需要你逐题确认。</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {generation && <button type="button" className="inline-flex items-center gap-2 rounded-md border border-accent bg-white px-3 py-2 text-sm text-accent disabled:opacity-50" disabled={placementLoading} onClick={() => void recommendPlacements(generation.candidates)}><Sparkles className="h-4 w-4" />{placementLoading ? "正在推荐归档…" : "重新推荐全部位置"}</button>}
           {returnTo && <Link className="rounded-md bg-accent px-3 py-2 text-sm text-white" to={returnTo}>返回刷题</Link>}
-          {generation?.source_question_id && <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to={withReturnTo(`/questions/${generation.source_question_id}`, currentPath)}>查看来源题目</Link>}
+          {generation?.source_question_id && <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to={withReturnTo(`/questions/${generation.source_question_id}`, currentPath)}>查看原题</Link>}
         </div>
       </div>
       {error && <ErrorState message={error} />}
@@ -116,6 +186,12 @@ export function AiQuestionGenerationPage() {
             onSave={saveCandidate}
             onAccept={() => accept(candidate)}
             onReject={() => reject(candidate)}
+            collectionTree={collectionTree}
+            placement={placements[candidate.candidate_id] ?? { collectionId: null, recommendation: null, confirmed: false }}
+            placementLoading={placementLoading}
+            onPlacementSelect={(id) => setPlacements((current) => ({ ...current, [candidate.candidate_id]: { collectionId: id, recommendation: null, confirmed: Boolean(id) } }))}
+            onPlacementConfirm={() => setPlacements((current) => ({ ...current, [candidate.candidate_id]: { ...(current[candidate.candidate_id] ?? { collectionId: null, recommendation: null }), confirmed: true } }))}
+            onPlacementRecommend={() => void recommendPlacements([candidate])}
             returnTo={currentPath}
           />
         ))}
@@ -133,6 +209,12 @@ function CandidateCard({
   onSave,
   onAccept,
   onReject,
+  collectionTree,
+  placement,
+  placementLoading,
+  onPlacementSelect,
+  onPlacementConfirm,
+  onPlacementRecommend,
   returnTo,
 }: {
   candidate: AiGeneratedQuestionCandidate;
@@ -143,6 +225,12 @@ function CandidateCard({
   onSave: (candidateId: string, question: QuestionCreatePayload) => Promise<void>;
   onAccept: () => void;
   onReject: () => void;
+  collectionTree: CollectionNode[];
+  placement: PlacementState;
+  placementLoading: boolean;
+  onPlacementSelect: (id: string | null) => void;
+  onPlacementConfirm: () => void;
+  onPlacementRecommend: () => void;
   returnTo: string;
 }) {
   const question = candidate.question;
@@ -151,7 +239,7 @@ function CandidateCard({
   const [editError, setEditError] = useState("");
   const hasQualityRisk = !candidate.ai_validation.is_consistent || candidate.ai_validation.quality_score < 7;
   const staleSkippedQualityCheck = candidate.structure_validation.ok && candidate.ai_validation.problems.some((item) => item.includes("结构校验未通过"));
-  const canAccept = candidate.status === "pending" && candidate.structure_validation.ok && revealed;
+  const canAccept = candidate.status === "pending" && candidate.structure_validation.ok && revealed && Boolean(placement.collectionId) && placement.confirmed;
   useEffect(() => {
     setDraft(question);
   }, [candidate.candidate_id, question]);
@@ -234,6 +322,8 @@ function CandidateCard({
 
       {!editing && question.material && <InfoBlock title="材料" content={question.material} />}
 
+      {candidate.status === "pending" && <div className="mt-4"><AiCollectionPlacement tree={collectionTree} selectedId={placement.collectionId} recommendation={placement.recommendation} confirmed={placement.confirmed} loading={placementLoading} onSelect={onPlacementSelect} onConfirm={onPlacementConfirm} onRecommend={onPlacementRecommend} /></div>}
+
       {!revealed ? (
         <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
           先审核题干和选项是否清楚、是否有独立作答价值。通过初审后再查看标准答案、解析、常见错误和面试追问。
@@ -307,6 +397,7 @@ function CandidateCard({
           <CheckCircle2 className="h-4 w-4" />
           {loading ? "处理中..." : "加入题库"}
         </button>
+        {candidate.status === "pending" && revealed && (!placement.collectionId || !placement.confirmed) && <p className="w-full text-sm text-amber-700">加入题库前，请先选择并确认归档集合。</p>}
         {candidate.status === "pending" && (
           <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm disabled:opacity-50" onClick={onReject} disabled={loading}>
             <Trash2 className="h-4 w-4" />

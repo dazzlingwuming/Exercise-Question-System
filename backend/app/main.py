@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import ai, attempts, imports, practice, questions, stats
+from app.routers import ai, attempts, collections, imports, practice, questions, stats
 
 app = FastAPI(title="Agent 应用层岗位题库刷题系统", version="0.1.0")
 
@@ -33,6 +33,7 @@ def health() -> dict[str, str]:
 
 
 app.include_router(imports.router, prefix="/api")
+app.include_router(collections.router, prefix="/api")
 app.include_router(questions.router, prefix="/api")
 app.include_router(practice.router, prefix="/api")
 app.include_router(attempts.router, prefix="/api")

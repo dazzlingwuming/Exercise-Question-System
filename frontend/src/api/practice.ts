@@ -8,7 +8,8 @@ export type PracticeParams = {
   difficulty?: string;
   exam_point?: string;
   direction?: string;
-  source_id?: string;
+  collection_id?: string;
+  include_descendants?: boolean;
   only_wrong?: boolean;
   only_unanswered?: boolean;
   order?: string;
@@ -23,7 +24,8 @@ export type PracticeSessionCreate = {
   difficulty?: string;
   exam_point?: string;
   direction?: string;
-  source_id?: string;
+  collection_id?: string;
+  include_descendants?: boolean;
   order?: string;
   page_size?: number;
   start_question_id?: string;
@@ -61,7 +63,7 @@ export type PracticeSessionState = {
   has_previous: boolean;
   has_next_group: boolean;
   has_previous_group: boolean;
-  filters: Record<string, string | null>;
+  filters: Record<string, string | number | boolean | null>;
   order: string;
 };
 
@@ -89,7 +91,7 @@ export type PracticeMoveResponse = {
 function toQuery(params: Record<string, string | number | boolean | undefined>): string {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== "" && value !== false) query.set(key, String(value));
+    if (value !== undefined && value !== "") query.set(key, String(value));
   });
   return query.toString() ? `?${query.toString()}` : "";
 }

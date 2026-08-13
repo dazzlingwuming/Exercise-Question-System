@@ -23,6 +23,7 @@ from app.services.practice_session_service import (
     move_to_previous_question,
 )
 from app.services.practice_service import PRACTICE_MODES, build_practice_questions, get_next_practice_question
+from app.services.question_service import practice_question_read
 
 router = APIRouter(prefix="/practice", tags=["practice"])
 
@@ -38,7 +39,10 @@ def modes_api() -> list[dict[str, str]]:
 def create_practice_session_api(payload: PracticeSessionCreate, db: Session = Depends(get_db)) -> PracticeSessionResponse:
     """中文说明：创建稳定练习会话，返回第一组题目。"""
 
-    return create_practice_session(db, payload)
+    try:
+        return create_practice_session(db, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/sessions/{session_id}", response_model=PracticeSessionState)
@@ -113,6 +117,8 @@ def practice_questions_api(
     difficulty: str | None = None,
     exam_point: str | None = None,
     direction: str | None = None,
+    collection_id: str | None = None,
+    include_descendants: bool = True,
     source_id: str | None = None,
     only_wrong: bool = False,
     only_unanswered: bool = False,
@@ -124,23 +130,28 @@ def practice_questions_api(
 ) -> PracticeQuestionPageResponse:
     """中文说明：按练习模式返回候选题分页，支持错题和专项练习。"""
 
-    result = build_practice_questions(
-        db,
-        mode=mode,
-        type=type,
-        difficulty=difficulty,
-        exam_point=exam_point,
-        direction=direction,
-        source_id=source_id,
-        only_wrong=only_wrong,
-        only_unanswered=only_unanswered,
-        order=order,
-        page=page,
-        page_size=page_size,
-        start_question_id=start_question_id,
-    )
+    try:
+        result = build_practice_questions(
+            db,
+            mode=mode,
+            type=type,
+            difficulty=difficulty,
+            exam_point=exam_point,
+            direction=direction,
+            collection_id=collection_id,
+            include_descendants=include_descendants,
+            source_id=source_id,
+            only_wrong=only_wrong,
+            only_unanswered=only_unanswered,
+            order=order,
+            page=page,
+            page_size=page_size,
+            start_question_id=start_question_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return PracticeQuestionPageResponse(
-        items=[PracticeQuestionRead.model_validate(item) for item in result.items],
+        items=[practice_question_read(db, item) for item in result.items],
         total=result.total,
         page=result.page,
         page_size=result.page_size,
@@ -154,6 +165,8 @@ def next_question(
     difficulty: str | None = None,
     exam_point: str | None = None,
     direction: str | None = None,
+    collection_id: str | None = None,
+    include_descendants: bool = True,
     source_id: str | None = None,
     mode: str = "random",
     current_question_id: str | None = None,
@@ -162,17 +175,22 @@ def next_question(
 ) -> PracticeQuestionRead:
     """中文说明：根据当前题和练习模式返回下一题，保留随机练习兼容。"""
 
-    question = get_next_practice_question(
-        db,
-        mode=mode,
-        current_question_id=current_question_id,
-        type=type,
-        difficulty=difficulty,
-        exam_point=exam_point,
-        direction=direction,
-        source_id=source_id,
-        order=order,
-    )
+    try:
+        question = get_next_practice_question(
+            db,
+            mode=mode,
+            current_question_id=current_question_id,
+            type=type,
+            difficulty=difficulty,
+            exam_point=exam_point,
+            direction=direction,
+            collection_id=collection_id,
+            include_descendants=include_descendants,
+            source_id=source_id,
+            order=order,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not question:
         raise HTTPException(status_code=404, detail="没有匹配的题目")
-    return PracticeQuestionRead.model_validate(question)
+    return practice_question_read(db, question)
