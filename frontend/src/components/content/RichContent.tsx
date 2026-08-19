@@ -68,7 +68,7 @@ export function normalizeMarkdownOutput(source: string): string {
   return source.split("\n").map((line) => {
     const withHeadingSpace = line.replace(/^(#{1,6})(?=\S)/, "$1 ");
     const stripped = withHeadingSpace.trim();
-    if (stripped.startsWith("P(") && stripped.includes("=") && stripped.includes("\\prod")) {
+    if (stripped.startsWith("P(") && stripped.includes("=") && stripped.includes("\\prod") && !/[\u3400-\u9fff]/.test(stripped)) {
       return withHeadingSpace.replace(stripped, `$${stripped}$`);
     }
     return withHeadingSpace;

@@ -62,7 +62,7 @@ def normalize_markdown_output(content: str) -> str:
     for line in content.splitlines():
         line = re.sub(r"^(#{1,6})(?=\S)", r"\1 ", line)
         stripped = line.strip()
-        if stripped.startswith("P(") and "=" in stripped and "\\prod" in stripped:
+        if stripped.startswith("P(") and "=" in stripped and "\\prod" in stripped and not re.search(r"[\u3400-\u9fff]", stripped):
             line = line.replace(stripped, f"${stripped}$")
         lines.append(line)
     return "\n".join(lines)

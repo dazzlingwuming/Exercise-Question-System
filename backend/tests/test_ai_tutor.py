@@ -68,6 +68,14 @@ def test_markdown_output_is_normalized_before_storage() -> None:
     assert "$P(x_1,\\ldots,x_n)=\\prod_t P(x_t)$" in normalized
 
 
+def test_mixed_formula_and_prose_is_not_guessed_as_katex() -> None:
+    content = "P(x_1,\\ldots,x_n)=\\prod_t P(x_t\\mid x_{自然语言建模的核心，是把联合概率按链式法则写"
+
+    normalized = sanitize_output(content, submitted=True)
+
+    assert not normalized.startswith("$P(")
+
+
 def test_missing_api_key_blocks_ai_call() -> None:
     db = make_db()
     try:
