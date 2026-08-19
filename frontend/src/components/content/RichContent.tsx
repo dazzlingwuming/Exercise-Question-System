@@ -47,7 +47,7 @@ export function RichContent({ content, className = "" }: RichContentProps) {
           skipHtml
           urlTransform={safeUrlTransform}
         >
-          {normalizeMathDelimiters(source)}
+          {normalizeMarkdownOutput(normalizeMathDelimiters(source))}
         </ReactMarkdown>
       </div>
     </RichContentErrorBoundary>
@@ -62,6 +62,17 @@ export function normalizeMathDelimiters(source: string): string {
     .replace(/\$\$([\s\S]*?)\$\$/g, (_, body: string) => /[\u3400-\u9fff]/.test(body) || body.includes("$") ? body.trim() : `\n$$\n${body.trim()}\n$$\n`);
   if ((normalized.match(/\$\$/g) ?? []).length % 2 !== 0) normalized = normalized.replace(/\$\$/g, "");
   return normalized;
+}
+
+export function normalizeMarkdownOutput(source: string): string {
+  return source.split("\n").map((line) => {
+    const withHeadingSpace = line.replace(/^(#{1,6})(?=\S)/, "$1 ");
+    const stripped = withHeadingSpace.trim();
+    if (stripped.startsWith("P(") && stripped.includes("=") && stripped.includes("\\prod")) {
+      return withHeadingSpace.replace(stripped, `$${stripped}$`);
+    }
+    return withHeadingSpace;
+  }).join("\n");
 }
 
 function safeUrlTransform(url: string) {

@@ -15,7 +15,7 @@ DIRECT_ANSWER_PATTERN = re.compile(
 def sanitize_output(content: str, *, submitted: bool) -> str:
     """中文说明：移除明显 HTML 标签，并追加统一免责声明。"""
 
-    cleaned = normalize_math_delimiters(re.sub(r"<[^>]+>", "", content)).strip()
+    cleaned = normalize_markdown_output(normalize_math_delimiters(re.sub(r"<[^>]+>", "", content))).strip()
     if not submitted and DIRECT_ANSWER_PATTERN.search(cleaned):
         return guardrail_reply()
     if DISCLAIMER.strip() not in cleaned:
@@ -53,6 +53,19 @@ def normalize_math_delimiters(content: str) -> str:
     if len(re.findall(r"\$\$", normalized)) % 2:
         normalized = normalized.replace("$$", "")
     return normalized
+
+
+def normalize_markdown_output(content: str) -> str:
+    """修复旧 AI 消息中确定无歧义的 Markdown 结构错误。"""
+
+    lines: list[str] = []
+    for line in content.splitlines():
+        line = re.sub(r"^(#{1,6})(?=\S)", r"\1 ", line)
+        stripped = line.strip()
+        if stripped.startswith("P(") and "=" in stripped and "\\prod" in stripped:
+            line = line.replace(stripped, f"${stripped}$")
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def guardrail_reply() -> str:

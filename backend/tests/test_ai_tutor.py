@@ -61,6 +61,13 @@ def test_math_output_is_normalized_before_storage() -> None:
     assert "后续文字" in normalized
 
 
+def test_markdown_output_is_normalized_before_storage() -> None:
+    normalized = sanitize_output("##这题考什么\nP(x_1,\\ldots,x_n)=\\prod_t P(x_t)", submitted=True)
+
+    assert "## 这题考什么" in normalized
+    assert "$P(x_1,\\ldots,x_n)=\\prod_t P(x_t)$" in normalized
+
+
 def test_missing_api_key_blocks_ai_call() -> None:
     db = make_db()
     try:

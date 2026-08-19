@@ -52,3 +52,5 @@ def test_all_tutor_stages_require_supported_math_delimiters() -> None:
         assert "成对" in system_prompt
         assert "不要把 `$$` 放在中文句子中间" in system_prompt
         assert "输出前自检" in system_prompt
+        assert "标题必须写成 `## 标题`" in system_prompt
+        assert "列表每项必须独占一行" in system_prompt
