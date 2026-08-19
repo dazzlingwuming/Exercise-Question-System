@@ -51,12 +51,13 @@ def make_db() -> Session:
 
 
 def test_math_output_is_normalized_before_storage() -> None:
-    content = r"信息量为 \(I(x)=-\log_2 p(x)\)。2^{−l}=p $$ 是 $$ 后续文字。"
+    content = r"信息量为 \(I(x)=-\log_2 p(x)\)。$$H(X)=$H$=-\sum_x p(x)\log_2 p(x)$$ 后续文字。"
 
     normalized = sanitize_output(content, submitted=True)
 
     assert "$I(x)=-\\log_2 p(x)$" in normalized
-    assert "$$ 是 $$" not in normalized
+    assert "$$H(X)=$H$" not in normalized
+    assert "$H$" in normalized
     assert "后续文字" in normalized
 
 

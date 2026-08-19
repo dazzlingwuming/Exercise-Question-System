@@ -40,11 +40,12 @@ def normalize_math_delimiters(content: str) -> str:
         lambda match: f"${match.group(1).strip()}$",
         normalized,
     )
-    # `$$ 是 $$` is prose accidentally wrapped as a block formula; keeping
-    # those markers makes KaTeX treat the following answer as invalid TeX.
+    # A block that contains Chinese prose or nested `$...$` is not a valid
+    # block formula. Remove only the outer markers so inner inline formulas
+    # can still be parsed independently.
     normalized = re.sub(
-        r"\$\$\s*([^$]*[\u3400-\u9fff][^$]*)\s*\$\$",
-        lambda match: match.group(1).strip(),
+        r"\$\$([\s\S]*?)\$\$",
+        lambda match: match.group(1).strip() if (re.search(r"[\u3400-\u9fff]", match.group(1)) or "$" in match.group(1)) else f"\n$$\n{match.group(1).strip()}\n$$\n",
         normalized,
     )
     # A stray block marker can consume all subsequent prose. Drop block

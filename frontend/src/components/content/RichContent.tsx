@@ -59,7 +59,7 @@ export function normalizeMathDelimiters(source: string): string {
   let normalized = source
     .replace(/\\\[([\s\S]*?)\\\]/g, (_, body: string) => `\n$$\n${body.trim()}\n$$\n`)
     .replace(/\\\(([\s\S]*?)\\\)/g, (_, body: string) => `$${body.trim()}$`)
-    .replace(/\$\$\s*([^$]*[\u3400-\u9fff][^$]*)\s*\$\$/g, "$1");
+    .replace(/\$\$([\s\S]*?)\$\$/g, (_, body: string) => /[\u3400-\u9fff]/.test(body) || body.includes("$") ? body.trim() : `\n$$\n${body.trim()}\n$$\n`);
   if ((normalized.match(/\$\$/g) ?? []).length % 2 !== 0) normalized = normalized.replace(/\$\$/g, "");
   return normalized;
 }
