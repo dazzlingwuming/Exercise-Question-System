@@ -46,6 +46,9 @@ def test_all_tutor_stages_require_supported_math_delimiters() -> None:
         system_prompt = messages[0]["content"]
 
         assert "`$...$`" in system_prompt
-        assert "`$$...$$`" in system_prompt
+        assert "`$$`" in system_prompt
         assert "`\\(...\\)`" in system_prompt
         assert "`\\[...\\]`" in system_prompt
+        assert "成对" in system_prompt
+        assert "不要把 `$$` 放在中文句子中间" in system_prompt
+        assert "输出前自检" in system_prompt

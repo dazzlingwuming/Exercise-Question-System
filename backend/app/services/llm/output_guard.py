@@ -15,12 +15,43 @@ DIRECT_ANSWER_PATTERN = re.compile(
 def sanitize_output(content: str, *, submitted: bool) -> str:
     """中文说明：移除明显 HTML 标签，并追加统一免责声明。"""
 
-    cleaned = re.sub(r"<[^>]+>", "", content).strip()
+    cleaned = normalize_math_delimiters(re.sub(r"<[^>]+>", "", content)).strip()
     if not submitted and DIRECT_ANSWER_PATTERN.search(cleaned):
         return guardrail_reply()
     if DISCLAIMER.strip() not in cleaned:
         cleaned += DISCLAIMER
     return cleaned
+
+
+def normalize_math_delimiters(content: str) -> str:
+    """将模型常见的 LaTeX 定界符误用修正为 Markdown math 可解析形式。
+
+    这是保守的传输层修正：不猜测裸露的数学表达式，只处理明确的成对
+    `\\(...\\)`/`\\[...\\]`，以及把中文误包在 `$$` 中的情况。
+    """
+
+    normalized = re.sub(
+        r"\\\[([\s\S]*?)\\\]",
+        lambda match: f"\n$$\n{match.group(1).strip()}\n$$\n",
+        content,
+    )
+    normalized = re.sub(
+        r"\\\(([\s\S]*?)\\\)",
+        lambda match: f"${match.group(1).strip()}$",
+        normalized,
+    )
+    # `$$ 是 $$` is prose accidentally wrapped as a block formula; keeping
+    # those markers makes KaTeX treat the following answer as invalid TeX.
+    normalized = re.sub(
+        r"\$\$\s*([^$]*[\u3400-\u9fff][^$]*)\s*\$\$",
+        lambda match: match.group(1).strip(),
+        normalized,
+    )
+    # A stray block marker can consume all subsequent prose. Drop block
+    # markers only when they are unbalanced; valid `$$...$$` stays untouched.
+    if len(re.findall(r"\$\$", normalized)) % 2:
+        normalized = normalized.replace("$$", "")
+    return normalized
 
 
 def guardrail_reply() -> str:

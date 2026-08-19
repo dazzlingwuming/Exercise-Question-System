@@ -47,11 +47,21 @@ export function RichContent({ content, className = "" }: RichContentProps) {
           skipHtml
           urlTransform={safeUrlTransform}
         >
-          {source}
+          {normalizeMathDelimiters(source)}
         </ReactMarkdown>
       </div>
     </RichContentErrorBoundary>
   );
+}
+
+/** Keep older AI messages renderable when a model mixed MathJax and Markdown delimiters. */
+export function normalizeMathDelimiters(source: string): string {
+  let normalized = source
+    .replace(/\\\[([\s\S]*?)\\\]/g, (_, body: string) => `\n$$\n${body.trim()}\n$$\n`)
+    .replace(/\\\(([\s\S]*?)\\\)/g, (_, body: string) => `$${body.trim()}$`)
+    .replace(/\$\$\s*([^$]*[\u3400-\u9fff][^$]*)\s*\$\$/g, "$1");
+  if ((normalized.match(/\$\$/g) ?? []).length % 2 !== 0) normalized = normalized.replace(/\$\$/g, "");
+  return normalized;
 }
 
 function safeUrlTransform(url: string) {

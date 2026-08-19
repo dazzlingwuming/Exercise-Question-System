@@ -13,6 +13,7 @@ from app.schemas.ai import AiConfig
 from app.services.llm import ai_tutor_service
 from app.services.llm.ai_tutor_service import get_thread_response, run_action, run_user_message, stream_action, stream_previous_summary, stream_user_message
 from app.services.llm.deepseek_client import AiClientError
+from app.services.llm.output_guard import sanitize_output
 
 
 def make_db() -> Session:
@@ -47,6 +48,16 @@ def make_db() -> Session:
     )
     db.commit()
     return db
+
+
+def test_math_output_is_normalized_before_storage() -> None:
+    content = r"信息量为 \(I(x)=-\log_2 p(x)\)。2^{−l}=p $$ 是 $$ 后续文字。"
+
+    normalized = sanitize_output(content, submitted=True)
+
+    assert "$I(x)=-\\log_2 p(x)$" in normalized
+    assert "$$ 是 $$" not in normalized
+    assert "后续文字" in normalized
 
 
 def test_missing_api_key_blocks_ai_call() -> None:
