@@ -66,12 +66,12 @@ export function normalizeMathDelimiters(source: string): string {
 
 export function normalizeMarkdownOutput(source: string): string {
   return source.split("\n").map((line) => {
-    const withHeadingSpace = line.replace(/^(#{1,6})(?=\S)/, "$1 ");
-    const stripped = withHeadingSpace.trim();
+    const withoutHeadingMarker = line.replace(/^(\s*)\\?#(?:\s+|$)/, "$1");
+    const stripped = withoutHeadingMarker.trim();
     if (stripped.startsWith("P(") && stripped.includes("=") && stripped.includes("\\prod") && !/[\u3400-\u9fff]/.test(stripped)) {
-      return withHeadingSpace.replace(stripped, `$${stripped}$`);
+      return withoutHeadingMarker.replace(stripped, `$${stripped}$`);
     }
-    return withHeadingSpace;
+    return withoutHeadingMarker;
   }).join("\n");
 }
 
