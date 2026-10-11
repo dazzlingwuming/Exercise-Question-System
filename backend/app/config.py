@@ -12,7 +12,12 @@ class Settings:
     data_dir: Path = Path(os.getenv("EXERCISE_DATA_DIR", str(repository_root / "data"))).resolve()
     question_bank_path: Path = data_dir / "个人题库" / "agent基础题目.md"
     database_url: str = f"sqlite:///{data_dir / 'question_practice.sqlite3'}"
-    cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    cors_origins: list[str] = [
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5181",
+        "http://127.0.0.1:5181",
+    ]
     deepseek_api_key: str | None = os.getenv("DEEPSEEK_API_KEY") or os.getenv("AI_API_KEY")
     deepseek_base_url: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
     deepseek_model: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
