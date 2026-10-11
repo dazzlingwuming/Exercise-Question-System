@@ -6,8 +6,8 @@ export function SingleChoiceQuestion({ question, value, onChange }: { question: 
   return (
     <div className="space-y-2">
       {question.options.map((option) => (
-        <label key={option.key} className="flex cursor-pointer gap-3 rounded-md border border-line bg-white p-3 hover:border-accent">
-          <input type="radio" checked={value === option.key} onChange={() => onChange(option.key)} />
+        <label key={option.key} className={`flex cursor-pointer gap-3 rounded-xl border p-4 ${value === option.key ? "border-accent bg-blue-50/70" : "border-line bg-white hover:border-accent"}`}>
+          <input type="radio" name={`answer-${question.id}`} checked={value === option.key} onChange={() => onChange(option.key)} />
           <span className="font-medium">{option.key}.</span>
           <div className="min-w-0 flex-1"><RichContent content={option.text} /></div>
         </label>

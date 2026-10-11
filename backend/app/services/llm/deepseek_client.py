@@ -20,7 +20,7 @@ def chat_completion(
     api_key: str,
     base_url: str,
     model: str,
-    messages: list[dict[str, str]],
+    messages: list[dict[str, object]],
     max_tokens: int | None = None,
     response_format: dict[str, str] | None = None,
     thinking: dict[str, str] | None = None,
@@ -53,7 +53,7 @@ def chat_completion(
     if response.status_code == 429:
         raise AiClientError("AI_RATE_LIMITED", "请求过于频繁，请稍后再试。")
     if response.status_code >= 400:
-        raise AiClientError("AI_NETWORK_ERROR", "DeepSeek 返回错误，请检查配置后重试。")
+        raise AiClientError("AI_VISION_REQUEST_FAILED" if any(isinstance(item.get("content"), list) for item in messages) else "AI_NETWORK_ERROR", "模型请求失败；若题目含图，请检查图片模型是否支持图片输入后重试。")
     data = response.json()
     content = (data.get("choices") or [{}])[0].get("message", {}).get("content")
     if not content:
@@ -66,7 +66,7 @@ def stream_chat_completion(
     api_key: str,
     base_url: str,
     model: str,
-    messages: list[dict[str, str]],
+    messages: list[dict[str, object]],
     max_tokens: int | None = None,
     thinking: dict[str, str] | None = None,
 ) -> Iterator[str]:
@@ -95,7 +95,7 @@ def stream_chat_completion(
             if response.status_code == 429:
                 raise AiClientError("AI_RATE_LIMITED", "请求过于频繁，请稍后再试。")
             if response.status_code >= 400:
-                raise AiClientError("AI_NETWORK_ERROR", "DeepSeek 返回错误，请检查配置后重试。")
+                raise AiClientError("AI_VISION_REQUEST_FAILED" if any(isinstance(item.get("content"), list) for item in messages) else "AI_NETWORK_ERROR", "模型请求失败；若题目含图，请检查图片模型是否支持图片输入后重试。")
             for line in response.iter_lines():
                 if not line:
                     continue

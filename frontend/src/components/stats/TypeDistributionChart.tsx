@@ -1,6 +1,6 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-const COLORS = ["#0f8f72", "#3465d9", "#d9822b", "#8b5cf6", "#dc2626", "#64748b"];
+const COLORS = ["#3868eb", "#ffac48", "#d9822b", "#8b5cf6", "#dc2626", "#64748b"];
 
 export function TypeDistributionChart({ data }: { data: Record<string, number> }) {
   const rows = Object.entries(data).map(([name, value]) => ({ name, value }));

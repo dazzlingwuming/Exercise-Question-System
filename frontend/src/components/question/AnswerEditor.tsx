@@ -1,3 +1,5 @@
+import { RichContent } from "../content/RichContent";
+import { MarkdownEditor } from "../content/MarkdownEditor";
 import type { Option } from "../../types/question";
 
 // 中文说明：标准答案编辑分发器，根据题型选择单选、多选、判断、填空或主观答案编辑方式。
@@ -6,17 +8,19 @@ export function AnswerEditor({
   options,
   value,
   onChange,
+  onUploadingChange,
 }: {
   type: string;
   options: Option[];
   value: unknown;
   onChange: (value: unknown) => void;
+  onUploadingChange?: (uploading: boolean) => void;
 }) {
   if (type === "single_choice") return <SingleChoiceAnswerEditor options={options} value={String(value ?? "")} onChange={onChange} />;
   if (type === "multiple_choice") return <MultipleChoiceAnswerEditor options={options} value={String(value ?? "")} onChange={onChange} />;
   if (type === "true_false") return <TrueFalseAnswerEditor value={String(value ?? "")} onChange={onChange} />;
   if (type === "fill_blank") return <FillBlankAnswerEditor value={String(value ?? "")} onChange={onChange} />;
-  return <SubjectiveAnswerEditor value={String(value ?? "")} onChange={onChange} />;
+  return <SubjectiveAnswerEditor onUploadingChange={onUploadingChange} value={String(value ?? "")} onChange={onChange} />;
 }
 
 // 中文说明：单选题答案编辑器从已有选项中选择一个标准答案。
@@ -25,8 +29,8 @@ function SingleChoiceAnswerEditor({ options, value, onChange }: { options: Optio
     <div className="space-y-2">
       {options.map((option) => (
         <label key={option.key} className="flex gap-2 rounded-md border border-line bg-white p-2">
-          <input type="radio" checked={value === option.key} onChange={() => onChange(option.key)} />
-          {option.key}. {option.text}
+          <input type="radio" name="standard-answer" checked={value === option.key} onChange={() => onChange(option.key)} />
+          <span>{option.key}.</span><div className="min-w-0"><RichContent content={option.text} /></div>
         </label>
       ))}
     </div>
@@ -45,7 +49,7 @@ function MultipleChoiceAnswerEditor({ options, value, onChange }: { options: Opt
       {options.map((option) => (
         <label key={option.key} className="flex gap-2 rounded-md border border-line bg-white p-2">
           <input type="checkbox" checked={selected.includes(option.key)} onChange={() => toggle(option.key)} />
-          {option.key}. {option.text}
+          <span>{option.key}.</span><div className="min-w-0"><RichContent content={option.text} /></div>
         </label>
       ))}
     </div>
@@ -57,7 +61,7 @@ function TrueFalseAnswerEditor({ value, onChange }: { value: string; onChange: (
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {["正确", "错误"].map((item) => (
-        <button key={item} type="button" onClick={() => onChange(item)} className={`rounded-md border px-3 py-2 ${value === item ? "border-accent bg-teal-50 text-accent" : "border-line bg-white"}`}>
+        <button key={item} type="button" onClick={() => onChange(item)} className={`rounded-md border px-3 py-2 ${value === item ? "border-accent bg-blue-50 text-accent" : "border-line bg-white"}`}>
           {item}
         </button>
       ))}
@@ -71,6 +75,6 @@ function FillBlankAnswerEditor({ value, onChange }: { value: string; onChange: (
 }
 
 // 中文说明：主观题答案编辑器使用长文本，通常配合评分标准一起保存。
-function SubjectiveAnswerEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  return <textarea className="focus-ring min-h-32 w-full rounded-md border border-line px-3 py-2 leading-7" value={value} onChange={(event) => onChange(event.target.value)} />;
+function SubjectiveAnswerEditor({ value, onChange, onUploadingChange }: { value: string; onChange: (value: string) => void; onUploadingChange?: (uploading: boolean) => void }) {
+  return <MarkdownEditor onUploadingChange={onUploadingChange} label="主观题参考答案" value={value} onChange={onChange} />;
 }

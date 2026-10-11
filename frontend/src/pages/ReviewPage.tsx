@@ -1,5 +1,5 @@
 import { BookOpen, Edit3, RotateCcw, Trash2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { listWrongAttempts } from "../api/attempts";
 import { deleteQuestion, getFilterOptions } from "../api/questions";
@@ -11,9 +11,15 @@ import { DeleteQuestionDialog } from "../components/question/DeleteQuestionDialo
 import type { WrongAttempt } from "../types/attempt";
 import type { FilterOptions, Question } from "../types/question";
 
+import { LoadingState } from "../components/common/LoadingState";
+import { PageHeader } from "../components/common/PageHeader";
+
 export function ReviewPage() {
   const location = useLocation();
   const returnTo = `${location.pathname}${location.search}`;
+  const sequence = useRef(0);
+  const [loading, setLoading] = useState(true);
+  const [searchKeyword, setSearchKeyword] = useState("");
   const [items, setItems] = useState<WrongAttempt[]>([]);
   const [filters, setFilters] = useState<FilterOptions | null>(null);
   const [page, setPage] = useState(1);
@@ -34,30 +40,34 @@ export function ReviewPage() {
   }, []);
 
   const load = () => {
-    listWrongAttempts({ page, page_size: 10, type, difficulty, exam_point: examPoint, direction, keyword, sort })
+    const current = ++sequence.current; setLoading(true); setError("");
+    listWrongAttempts({ page, page_size: 10, type, difficulty, exam_point: examPoint, direction, keyword: searchKeyword, sort })
       .then((response) => {
+        if (current !== sequence.current) return;
+        if (response.items.length === 0 && page > 1) { setPage(Math.max(1, Math.ceil(response.total / 10))); return; }
         setItems(response.items);
         setTotal(response.total);
         setHasNext(response.has_next);
       })
-      .catch((err) => setError(err.message));
+      .catch((err) => { if (current === sequence.current) setError(err.message); })
+      .finally(() => { if (current === sequence.current) setLoading(false); });
   };
 
-  useEffect(() => {
-    load();
-  }, [page, type, difficulty, examPoint, direction, keyword, sort]);
+  useEffect(() => { const timer = setTimeout(() => setSearchKeyword(keyword), 220); return () => clearTimeout(timer); }, [keyword]);
+  useEffect(() => { setPage(1); }, [type, difficulty, examPoint, direction, searchKeyword, sort]);
+  useEffect(() => { load(); return () => { sequence.current += 1; }; }, [page, type, difficulty, examPoint, direction, searchKeyword, sort]);
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-semibold">错题复习</h1>
+      <PageHeader eyebrow="A LITTLE BETTER EACH TIME" title="把错题变成进步" description="回看没掌握的地方，下一次就会更有把握。" />
       <section className="panel rounded-lg p-4">
         <div className="grid gap-3 md:grid-cols-6">
-          <input className="rounded-md border border-line px-3 py-2" value={keyword} onChange={(event) => { setPage(1); setKeyword(event.target.value); }} placeholder="搜索题干" />
+          <input aria-label="搜索错题题干" className="rounded-md border border-line px-3 py-2" value={keyword} onChange={(event) => { setPage(1); setKeyword(event.target.value); }} placeholder="搜索题干" />
           <Select value={type} onChange={setType} empty="全部题型" options={filters?.types ?? []} />
           <Select value={difficulty} onChange={setDifficulty} empty="全部难度" options={filters?.difficulties ?? []} />
           <Select value={examPoint} onChange={setExamPoint} empty="全部考察点" options={filters?.exam_points ?? []} />
           <Select value={direction} onChange={setDirection} empty="全部方向" options={filters?.directions ?? []} />
-          <select className="rounded-md border border-line bg-white px-3 py-2" value={sort} onChange={(event) => setSort(event.target.value)}>
+          <select aria-label="错题排序" className="rounded-md border border-line bg-white px-3 py-2" value={sort} onChange={(event) => setSort(event.target.value)}>
             <option value="latest_wrong">最新错题</option>
             <option value="oldest_wrong">最早错题</option>
             <option value="import_order">导入顺序</option>
@@ -67,7 +77,7 @@ export function ReviewPage() {
       </section>
       {error && <ErrorState message={error} />}
       {notice && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
-      {items.length === 0 ? (
+      {loading ? <LoadingState text="正在准备复习内容…" /> : items.length === 0 ? (
         <EmptyState text="暂无错题。" />
       ) : (
         <div className="grid gap-3">
@@ -115,8 +125,8 @@ export function ReviewPage() {
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted">共 {total} 道错题</div>
         <div className="flex gap-2">
-          <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" disabled={page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>
-          <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" disabled={!hasNext} onClick={() => setPage((value) => value + 1)}>下一页</button>
+          <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" disabled={loading || page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>
+          <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" disabled={loading || !hasNext} onClick={() => setPage((value) => value + 1)}>下一页</button>
         </div>
       </div>
       <DeleteQuestionDialog
@@ -146,7 +156,7 @@ function formatStandardAnswer(value: unknown): string {
 
 function Select({ value, onChange, options, empty }: { value: string; onChange: (value: string) => void; options: string[]; empty: string }) {
   return (
-    <select className="rounded-md border border-line bg-white px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
+    <select aria-label={empty} className="rounded-md border border-line bg-white px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">{empty}</option>
       {options.map((item) => <option key={item} value={item}>{item}</option>)}
     </select>

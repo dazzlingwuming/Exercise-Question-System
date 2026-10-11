@@ -20,6 +20,7 @@ from app.services.llm.deepseek_client import AiClientError, chat_completion, str
 from app.services.llm.intent_router import detect_intent
 from app.services.llm.output_guard import guardrail_reply, sanitize_output
 from app.services.llm.prompt_builder import build_messages
+from app.services.llm.vision_context import with_question_images, question_context_data
 
 ACTION_STAGE = {
     "hint": "hint",
@@ -139,6 +140,7 @@ def stream_previous_summary(db: Session, question_id: str, attempt_id: str, conf
             return
         api_key, base_url, model = _resolve_config(config)
         prompt_messages = _build_summary_prompt(question, attempt, source_messages, grading_items, existing.content if existing else None)
+        prompt_messages, model, _ = with_question_images(db, question_context_data(question, attempt), config, prompt_messages, model)
         chunks: list[str] = []
         for chunk in stream_chat_completion(api_key=api_key, base_url=base_url, model=model, messages=prompt_messages, max_tokens=500):
             chunks.append(chunk)
@@ -189,10 +191,12 @@ def _append_and_call(
         for item in _visible_messages(db, thread)
         if item.role in {"user", "assistant"} and item.stage != SUMMARY_STAGE
     ]
-    _save_message(db, thread.id, "user", stage, user_content)
     messages = build_messages(question=question, attempt=attempt, submitted=submitted, stage=stage, user_content=user_content, history=history)
+    messages, model, image_count = with_question_images(db, question_context_data(question, attempt if submitted else None), config, messages, model, submitted=submitted)
+    _save_message(db, thread.id, "user", stage, user_content)
     content = chat_completion(api_key=api_key, base_url=base_url, model=model, messages=messages)
     _save_message(db, thread.id, "assistant", stage, sanitize_output(content, submitted=submitted))
+    thread.model, thread.image_count = model, image_count
     _update_thread_stage(thread, stage, submitted)
     db.commit()
     db.refresh(thread)
@@ -215,9 +219,10 @@ def _append_and_stream(
         for item in _visible_messages(db, thread)
         if item.role in {"user", "assistant"} and item.stage != SUMMARY_STAGE
     ]
+    messages = build_messages(question=question, attempt=attempt, submitted=submitted, stage=stage, user_content=user_content, history=history)
+    messages, model, image_count = with_question_images(db, question_context_data(question, attempt if submitted else None), config, messages, model, submitted=submitted)
     _save_message(db, thread.id, "user", stage, user_content)
     db.commit()
-    messages = build_messages(question=question, attempt=attempt, submitted=submitted, stage=stage, user_content=user_content, history=history)
     chunks: list[str] = []
     try:
         for chunk in stream_chat_completion(api_key=api_key, base_url=base_url, model=model, messages=messages):
@@ -229,6 +234,8 @@ def _append_and_stream(
             if submitted:
                 yield _sse({"type": "delta", "content": chunk})
     except Exception as exc:
+        if isinstance(exc, AiClientError) and exc.code.startswith("AI_VISION_"):
+            raise
         if submitted and chunks:
             raise AiClientError(STREAM_INTERRUPTED_CODE, STREAM_INTERRUPTED_MESSAGE) from exc
         fallback = _fallback_completion(api_key=api_key, base_url=base_url, model=model, messages=messages)
@@ -244,6 +251,7 @@ def _append_and_stream(
     if not submitted:
         yield _sse({"type": "delta", "content": content})
     _save_message(db, thread.id, "assistant", stage, content)
+    thread.model, thread.image_count = model, image_count
     _update_thread_stage(thread, stage, submitted)
     db.commit()
     db.refresh(thread)
@@ -326,6 +334,8 @@ def _thread_response(db: Session, thread: AiTutorThread, submitted: bool, includ
         attempt_id=thread.attempt_id,
         submitted=submitted,
         current_stage=thread.current_stage,
+        model=thread.model,
+        image_count=thread.image_count or 0,
         has_hint=thread.has_hint,
         has_explanation=thread.has_explanation,
         has_engineering_example=thread.has_engineering_example,
@@ -448,7 +458,7 @@ def _build_summary_prompt(
             "content": json.dumps(
                 {
                     "question_id": question.id,
-                    "stem": question.stem,
+                    "stem": question_context_data(question, attempt).get("stem"),
                     "user_answer": attempt.user_answer_raw,
                     "is_correct": attempt.is_correct,
                     "existing_learning_summary": existing_summary,

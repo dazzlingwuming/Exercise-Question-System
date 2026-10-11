@@ -1,3 +1,1 @@
-export function LoadingState({ text = "加载中" }: { text?: string }) {
-  return <div className="panel rounded-lg p-6 text-sm text-muted">{text}</div>;
-}
+export function LoadingState({ text = "正在准备学习内容…" }: { text?: string }) { return <div role="status" aria-live="polite" className="panel flex items-center gap-3 p-6 text-sm text-muted"><span className="h-5 w-5 animate-spin rounded-full border-2 border-blue-100 border-t-accent" />{text}</div>; }

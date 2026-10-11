@@ -1,5 +1,5 @@
-import { ArrowLeft, ArrowRight, RotateCcw, Send, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight, RotateCcw, Send, Trash2, Sparkles, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { finalizeAiSummaryStream, type AiConfig } from "../api/ai";
 import { listQuestionStates, selfReview } from "../api/attempts";
@@ -27,6 +27,10 @@ import type { QuestionState, SubmitAnswerResponse } from "../types/attempt";
 import type { FilterOptions, PracticeQuestion } from "../types/question";
 import type { CollectionNode } from "../types/collection";
 import { aiConfigForRole, loadStoredAiConfig } from "../utils/aiConfigStorage";
+
+import { Dialog } from "../components/common/Dialog";
+import { PageHeader } from "../components/common/PageHeader";
+import { getDraft, saveDraft, removeDraft, clearSessionDrafts } from "../utils/practiceDrafts";
 
 const MODE_LABELS: Record<string, string> = {
   random: "随机未答题",
@@ -78,7 +82,7 @@ export function PracticePage() {
   const [hasPreviousGroup, setHasPreviousGroup] = useState(false);
   const [groupFinished, setGroupFinished] = useState(false);
   const [sessionFinished, setSessionFinished] = useState(false);
-  const [answer, setAnswer] = useState<string | string[]>("");
+  const [answer, setAnswerState] = useState<string | string[]>("");
   const [result, setResult] = useState<SubmitAnswerResponse | null>(null);
   const [questionStates, setQuestionStates] = useState<Record<string, QuestionState>>({});
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -88,6 +92,19 @@ export function PracticePage() {
   const [aiGradingSummaryPending, setAiGradingSummaryPending] = useState(false);
   const [aiSummaryRunning, setAiSummaryRunning] = useState(false);
   const [aiConfig, setAiConfig] = useState<AiConfig>(() => loadStoredAiConfig());
+  const [busy, setBusy] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [restartOpen, setRestartOpen] = useState(false);
+  const actionLock = useRef(false);
+  async function perform(action: () => Promise<void>) {
+    if (actionLock.current) return;
+    actionLock.current = true; setBusy(true); setError("");
+    try { await action(); } catch (err) { setError((err as Error).message); }
+    finally { actionLock.current = false; setBusy(false); }
+  }
+  function setAnswer(value: string | string[]) { setAnswerState(value); if (question && !result) saveDraft(sessionId, question.id, value); }
+  function requestStart() { if (sessionId) setRestartOpen(true); else void perform(() => startPractice()); }
   const aiSummaryPending = aiTutorSummaryPending || aiGradingSummaryPending;
 
   useEffect(() => {
@@ -99,10 +116,10 @@ export function PracticePage() {
     const existingSessionId = searchParams.get("session_id");
     const startQuestionId = searchParams.get("start_question_id");
     if (existingSessionId) {
-      void restoreSession(existingSessionId);
+      void perform(() => restoreSession(existingSessionId));
       return;
     }
-    if (startQuestionId || searchParams.get("mode")) void startPractice(startQuestionId ?? undefined);
+    if (startQuestionId || searchParams.get("mode")) void perform(() => startPractice(startQuestionId ?? undefined));
   }, []);
 
   const question = currentGroup[currentIndex - groupStart] ?? null;
@@ -132,11 +149,11 @@ export function PracticePage() {
     if (!question) return;
     const cached = loadCachedPracticeAnswer(sessionId, question.id);
     if (cached) {
-      setAnswer(cached.answer);
+      setAnswerState(cached.answer);
       setResult(cached.result);
       return;
     }
-    setAnswer("");
+    setAnswerState(getDraft(sessionId, question.id));
     setResult(null);
   }, [sessionId, question?.id]);
 
@@ -161,6 +178,7 @@ export function PracticePage() {
       setNotice("本题 AI 学习记录已总结，原始聊天记录已清理。");
     } catch (err) {
       setNotice(`AI 摘要未完成：${(err as Error).message}`);
+      throw err;
     } finally {
       setAiSummaryRunning(false);
     }
@@ -169,14 +187,12 @@ export function PracticePage() {
   async function restoreSession(id: string) {
     setError("");
     setNotice("");
-    setResult(null);
-    setAnswer("");
     try {
       const response = await getPracticeSession(id);
       applySessionState(response);
     } catch (err) {
-      setError("练习会话不存在或已过期，请重新开始练习。");
-      navigate("/practice", { replace: true });
+      setError(`暂时无法恢复练习：${(err as Error).message}。请稍后重试；草稿仍保留在当前标签页。`);
+      if (!sessionId) navigate("/practice", { replace: true });
     }
   }
 
@@ -184,10 +200,6 @@ export function PracticePage() {
     await finalizeCurrentAiSummary();
     setError("");
     setNotice("");
-    setResult(null);
-    setAnswer("");
-    setGroupFinished(false);
-    setSessionFinished(false);
     try {
       const response = await createPracticeSession({
         mode,
@@ -202,6 +214,8 @@ export function PracticePage() {
         order: mode === "random" ? "random" : order,
         allow_answered: mode === "all_practice" || mode === "wrong" || mode === "due_review",
       });
+      if (sessionId) { clearCachedPracticeSession(sessionId); clearSessionDrafts(sessionId); }
+      setResult(null); setAnswerState(""); setConfigOpen(false);
       applySessionResponse(response);
       navigate(`/practice?session_id=${response.session_id}`, { replace: true });
       if (response.items.length === 0) setError("没有匹配的练习题");
@@ -272,6 +286,7 @@ export function PracticePage() {
     try {
       const response = await submitAnswer(question.id, answer, sessionId || undefined);
       setResult(response);
+      removeDraft(sessionId, question.id);
       if (sessionId) saveCachedPracticeAnswer(sessionId, question.id, { answer, result: response });
       void refreshQuestionStates(currentGroup);
     } catch (err) {
@@ -286,7 +301,7 @@ export function PracticePage() {
       if (sessionId) removeCachedPracticeAnswer(sessionId, question.id);
       setDeleteOpen(false);
       setResult(null);
-      setAnswer("");
+      setAnswerState("");
       setNotice("题目已删除，已从当前练习中跳过。");
       if (sessionId) await restoreSession(sessionId);
     } catch (err) {
@@ -297,6 +312,9 @@ export function PracticePage() {
   async function review(status: "correct" | "partial" | "wrong") {
     if (!result) return;
     await selfReview(result.attempt_id, status);
+    const reviewed = { ...result, requires_self_review: false };
+    setResult(reviewed);
+    if (question) saveCachedPracticeAnswer(sessionId, question.id, { answer, result: reviewed });
     await refreshQuestionStates(currentGroup);
     await goNext();
   }
@@ -304,8 +322,6 @@ export function PracticePage() {
   async function goNext() {
     if (!sessionId) return;
     await finalizeCurrentAiSummary();
-    setResult(null);
-    setAnswer("");
     const response = await movePracticeNext(sessionId);
     if (response.status === "group_finished") {
       setGroupFinished(true);
@@ -321,11 +337,8 @@ export function PracticePage() {
   async function goPrev() {
     if (!sessionId) return;
     await finalizeCurrentAiSummary();
-    setResult(null);
-    setAnswer("");
-    setGroupFinished(false);
-    setSessionFinished(false);
     const response = await movePracticePrevious(sessionId);
+    setGroupFinished(false); setSessionFinished(false);
     if (typeof response.current_index !== "number") return;
     if (response.current_index < groupStart || response.current_index >= groupEnd) {
       await restoreSession(sessionId);
@@ -337,15 +350,13 @@ export function PracticePage() {
   async function continueNextGroup() {
     if (!sessionId) return;
     await finalizeCurrentAiSummary();
-    setResult(null);
-    setAnswer("");
     const response = await movePracticeNextGroup(sessionId);
     applySessionResponse(response);
   }
 
   async function endPractice() {
     await finalizeCurrentAiSummary();
-    if (sessionId) clearCachedPracticeSession(sessionId);
+    // Keep unfinished drafts available if this session is reopened.
     setSessionId("");
     setCurrentGroup([]);
     setCurrentIndex(0);
@@ -355,15 +366,17 @@ export function PracticePage() {
     setGroupFinished(false);
     setSessionFinished(false);
     setResult(null);
-    setAnswer("");
+    setAnswerState("");
     navigate("/practice", { replace: true });
   }
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(620px,1fr)_minmax(560px,620px)] 2xl:grid-cols-[minmax(680px,1fr)_minmax(620px,720px)]">
-      <div className="space-y-5">
-        <section className="panel rounded-lg p-5">
-          <h1 className="mb-4 text-2xl font-semibold">练习配置</h1>
+    <div className={`practice-layout ${assistantOpen ? "has-assistant" : ""}`}>
+      <div className="practice-main space-y-5">
+        <PageHeader eyebrow="PRACTICE TIME" title="专注这一题" description="慢慢想，大胆答。每一次练习都算数。" actions={<button className="btn-secondary" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}><Sparkles className="h-4 w-4 text-accent" />{assistantOpen ? "收起 AI 助手" : "展开 AI 助手"}</button>} />
+        {sessionId && <section className="panel p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-sm font-semibold">{MODE_LABELS[mode]} · {currentIndex + 1} / {total} 题</div><div className="mt-1 text-xs text-muted">{collectionName || "全部题库"} · 每组 {pageSize} 题 · {ORDER_LABELS[order]}</div></div><button className="btn-secondary" onClick={() => setConfigOpen(!configOpen)} aria-expanded={configOpen}>练习配置<ChevronDown className="h-4 w-4" /></button></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-50"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${total ? (currentIndex + 1) / total * 100 : 0}%` }} /></div></section>}
+        {(!sessionId || configOpen) && <section className="panel rounded-lg p-5">
+          <h2 className="mb-4 text-lg font-semibold">准备一组练习</h2>
           <div className="grid gap-3 md:grid-cols-4">
             <Select label="练习模式" value={mode} onChange={setMode} options={Object.entries(MODE_LABELS).map(([value, label]) => ({ value, label }))} />
             <label className="block"><span className="mb-1 block text-sm text-muted">集合</span><CollectionPicker tree={collectionTree} selectedId={collectionId} onSelect={setCollectionId} allowUnfiled allowEmpty emptyLabel="全部题库" /></label>
@@ -377,25 +390,25 @@ export function PracticePage() {
           {collectionId && <label className="mt-3 inline-flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={includeDescendants} onChange={(event) => setIncludeDescendants(event.target.checked)} />包含子集合题目</label>}
           <p className="mt-3 text-sm text-muted">每次加载多少道题，刷完后可以继续下一组。题目顺序选择“随机打乱”时，会在创建练习会话时一次性打乱，后续上一题、下一组和刷新恢复都保持同一顺序。</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => startPractice()}>开始练习</button>
+            <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={requestStart} disabled={busy}>开始练习</button>
             {sessionId && (
               <>
-                <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={() => startPractice()}>
+                <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={requestStart} disabled={busy}>
                   <RotateCcw className="h-4 w-4" />
                   重新开始本模式
                 </button>
-                <button className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={endPractice}>结束练习</button>
+                <button className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={() => void perform(endPractice)} disabled={busy}>结束练习</button>
               </>
             )}
           </div>
-        </section>
+        </section>}
         {error && <ErrorState message={error} />}
         {notice && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
         {groupFinished && hasNextGroup && (
           <section className="panel rounded-lg p-5">
             <h2 className="text-lg font-semibold">当前组已完成</h2>
             <p className="mt-2 text-sm text-muted">已完成 {groupEnd} / {total}</p>
-            <button className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={continueNextGroup}>继续下一组</button>
+            <button className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => void perform(continueNextGroup)} disabled={busy}>继续下一组</button>
           </section>
         )}
         {sessionFinished && (
@@ -408,17 +421,17 @@ export function PracticePage() {
           <section className="panel rounded-lg p-5">
             <h2 className="text-lg font-semibold">当前题目不可用</h2>
             <p className="mt-2 text-sm text-muted">当前练习中的题目已被删除或不可用，请重新创建练习。</p>
-            <button className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => startPractice()}>重新开始本模式</button>
+            <button className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={requestStart} disabled={busy}>重新开始本模式</button>
           </section>
         )}
         {question && !groupFinished && !sessionFinished && (
           <>
             <div className="flex items-center justify-between">
-              <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={goPrev} disabled={currentIndex === 0 || aiSummaryRunning}>
+              <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={() => void perform(goPrev)} disabled={currentIndex === 0 || busy || aiSummaryRunning}>
                 <ArrowLeft className="h-4 w-4" />
                 上一题
               </button>
-              <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={goNext} disabled={aiSummaryRunning}>
+              <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={() => void perform(goNext)} disabled={busy || aiSummaryRunning}>
                 下一题
                 <ArrowRight className="h-4 w-4" />
               </button>
@@ -433,17 +446,19 @@ export function PracticePage() {
               <Link className="inline-flex rounded-md border border-line bg-white px-3 py-2 text-sm" to={editQuestionPath(question.id, returnTo)}>
                 编辑题目
               </Link>
-              <button className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" onClick={() => setDeleteOpen(true)}>
+              <button className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" onClick={() => setDeleteOpen(true)} disabled={busy}>
                 <Trash2 className="h-4 w-4" />
                 删除题目
               </button>
             </div>
             <section className="panel rounded-lg p-5">
-              <QuestionRenderer question={question} answer={answer} setAnswer={setAnswer} />
-              <button className="mt-4 inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={submit}>
+              <fieldset disabled={busy || Boolean(result)} className="min-w-0"><legend className="mb-3 text-sm font-semibold">你的作答</legend><QuestionRenderer question={question} answer={answer} setAnswer={setAnswer} /></fieldset>
+              {!result && <p className="mt-3 text-xs text-muted">草稿会保留在当前浏览器标签页中，切题和刷新均可恢复。</p>}
+              <button className="mt-4 btn-primary" onClick={() => void perform(submit)} disabled={busy || Boolean(result) || (Array.isArray(answer) ? answer.length === 0 : !answer.trim())}>
                 <Send className="h-4 w-4" />
-                提交答案
+                {busy ? "处理中…" : result ? "已提交答案" : "提交答案"}
               </button>
+              {result && <button className="btn-secondary ml-2 mt-4" disabled={busy} onClick={() => void perform(async () => { await finalizeCurrentAiSummary(); removeCachedPracticeAnswer(sessionId, question.id); saveDraft(sessionId, question.id, answer); setResult(null); })}>重新作答</button>}
             </section>
             {result && (
               <>
@@ -455,25 +470,26 @@ export function PracticePage() {
             )}
             {result?.requires_self_review && (
               <div className="flex gap-2">
-                <button className="rounded-md bg-accent px-4 py-2 text-sm text-white" onClick={() => review("correct")}>我答对了</button>
-                <button className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={() => review("partial")}>部分答对</button>
-                <button className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700" onClick={() => review("wrong")}>我答错了</button>
+                <button className="rounded-md bg-accent px-4 py-2 text-sm text-white" onClick={() => void perform(() => review("correct"))} disabled={busy}>我答对了</button>
+                <button className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={() => void perform(() => review("partial"))} disabled={busy}>部分答对</button>
+                <button className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700" onClick={() => void perform(() => review("wrong"))} disabled={busy}>我答错了</button>
               </div>
             )}
           </>
         )}
       </div>
-      <aside className="panel h-fit rounded-lg p-5 xl:sticky xl:top-20">
+      <aside hidden={!assistantOpen} className="practice-assistant panel p-5">
         <h2 className="mb-3 font-semibold">练习上下文</h2>
         <div className="space-y-2 text-sm text-muted">
           {contextText.map((item) => <p key={item}>{item}</p>)}
         </div>
         {hasPreviousGroup && <p className="mt-3 text-xs text-muted">上一题可回到上一组内容。</p>}
         {hasNextGroup && <p className="mt-1 text-xs text-muted">当前组刷完后可继续下一组。</p>}
-        <AiTutorPanel question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} onSummaryPendingChange={setAiTutorSummaryPending} onConfigChange={setAiConfig} />
-        <AiGradingPanel question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} config={aiConfig} onSummaryPendingChange={setAiGradingSummaryPending} />
+        <AiTutorPanel key={`tutor:${question?.id ?? "none"}:${result?.attempt_id ?? "unsubmitted"}`} question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} onSummaryPendingChange={setAiTutorSummaryPending} onConfigChange={setAiConfig} />
+        <AiGradingPanel key={`grading:${question?.id ?? "none"}:${result?.attempt_id ?? "unsubmitted"}`} question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} config={aiConfig} onSummaryPendingChange={setAiGradingSummaryPending} />
       </aside>
-      <DeleteQuestionDialog open={deleteOpen} onCancel={() => setDeleteOpen(false)} onConfirm={deleteCurrentQuestion} />
+      <Dialog open={restartOpen} title="重新开始练习？" onClose={() => setRestartOpen(false)} busy={busy}><p className="text-sm leading-6 text-muted">重新开始会创建新会话，并清除当前会话的未提交草稿。已经保存的答题记录会保留。</p><div className="mt-5 flex justify-end gap-2"><button className="btn-secondary" onClick={() => setRestartOpen(false)} disabled={busy}>继续当前练习</button><button className="btn-primary" disabled={busy} onClick={() => { setRestartOpen(false); void perform(() => startPractice()); }}>确认重新开始</button></div></Dialog>
+      <DeleteQuestionDialog open={deleteOpen} onCancel={() => setDeleteOpen(false)} onConfirm={(reason) => void perform(() => deleteCurrentQuestion(reason))} />
     </div>
   );
 }
@@ -529,7 +545,7 @@ function loadPracticeAnswerCache(): Record<string, CachedPracticeAnswer> {
 }
 
 function savePracticeAnswerCache(cache: Record<string, CachedPracticeAnswer>) {
-  sessionStorage.setItem(PRACTICE_ANSWER_CACHE_KEY, JSON.stringify(cache));
+  try { sessionStorage.setItem(PRACTICE_ANSWER_CACHE_KEY, JSON.stringify(cache)); } catch { /* Keep active answer in memory. */ }
 }
 
 function loadCachedPracticeAnswer(sessionId: string, questionId: string): CachedPracticeAnswer | null {

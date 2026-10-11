@@ -2,6 +2,7 @@
 export function FillBlankQuestion({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <input
+      aria-label="你的作答"
       className="focus-ring w-full rounded-md border border-line bg-white px-3 py-3"
       value={value}
       onChange={(event) => onChange(event.target.value)}

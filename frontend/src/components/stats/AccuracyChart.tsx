@@ -10,7 +10,7 @@ export function AccuracyChart({ data }: { data: Record<string, number> }) {
           <XAxis dataKey="name" />
           <YAxis />
           <Tooltip />
-          <Bar dataKey="value" fill="#0f8f72" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="value" fill="#3868eb" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>

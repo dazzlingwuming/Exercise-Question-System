@@ -15,7 +15,7 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
   return response.json() as Promise<T>;
 }
 
-function readApiErrorMessage(body: string) {
+export function readApiErrorMessage(body: string) {
   if (!body) return "";
   try {
     const parsed = JSON.parse(body) as { detail?: unknown; message?: unknown };

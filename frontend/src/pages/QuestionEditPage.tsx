@@ -1,12 +1,15 @@
 import { Save, Trash2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { getQuestion, updateQuestion } from "../api/questions";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import { AnswerEditor } from "../components/question/AnswerEditor";
 import type { Option, Question, QuestionUpdatePayload } from "../types/question";
+
+import { MarkdownEditor } from "../components/content/MarkdownEditor";
+import { PageHeader } from "../components/common/PageHeader";
 
 const TYPE_OPTIONS = [
   ["single_choice", "单选题"],
@@ -31,12 +34,15 @@ export function QuestionEditPage() {
   const [reason, setReason] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [uploadCount, setUploadCount] = useState(0);
+  const onUploadingChange = useCallback((active: boolean) => setUploadCount((count) => Math.max(0, count + (active ? 1 : -1))), []);
 
   useEffect(() => {
     getQuestion(id).then(setForm).catch((err) => setError(err.message));
   }, [id]);
 
-  if (error) return <ErrorState message={error} />;
+  if (error && !form) return <ErrorState message={error} />;
   if (!form) return <LoadingState />;
   if (form.is_deleted) {
     return (
@@ -60,12 +66,14 @@ export function QuestionEditPage() {
   const removeOption = (index: number) => update("options", form.options.filter((_, itemIndex) => itemIndex !== index));
 
   const save = async () => {
+    if (saving) return;
+    if (uploadCount > 0) { setError("图片仍在上传，请等待完成后再保存。"); return; }
     const validation = validateForm(form);
     if (validation) {
       setError(validation);
       return;
     }
-    setError("");
+    setError(""); setSaving(true);
     const payload: QuestionUpdatePayload = {
       title: form.title,
       type: form.type,
@@ -91,18 +99,12 @@ export function QuestionEditPage() {
       setTimeout(() => navigate(returnTo || `/questions/${updated.id}`), 700);
     } catch (err) {
       setError((err as Error).message);
-    }
+    } finally { setSaving(false); }
   };
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">编辑题目</h1>
-          <p className="mt-1 text-sm text-muted">{form.part_id ?? form.id} · v{form.version}</p>
-        </div>
-        <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to={returnTo || `/questions/${form.id}`}>取消</Link>
-      </div>
+      <PageHeader eyebrow="REFINE YOUR KNOWLEDGE" title="编辑题目" description={`${form.part_id ?? form.id} · v${form.version} · 每一次完善，都让题目更有价值。`} actions={<Link className="btn-secondary" to={returnTo || `/questions/${form.id}`}>取消</Link>} />
       {error && <ErrorState message={error} />}
       {message && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
       <EditSection title="基础信息">
@@ -131,26 +133,27 @@ export function QuestionEditPage() {
         </div>
       </EditSection>
       <EditSection title="题干内容">
-        <textarea className="focus-ring min-h-32 w-full rounded-md border border-line px-3 py-2 leading-7" value={form.stem} onChange={(event) => update("stem", event.target.value)} />
+        <MarkdownEditor onUploadingChange={onUploadingChange} label="题干" value={form.stem} onChange={(value) => update("stem", value)} />
       </EditSection>
+      <EditSection title="材料"><MarkdownEditor onUploadingChange={onUploadingChange} label="材料（可选）" value={form.material ?? ""} onChange={(value) => update("material", value)} /></EditSection>
       <EditSection title="选项设置">
         <div className="space-y-2">
           {form.options.map((option, index) => (
             <div key={`${option.key}-${index}`} className="grid gap-2 md:grid-cols-[80px_1fr_40px]">
               <input className="focus-ring rounded-md border border-line px-2 py-2" value={option.key} onChange={(event) => updateOption(index, { key: event.target.value.toUpperCase() })} />
-              <input className="focus-ring rounded-md border border-line px-3 py-2" value={option.text} onChange={(event) => updateOption(index, { text: event.target.value })} />
-              <button className="rounded-md border border-line bg-white p-2" type="button" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></button>
+              <MarkdownEditor onUploadingChange={onUploadingChange} label={`选项 ${option.key}`} rows={2} value={option.text} onChange={(value) => updateOption(index, { text: value })} />
+              <button aria-label={`删除选项 ${option.key}`} className="h-fit rounded-md border border-line bg-white p-2" type="button" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}
           <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" type="button" onClick={addOption}>新增选项</button>
         </div>
       </EditSection>
       <EditSection title="标准答案">
-        <AnswerEditor type={form.type} options={form.options} value={form.standard_answer} onChange={(value) => update("standard_answer", value)} />
+        <AnswerEditor onUploadingChange={onUploadingChange} type={form.type} options={form.options} value={form.standard_answer} onChange={(value) => update("standard_answer", value)} />
       </EditSection>
       <EditSection title="解析与考察点">
         <div className="grid gap-3">
-          <Field label="详细解析"><textarea className="focus-ring min-h-28 w-full rounded-md border border-line px-3 py-2 leading-7" value={form.explanation ?? ""} onChange={(event) => update("explanation", event.target.value)} /></Field>
+          <MarkdownEditor onUploadingChange={onUploadingChange} label="详细解析" value={form.explanation ?? ""} onChange={(value) => update("explanation", value)} />
           <Field label="考察点"><input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.exam_points.join("、")} onChange={(event) => update("exam_points", splitList(event.target.value))} /></Field>
           <Field label="常见错误"><textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.common_mistakes ?? ""} onChange={(event) => update("common_mistakes", event.target.value)} /></Field>
           <Field label="面试延伸追问"><textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.follow_up_question ?? ""} onChange={(event) => update("follow_up_question", event.target.value)} /></Field>
@@ -160,9 +163,10 @@ export function QuestionEditPage() {
       <EditSection title="修改原因">
         <textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="例如：原标准答案有误，修正为 B" />
       </EditSection>
-      <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={save}>
+      {uploadCount > 0 && <p role="status" className="text-sm text-accent">图片正在上传，请等待完成后保存题目。</p>}
+      <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={save} disabled={saving || uploadCount > 0}>
         <Save className="h-4 w-4" />
-        保存修改
+        {saving ? "保存中…" : "保存修改"}
       </button>
     </div>
   );

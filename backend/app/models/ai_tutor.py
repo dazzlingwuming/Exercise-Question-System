@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -17,6 +17,8 @@ class AiTutorThread(Base):
     id: Mapped[str] = mapped_column(String(80), primary_key=True)
     question_id: Mapped[str] = mapped_column(ForeignKey("questions.id"), index=True)
     attempt_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    model: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    image_count: Mapped[int] = mapped_column(Integer, default=0)
     current_stage: Mapped[str] = mapped_column(String(50), default="not_submitted")
     has_hint: Mapped[bool] = mapped_column(Boolean, default=False)
     has_explanation: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -1,9 +1,10 @@
 import { Bot, KeyRound, Send, Settings, Sparkles, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { generateAiQuestions, getAiThread, runAiActionStream, sendAiMessageStream, testAiConnection, type AiConfig, type AiMessage, type AiThread } from "../../api/ai";
 import type { PracticeQuestion } from "../../types/question";
 import { aiConfigForRole, loadStoredAiConfig, saveStoredAiConfig } from "../../utils/aiConfigStorage";
+import { Dialog } from "../common/Dialog";
 import { RichContent } from "../content/RichContent";
 
 const ACTIONS = [
@@ -48,6 +49,8 @@ export function AiTutorPanel({
   onSummaryPendingChange?: (pending: boolean) => void;
   onConfigChange?: (config: AiConfig) => void;
 }) {
+  const contextActive = useRef(true);
+  useEffect(() => { contextActive.current = true; return () => { contextActive.current = false; }; }, []);
   const navigate = useNavigate();
   const location = useLocation();
   const [thread, setThread] = useState<AiThread | null>(null);
@@ -60,10 +63,13 @@ export function AiTutorPanel({
   const [generationMessage, setGenerationMessage] = useState<AiMessage | null>(null);
   const [generationForm, setGenerationForm] = useState({ target_type: question?.type ?? "short_answer", count: "1", difficulty_strategy: "keep", generation_direction: "", use_web_search: false });
 
+  const hasQuestionImages = Boolean(question && [question.stem, question.material ?? "", ...question.options.map((option) => option.text)].some((text) => /!\[[^\]]*\]\(\/api\/media\/images\/[a-f0-9]{32}\)/.test(text)));
   const hasKey = Boolean(config.api_key?.trim());
   const placeholder = submitted ? "继续追问这道题的原理、错因、工程场景或面试回答。" : "可以问概念、思路、题干含义，但 AI 不会直接告诉你答案。";
 
   useEffect(() => {
+    let active = true;
+    setThread(null);
     setNotice("");
     setShowGenerationPanel(false);
     setGenerationMessage(null);
@@ -72,7 +78,8 @@ export function AiTutorPanel({
       setThread(null);
       return;
     }
-    getAiThread(question.id, attemptId).then(setThread).catch((err) => setNotice(err.message));
+    getAiThread(question.id, attemptId).then((response) => { if (active) setThread(response); }).catch((err) => { if (active) setNotice(err.message); });
+    return () => { active = false; };
   }, [question?.id, attemptId]);
 
   useEffect(() => {
@@ -93,7 +100,7 @@ export function AiTutorPanel({
   }, [question, submitted, thread]);
 
   async function triggerAction(action: string) {
-    if (!question || !hasKey) return;
+    if (!question || !hasKey || loading) return;
     setLoading(action);
     setNotice("");
     try {
@@ -108,7 +115,7 @@ export function AiTutorPanel({
   }
 
   async function send() {
-    if (!question || !input.trim() || !hasKey) return;
+    if (!question || !input.trim() || !hasKey || loading) return;
     const content = input.trim();
     setInput("");
     setLoading("message");
@@ -143,6 +150,7 @@ export function AiTutorPanel({
   }
 
   function handleStreamEvent(event: { type: string; content?: string; message?: string; thread?: AiThread }) {
+    if (!contextActive.current) return;
     if (event.type === "error") {
       setNotice(event.message ?? "AI 调用失败");
       removeStreamingAssistantMessage();
@@ -184,7 +192,7 @@ export function AiTutorPanel({
   }
 
   async function generateQuestions() {
-    if (!question || !hasKey) return;
+    if (!question || !hasKey || hasQuestionImages || loading) return;
     setLoading("question_generation");
     setNotice(generationForm.use_web_search ? "正在联网搜索并基于当前题目的完整作答上下文生成候选题..." : "正在基于当前题目的完整作答上下文生成候选题...");
     try {
@@ -199,6 +207,7 @@ export function AiTutorPanel({
         use_web_search: generationForm.use_web_search,
         ...aiConfigForRole(config, "generation"),
       });
+      if (!contextActive.current) return;
       setShowGenerationPanel(false);
       setGenerationMessage(null);
       const returnTo = `${location.pathname}${location.search}`;
@@ -215,13 +224,14 @@ export function AiTutorPanel({
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-semibold">
           <Bot className="h-4 w-4" />
-          AI 讲题助手（调用大模型）
+          AI 学习伙伴
         </div>
-        <button className="rounded-md border border-line bg-white p-2" onClick={() => setShowSettings((value) => !value)} title="AI 设置">
+        <button className="rounded-md border border-line bg-white p-2" onClick={() => setShowSettings((value) => !value)} title="AI 设置" aria-label="AI 设置" aria-expanded={showSettings}>
           <Settings className="h-4 w-4" />
         </button>
       </div>
       <div className="mb-3 text-sm text-muted">状态：{statusText}</div>
+      {thread?.model && <p className="mb-3 text-xs text-muted">实际模型：{thread.model} · 图片：{thread.image_count ?? 0} 张</p>}
       {showSettings && (
         <div className="mb-3 space-y-2 rounded-md border border-line bg-surface p-3">
           <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.base_url ?? ""} onChange={(event) => setConfig({ ...config, base_url: event.target.value })} placeholder="https://api.deepseek.com" />
@@ -239,6 +249,7 @@ export function AiTutorPanel({
               <span className="mb-1 block text-xs text-muted">AI 生成题目模型</span>
               <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.generation_model ?? ""} onChange={(event) => setConfig({ ...config, generation_model: event.target.value })} placeholder="deepseek-v4-pro" />
             </label>
+            <label className="block"><span className="mb-1 block text-xs text-muted">图片理解模型</span><input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.vision_model ?? "deepseek-flash"} onChange={(event) => setConfig({ ...config, vision_model: event.target.value })} placeholder="deepseek-flash" /><span className="mt-1 block text-xs leading-5 text-muted">含图片的题目会使用此模型讲解或评分；模型不支持图片时会明确提示，不会省略图片。</span></label>
             <label className="block">
               <span className="mb-1 block text-xs text-muted">AnySearch Endpoint</span>
               <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.anysearch_endpoint ?? ""} onChange={(event) => setConfig({ ...config, anysearch_endpoint: event.target.value })} placeholder="https://api.anysearch.com/mcp" />
@@ -264,7 +275,7 @@ export function AiTutorPanel({
       {submitted && thread?.previous_summary && (
         <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
           <div className="mb-1 font-medium">AI 学习摘要</div>
-          <RichContent content={thread.previous_summary} />
+          <RichContent allowImages={false} content={thread.previous_summary} />
         </div>
       )}
       <div className="mb-3 grid gap-2 sm:grid-cols-2">
@@ -280,7 +291,7 @@ export function AiTutorPanel({
       <div className="mb-3">
         <button
           className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-line bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={!question || !hasKey || Boolean(loading)}
+          disabled={!question || !hasKey || Boolean(loading) || hasQuestionImages}
           onClick={() => {
             setGenerationMessage(null);
             setShowGenerationPanel(true);
@@ -289,7 +300,7 @@ export function AiTutorPanel({
           <Sparkles className="h-4 w-4" />
           生成题目
         </button>
-        <p className="mt-1 text-xs text-muted">基于当前题目、用户答案、AI 讲题对话、AI 评分与评分追问的完整上下文生成。</p>
+        <p className="mt-1 text-xs leading-5 text-muted">{hasQuestionImages ? "暂不支持基于含图片的题目自动生成新题；图片讲题、评分和追问仍可正常使用。" : "基于当前题目、用户答案、AI 讲题对话、AI 评分与评分追问的完整上下文生成。"}</p>
       </div>
       <div className="max-h-[34rem] min-h-72 space-y-4 overflow-auto rounded-md border border-line bg-white p-4">
         {thread?.messages.length ? thread.messages.map((message, index) => (
@@ -297,14 +308,14 @@ export function AiTutorPanel({
             <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted">
               <span>{message.role === "assistant" ? "AI" : "你"} · {stageLabel(message.stage)}</span>
               {message.role === "assistant" && message.content.trim() && !String(message.created_at ?? "").includes("assistant-streaming") && (
-                <button className="inline-flex items-center gap-1 rounded-md border border-line bg-white px-2 py-1 text-xs text-foreground" onClick={() => { setGenerationMessage(message); setShowGenerationPanel(true); }} disabled={!hasKey || Boolean(loading)}>
+                <button className="inline-flex items-center gap-1 rounded-md border border-line bg-white px-2 py-1 text-xs text-foreground" onClick={() => { setGenerationMessage(message); setShowGenerationPanel(true); }} disabled={!hasKey || Boolean(loading) || hasQuestionImages}>
                   <Sparkles className="h-3 w-3" />
                   生成题目
                 </button>
               )}
             </div>
             {message.role === "assistant" && !String(message.created_at ?? "").includes("assistant-streaming") ? (
-              <RichContent content={message.content} />
+              <RichContent allowImages={false} content={message.content} />
             ) : (
               <div className="whitespace-pre-wrap">{message.content}</div>
             )}
@@ -328,14 +339,13 @@ export function AiTutorPanel({
       </div>
       <div className="mt-1 text-xs text-muted">Ctrl+Enter 发送，Enter 换行。</div>
       {showGenerationPanel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-xl rounded-lg bg-white p-5 shadow-xl">
+        <Dialog open title="AI 生成候选题" onClose={() => setShowGenerationPanel(false)} busy={Boolean(loading)} className="max-w-xl">
             <div className="mb-4 flex items-center justify-between">
               <div>
-                <h3 className="font-semibold">AI 生成候选题</h3>
+                <p className="font-semibold">把薄弱点变成下一道好题</p>
                 <p className="mt-1 text-sm text-muted">基于当前题目、作答记录、AI 对话和评分上下文生成，生成后需要人工确认入库。</p>
               </div>
-              <button className="rounded-md border border-line bg-white p-2" onClick={() => { setShowGenerationPanel(false); setGenerationMessage(null); }}><X className="h-4 w-4" /></button>
+              <button className="rounded-md border border-line bg-white p-2" aria-label="关闭生成候选题" onClick={() => { setShowGenerationPanel(false); setGenerationMessage(null); }}><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3">
               <label className="block">
@@ -393,8 +403,7 @@ export function AiTutorPanel({
                 {loading === "question_generation" ? "生成中..." : "生成候选题"}
               </button>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
     </section>
   );

@@ -1,4 +1,4 @@
-import { API_BASE, request } from "./client";
+import { API_BASE, request, readApiErrorMessage } from "./client";
 import type { Question, QuestionCreatePayload } from "../types/question";
 
 export type AiConfig = {
@@ -8,6 +8,7 @@ export type AiConfig = {
   model?: string;
   tutor_model?: string;
   grading_model?: string;
+  vision_model?: string;
   generation_model?: string;
   anysearch_api_key?: string;
   anysearch_endpoint?: string;
@@ -22,6 +23,8 @@ export type AiMessage = {
 };
 
 export type AiThread = {
+  model?: string | null;
+  image_count?: number;
   thread_id: string;
   question_id: string;
   attempt_id?: string | null;
@@ -65,6 +68,9 @@ export type AiGradingCard = {
 };
 
 export type AiGradingResult = {
+  image_count?: number;
+  chat_model?: string | null;
+  chat_image_count?: number;
   grading_id?: number | null;
   question_id?: string | null;
   attempt_id?: string | null;
@@ -230,18 +236,20 @@ async function streamAi(path: string, payload: unknown, onEvent: (event: AiStrea
     throw new Error("无法连接 AI 服务，请确认后端正在运行后重试。");
   }
   if (!response.ok || !response.body) {
-    throw new Error(await response.text() || `AI 流式请求失败：${response.status}`);
+    throw new Error(readApiErrorMessage(await response.text()) || `AI 流式请求失败：${response.status}`);
   }
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
   let receivedTerminalEvent = false;
+  let terminalError = "";
 
   function dispatchEvent(eventText: string) {
     const line = eventText.split(/\r?\n/).find((item) => item.startsWith("data:"));
     if (!line) return;
     const event = JSON.parse(line.slice(5).trim()) as AiStreamEvent;
     if (event.type === "done" || event.type === "error") receivedTerminalEvent = true;
+    if (event.type === "error") terminalError = event.message;
     onEvent(event);
   }
 
@@ -260,6 +268,7 @@ async function streamAi(path: string, payload: unknown, onEvent: (event: AiStrea
     throw new Error("AI 流式响应中断，请重试。");
   }
 
+  if (terminalError) throw new Error(terminalError);
   if (!receivedTerminalEvent) throw new Error("AI 流式响应意外结束，请重试。");
 }
 

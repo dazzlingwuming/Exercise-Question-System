@@ -28,6 +28,8 @@ from app.schemas.ai import (
 )
 from app.schemas.question import OptionSchema, QuestionCreate, QuestionRead
 from app.services.llm.deepseek_client import AiClientError, chat_completion
+from app.services.llm.vision_context import question_context_data
+from app.services.media_service import content_fields, markdown_images
 from app.services.question_create_service import TYPE_LABELS, create_question
 from app.services.question_validation_service import OBJECTIVE_TYPES, QuestionValidationError, validate_question_for_save
 from app.services.search.web_context_service import build_web_reference_context
@@ -48,6 +50,8 @@ def generate_question_candidates(db: Session, payload: AiQuestionGenerationReque
     """
 
     question = _get_question(db, payload.question_id)
+    if any(list(markdown_images(source)) for _, source in content_fields(question_context_data(question))):
+        raise AiClientError("AI_IMAGE_GENERATION_UNSUPPORTED", "暂不支持基于含图片的题目自动生成新题；图片讲题、评分和追问仍可正常使用。")
     if payload.target_type not in TYPE_LABELS:
         raise AiClientError("AI_GENERATION_BAD_TYPE", "不支持的目标题型。")
     count = max(1, min(int(payload.count or 1), 5))

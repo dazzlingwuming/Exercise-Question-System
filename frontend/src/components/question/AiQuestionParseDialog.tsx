@@ -1,4 +1,5 @@
 import { Check, LoaderCircle, Sparkles, X } from "lucide-react";
+import { Dialog } from "../common/Dialog";
 import { useState } from "react";
 import { parseAiQuestionDraft, type AiParseIssue, type AiQuestionParseResponse } from "../../api/ai";
 import type { QuestionCreatePayload } from "../../types/question";
@@ -43,13 +44,12 @@ export function AiQuestionParseDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-white p-5 shadow-xl">
+    <Dialog open={open} title="AI 解析为题目草稿" onClose={onClose} busy={loading} className="max-w-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-accent" />
-              <h2 className="text-lg font-semibold">AI 解析为题目草稿</h2>
+              <span className="text-lg font-semibold">把原文整理成题目</span>
             </div>
             <p className="mt-1 text-sm leading-6 text-muted">粘贴一道题的题干、选项、答案和解析。AI 只生成草稿，不会自动保存；不完整或冲突的信息会标记出来。</p>
           </div>
@@ -84,8 +84,7 @@ export function AiQuestionParseDialog({
             {loading ? "正在解析…" : result ? "重新解析" : "解析草稿"}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

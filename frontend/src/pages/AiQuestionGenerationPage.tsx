@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { acceptAiQuestionCandidate, getAiQuestionGeneration, recommendCollectionPlacements, rejectAiQuestionCandidate, updateAiQuestionCandidate, type AiGeneratedQuestionCandidate, type AiQuestionGeneration } from "../api/ai";
 import { getCollectionTree } from "../api/collections";
 import { ErrorState } from "../components/common/ErrorState";
+import { PageHeader } from "../components/common/PageHeader";
 import { AiCollectionPlacement, type CollectionRecommendation } from "../components/collection/AiCollectionPlacement";
 import { RichContent } from "../components/content/RichContent";
 import { AnswerEditor } from "../components/question/AnswerEditor";
@@ -154,24 +155,22 @@ export function AiQuestionGenerationPage() {
     }
   }
 
-  if (!generation && !error) return <div className="panel rounded-lg p-5 text-sm text-muted">正在加载 AI 候选题...</div>;
+  if (!generation && !error) return <div className="panel p-5 text-sm text-muted">正在加载 AI 候选题...</div>;
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-semibold">
-            <Sparkles className="h-5 w-5" />
-            AI 候选题确认
-          </h1>
-          <p className="mt-1 text-sm text-muted">AI 生成的题目不会自动入库，需要你逐题确认。</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {generation && <button type="button" className="inline-flex items-center gap-2 rounded-md border border-accent bg-white px-3 py-2 text-sm text-accent disabled:opacity-50" disabled={placementLoading} onClick={() => void recommendPlacements(generation.candidates)}><Sparkles className="h-4 w-4" />{placementLoading ? "正在推荐归档…" : "重新推荐全部位置"}</button>}
-          {returnTo && <Link className="rounded-md bg-accent px-3 py-2 text-sm text-white" to={returnTo}>返回刷题</Link>}
-          {generation?.source_question_id && <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to={withReturnTo(`/questions/${generation.source_question_id}`, currentPath)}>查看原题</Link>}
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="AI QUESTION REVIEW"
+        title="AI 候选题确认"
+        description="AI 生成的题目不会自动入库，需要你逐题确认。"
+        actions={
+          <>
+            {generation && <button type="button" className="btn-secondary min-w-0 max-w-full disabled:cursor-not-allowed disabled:opacity-50" disabled={placementLoading} onClick={() => void recommendPlacements(generation.candidates)}><Sparkles className="h-4 w-4 shrink-0" />{placementLoading ? "正在推荐归档…" : "重新推荐全部位置"}</button>}
+            {returnTo && <Link className="btn-primary min-w-0 max-w-full" to={returnTo}>返回刷题</Link>}
+            {generation?.source_question_id && <Link className="btn-secondary min-w-0 max-w-full" to={withReturnTo(`/questions/${generation.source_question_id}`, currentPath)}>查看原题</Link>}
+          </>
+        }
+      />
       {error && <ErrorState message={error} />}
       {notice && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
       <div className="space-y-4">
@@ -262,7 +261,7 @@ function CandidateCard({
     setEditing(false);
   }
   return (
-    <section className="panel rounded-lg p-5">
+    <section className="panel p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
@@ -273,14 +272,14 @@ function CandidateCard({
           </div>
           <RichContent content={question.stem} className="text-lg font-semibold leading-8" />
         </div>
-        {candidate.accepted_question_id && <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to={withReturnTo(`/questions/${candidate.accepted_question_id}`, returnTo)}>查看入库题目</Link>}
+        {candidate.accepted_question_id && <Link className="btn-secondary min-w-0 max-w-full" to={withReturnTo(`/questions/${candidate.accepted_question_id}`, returnTo)}>查看入库题目</Link>}
       </div>
 
       {editing ? (
         <section className="mt-4 rounded-md border border-line bg-white p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h3 className="font-medium">编辑候选题</h3>
-            <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={() => { setDraft(question); setEditing(false); setEditError(""); }}>取消编辑</button>
+            <button className="btn-secondary min-w-0" onClick={() => { setDraft(question); setEditing(false); setEditError(""); }}>取消编辑</button>
           </div>
           {editError && <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{editError}</div>}
           <div className="grid gap-3 md:grid-cols-3">
@@ -297,10 +296,10 @@ function CandidateCard({
               <div key={`${option.key}-${optionIndex}`} className="grid gap-2 md:grid-cols-[80px_1fr_44px]">
                 <input className="rounded-md border border-line px-2 py-2" value={option.key} onChange={(event) => updateOption(optionIndex, { key: event.target.value.toUpperCase() })} />
                 <input className="rounded-md border border-line px-3 py-2" value={option.text} onChange={(event) => updateOption(optionIndex, { text: event.target.value })} />
-                <button className="rounded-md border border-line bg-white p-2" onClick={() => removeOption(optionIndex)}><Trash2 className="h-4 w-4" /></button>
+                <button className="btn-secondary min-w-0 p-2" onClick={() => removeOption(optionIndex)}><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
-            <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={addOption}>新增选项</button>
+            <button className="btn-secondary min-w-0" onClick={addOption}>新增选项</button>
           </div>
           <Field label={isObjective(draft.type) ? "标准答案" : "参考答案"}>
             <AnswerEditor type={draft.type} options={draft.options ?? []} value={draft.standard_answer} onChange={(value) => updateDraft("standard_answer", value)} />
@@ -309,8 +308,8 @@ function CandidateCard({
           <Field label="常见错误"><textarea className="min-h-20 w-full rounded-md border border-line px-3 py-2" value={draft.common_mistakes ?? ""} onChange={(event) => updateDraft("common_mistakes", event.target.value)} /></Field>
           <Field label="面试追问"><textarea className="min-h-20 w-full rounded-md border border-line px-3 py-2" value={draft.follow_up_question ?? ""} onChange={(event) => updateDraft("follow_up_question", event.target.value)} /></Field>
           <Field label="评分标准"><textarea className="min-h-20 w-full rounded-md border border-line px-3 py-2" value={draft.scoring_standard ?? ""} onChange={(event) => updateDraft("scoring_standard", event.target.value)} /></Field>
-          <button className="mt-3 inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50" onClick={saveEdit} disabled={loading}>
-            <Save className="h-4 w-4" />
+          <button className="btn-primary mt-3 min-w-0 disabled:cursor-not-allowed disabled:opacity-50" onClick={saveEdit} disabled={loading}>
+            <Save className="h-4 w-4 shrink-0" />
             保存候选题修改
           </button>
         </section>
@@ -377,8 +376,8 @@ function CandidateCard({
 
       <div className="mt-5 flex flex-wrap gap-2">
         {candidate.status === "pending" && !editing && (
-          <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm disabled:opacity-50" onClick={() => setEditing(true)} disabled={loading}>
-            <Edit3 className="h-4 w-4" />
+          <button className="btn-secondary min-w-0 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => setEditing(true)} disabled={loading}>
+            <Edit3 className="h-4 w-4 shrink-0" />
             编辑候选题
           </button>
         )}
@@ -388,19 +387,19 @@ function CandidateCard({
           </div>
         )}
         {candidate.status === "pending" && !revealed && (
-          <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50" onClick={onReveal} disabled={loading}>
-            <CheckCircle2 className="h-4 w-4" />
+          <button className="btn-primary min-w-0 disabled:cursor-not-allowed disabled:opacity-50" onClick={onReveal} disabled={loading}>
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
             通过初审，查看答案与解析
           </button>
         )}
-        <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50" onClick={onAccept} disabled={!canAccept || loading}>
-          <CheckCircle2 className="h-4 w-4" />
+        <button className="btn-primary min-w-0 disabled:cursor-not-allowed disabled:opacity-50" onClick={onAccept} disabled={!canAccept || loading}>
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
           {loading ? "处理中..." : "加入题库"}
         </button>
         {candidate.status === "pending" && revealed && (!placement.collectionId || !placement.confirmed) && <p className="w-full text-sm text-amber-700">加入题库前，请先选择并确认归档集合。</p>}
         {candidate.status === "pending" && (
-          <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm disabled:opacity-50" onClick={onReject} disabled={loading}>
-            <Trash2 className="h-4 w-4" />
+          <button className="btn-secondary min-w-0 disabled:cursor-not-allowed disabled:opacity-50" onClick={onReject} disabled={loading}>
+            <Trash2 className="h-4 w-4 shrink-0" />
             取消这道
           </button>
         )}

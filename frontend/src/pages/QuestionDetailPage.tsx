@@ -5,6 +5,7 @@ import { deleteQuestion, getQuestion, restoreDeletedQuestion } from "../api/ques
 import { Badge } from "../components/common/Badge";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
+import { PageHeader } from "../components/common/PageHeader";
 import { RichContent } from "../components/content/RichContent";
 import { DeleteQuestionDialog } from "../components/question/DeleteQuestionDialog";
 import type { Question } from "../types/question";
@@ -30,48 +31,49 @@ export function QuestionDetailPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col justify-between gap-3 md:flex-row md:items-start">
-        <div>
-          <div className="mb-2 flex flex-wrap gap-2">
-            <Badge tone="accent">{question.type_label}</Badge>
-            <Badge>v{question.version}</Badge>
-            {question.is_deleted && <Badge tone="bad">已删除</Badge>}
-            {question.difficulty && <Badge>{question.difficulty}</Badge>}
-            {question.directions.map((item) => <Badge key={item}>{item}</Badge>)}
-          </div>
-          <h1 className="text-2xl font-semibold">{question.part_id ?? question.id}</h1>
-        </div>
-        <div className="flex gap-2">
-          {returnTo && <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" to={returnTo}>返回</Link>}
+      <PageHeader
+        eyebrow="QUESTION DETAIL"
+        title={question.part_id ?? question.id}
+        actions={
+          <>
+          {returnTo && <Link className="btn-secondary min-w-0 max-w-full" to={returnTo}>返回</Link>}
           {!question.is_deleted && (
-            <Link className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm text-white" to={`/questions/${question.id}/edit${returnTo ? `?${new URLSearchParams({ return_to: returnTo }).toString()}` : ""}`}>
-              <Edit3 className="h-4 w-4" />
+            <Link className="btn-primary min-w-0 max-w-full" to={`/questions/${question.id}/edit${returnTo ? `?${new URLSearchParams({ return_to: returnTo }).toString()}` : ""}`}>
+              <Edit3 className="h-4 w-4 shrink-0" />
               编辑题目
             </Link>
           )}
-          <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" to={`/questions/${question.id}/revisions`}>
-            <History className="h-4 w-4" />
+          <Link className="btn-secondary min-w-0 max-w-full" to={`/questions/${question.id}/revisions`}>
+            <History className="h-4 w-4 shrink-0" />
             修改历史
           </Link>
           {question.is_deleted ? (
             <button
-              className="inline-flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+              className="btn-secondary min-w-0 max-w-full"
               onClick={async () => {
                 const reason = window.prompt("请输入恢复原因", "误删，恢复题目");
                 if (!reason) return;
                 setQuestion(await restoreDeletedQuestion(question.id, { reason }));
               }}
             >
-              <RotateCcw className="h-4 w-4" />
+              <RotateCcw className="h-4 w-4 shrink-0" />
               恢复题目
             </button>
           ) : (
-            <button className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" onClick={() => setDeleteOpen(true)}>
-              <Trash2 className="h-4 w-4" />
+            <button className="btn-danger min-w-0 max-w-full" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4 shrink-0" />
               删除题目
             </button>
           )}
-        </div>
+          </>
+        }
+      />
+      <div className="flex flex-wrap gap-2">
+        <Badge tone="accent">{question.type_label}</Badge>
+        <Badge>v{question.version}</Badge>
+        {question.is_deleted && <Badge tone="bad">已删除</Badge>}
+        {question.difficulty && <Badge>{question.difficulty}</Badge>}
+        {question.directions.map((item) => <Badge key={item}>{item}</Badge>)}
       </div>
       {question.is_deleted && (
         <section className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
@@ -80,24 +82,24 @@ export function QuestionDetailPage() {
           <div className="mt-1">删除原因：{question.delete_reason || "-"}</div>
         </section>
       )}
-      <section className="panel rounded-lg p-5">
+      <section className="panel p-5">
         <h2 className="mb-3 font-semibold">题干</h2>
         <RichContent content={question.stem} className="leading-8" />
       </section>
       {question.material && (
-        <section className="panel rounded-lg p-5">
+        <section className="panel p-5">
           <h2 className="mb-3 font-semibold">材料</h2>
           <RichContent content={question.material} className="leading-7" />
         </section>
       )}
       {question.directions.length > 0 && (
-        <section className="panel rounded-lg p-5">
+        <section className="panel p-5">
           <h2 className="mb-3 font-semibold">题目方向</h2>
           <div className="flex flex-wrap gap-2">{question.directions.map((item) => <Badge key={item}>{item}</Badge>)}</div>
         </section>
       )}
       {question.options.length > 0 && (
-        <section className="panel rounded-lg p-5">
+        <section className="panel p-5">
           <h2 className="mb-3 font-semibold">选项</h2>
           <div className="space-y-2">
             {question.options.map((option) => (
@@ -109,7 +111,7 @@ export function QuestionDetailPage() {
           </div>
         </section>
       )}
-      <section className="panel rounded-lg p-5">
+      <section className="panel p-5">
         <h2 className="mb-3 font-semibold">答案与解析</h2>
         <div className="mb-3 text-sm text-muted">标准答案：<RichContent content={formatRichValue(question.standard_answer)} className="inline-rich-content" /></div>
         <RichContent content={question.explanation || "暂无解析"} className="leading-7" />

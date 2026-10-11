@@ -6,9 +6,10 @@ export function TrueFalseQuestion({ value, onChange }: { value: string; onChange
         <button
           key={item}
           type="button"
+          aria-pressed={value === item}
           onClick={() => onChange(item)}
           className={`rounded-md border px-4 py-4 text-left font-medium transition ${
-            value === item ? "border-accent bg-teal-50 text-accent" : "border-line bg-white hover:border-accent"
+            value === item ? "border-accent bg-blue-50 text-accent" : "border-line bg-white hover:border-accent"
           }`}
         >
           {item}

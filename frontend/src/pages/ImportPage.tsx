@@ -1,9 +1,10 @@
-import { Check, ChevronDown, ChevronUp, Copy, Download, FileText, Play, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Download, Play, RotateCcw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getCollectionTree } from "../api/collections";
 import { commitImport, previewImport, resetCommitImport, type ImportPreview as ImportPreviewType } from "../api/imports";
 import { Badge } from "../components/common/Badge";
 import { ErrorState } from "../components/common/ErrorState";
+import { PageHeader } from "../components/common/PageHeader";
 import { CollectionPicker } from "../components/collection/CollectionPicker";
 import { RichContent } from "../components/content/RichContent";
 import { ImportErrorList } from "../components/import/ImportErrorList";
@@ -142,25 +143,23 @@ export function ImportPage() {
 
   return (
     <div className="space-y-6">
-      <section className="panel rounded-lg p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-accent" />
-              <h1 className="text-xl font-semibold">题库导入</h1>
-              <Badge tone="accent">Markdown v2</Badge>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-muted">粘贴 Markdown 或上传 .md 文件，先预览所有题目和字段错误，再选择追加导入。旧格式仍可读取，但建议转换为 v2。</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-2 text-sm font-medium text-white" type="button" onClick={copyGptTemplate}>
-              <Copy className="h-4 w-4" />复制完整 GPT 模板
+      <PageHeader
+        eyebrow="QUESTION BANK"
+        title="题库导入"
+        description="粘贴 Markdown 或上传 .md 文件，先预览所有题目和字段错误，再选择追加导入。旧格式仍可读取，但建议转换为 v2。"
+        actions={
+          <>
+            <Badge tone="accent">Markdown v2</Badge>
+            <button className="btn-primary min-w-0 max-w-full" type="button" onClick={copyGptTemplate}>
+              <Copy className="h-4 w-4 shrink-0" />复制完整 GPT 模板
             </button>
-            <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" type="button" onClick={downloadGptTemplate}>
-              <Download className="h-4 w-4" />下载完整 GPT 模板
+            <button className="btn-secondary min-w-0 max-w-full" type="button" onClick={downloadGptTemplate}>
+              <Download className="h-4 w-4 shrink-0" />下载完整 GPT 模板
             </button>
-          </div>
-        </div>
+          </>
+        }
+      />
+      <section className="panel p-5">
 
         <section className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
           <h2 className="font-semibold">格式必读</h2>
@@ -213,14 +212,14 @@ export function ImportPage() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => void runPreview()} disabled={loading}>
-            <Play className="h-4 w-4" />{loading ? "正在解析…" : "解析预览"}
+          <button className="btn-primary min-w-0 max-w-full disabled:cursor-not-allowed disabled:opacity-60" type="button" onClick={() => void runPreview()} disabled={loading}>
+            <Play className="h-4 w-4 shrink-0" />{loading ? "正在解析…" : "解析预览"}
           </button>
-          <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50" type="button" onClick={runAppend} disabled={!canCommit || loading}>
-            <Check className="h-4 w-4" />追加导入
+          <button className="btn-secondary min-w-0 max-w-full disabled:cursor-not-allowed disabled:opacity-50" type="button" onClick={runAppend} disabled={!canCommit || loading}>
+            <Check className="h-4 w-4 shrink-0" />追加导入
           </button>
-          <button className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 disabled:cursor-not-allowed disabled:opacity-50" type="button" onClick={runReset} disabled={!canCommit || loading}>
-            <RotateCcw className="h-4 w-4" />重置并重新导入
+          <button className="btn-danger min-w-0 max-w-full disabled:cursor-not-allowed disabled:opacity-50" type="button" onClick={runReset} disabled={!canCommit || loading}>
+            <RotateCcw className="h-4 w-4 shrink-0" />重置并重新导入
           </button>
         </div>
         {message && <div className="mt-4 whitespace-pre-line rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
@@ -236,7 +235,7 @@ export function ImportPage() {
           </section>
           <ImportPreview preview={preview} />
           <ImportErrorList preview={preview} />
-          <section className="panel rounded-lg p-5">
+          <section className="panel p-5">
             <h2 className="mb-4 font-semibold">题目预览</h2>
             <div className="space-y-3">
               {preview.questions.slice(0, 20).map((question) => (

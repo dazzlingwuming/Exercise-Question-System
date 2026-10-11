@@ -9,6 +9,7 @@
 - **文件夹式题库集合**：集合支持多级嵌套、重命名、移动、递归合并和拖拽整理；题目也可以单题或批量移动到任意集合。
 - **导入批次与题目归档解耦**：导入时直接选择目标集合，`A 批次.md`、`B 批次.md` 等多次生成结果可以合并归档到同一目录，批次名只保留为导入审计信息。
 - **统一富文本显示**：题干、材料、选项、标准答案、解析、导入预览及 AI 内容支持 GFM Markdown、KaTeX 公式和 Mermaid 图表；渲染失败时会安全回退并显示原文。
+- **图片题目与 AI 看图**：手动新增、编辑题目时可上传图片并插入题干、材料、选项、参考答案或解析；练习时支持预览与放大，AI 讲题、评分和追问会读取实际图片。
 - **AI 辅助归档**：手动新增题、AI 候选题和题库中选中的题目都可以获取集合位置建议，再由用户确认最终归档位置。
 - **集合级回收站**：删除非空集合时会记录整棵子树及其中题目的精确快照，可按同一次删除操作恢复，并保留题目修改历史。
 - **AI 流式回复容错**：回复中断时会根据是否已经输出正文选择自动恢复或明确报错，避免留下永久的空消息和无法判断的加载状态。
@@ -217,6 +218,10 @@ AI 质量校验只作为参考，不会替用户决定是否入库。最终是�
 
 删除非空集合时，整棵子树和其中当时未删除的题目会作为一次删除操作进入回收站。恢复按该删除操作的精确清单执行，不会误恢复此前已经单独删除的题目；删除和恢复也会写入题目修改历史。
 
+图片上传支持 PNG、JPEG、WebP，单张不超过 **5 MiB**、单边不超过 **8192 像素**、总像素不超过 **1600 万**；每题最多 **6 张不同图片**，合计不超过 **20 MiB**。服务端按实际文件内容解码校验，不支持动画图片。上传后使用 `/api/media/images/<id>` 形式的受管理 Markdown 引用，外部图片不会加载；导入已有图片引用时，也必须能在当前数据目录中找到对应资源。作答前，AI 不会收到标准答案或解析中的图片。
+
+图片不会因编辑、软删除或恢复而自动物理回收，以保留历史题目和答题快照。备份时应停止后端服务，并同时备份数据目录中的 `question_practice.sqlite3` 与 `media/`；只备份数据库无法恢复图片。
+
 ## 技术栈
 
 后端：
@@ -269,6 +274,8 @@ frontend/
     types/           类型定义
 
 data/
+  question_practice.sqlite3  运行时数据库
+  media/            上传图片（不可变资源）
   个人题库/          Markdown 题库文件
 
 doc/
@@ -329,6 +336,15 @@ curl http://localhost:8000/api/health
 
 后端地址为 `http://localhost:8000`，API 文档为 `http://localhost:8000/docs`。
 
+需要隔离测试数据时，在启动后端前设置 `EXERCISE_DATA_DIR`。数据库、上传图片及默认题库路径都会基于该目录；不设置时使用项目的 `data/`。例如在 `backend/` 目录中启动一个空的临时实例：
+
+```bash
+task_data_dir=$(mktemp -d /tmp/exercise-images.XXXXXX)
+EXERCISE_DATA_DIR="$task_data_dir" python -m uvicorn app.main:app --host 127.0.0.1 --port 18000
+```
+
+对应前端可用 `VITE_API_BASE=http://127.0.0.1:18000/api npm run dev` 指向该实例。
+
 ### 2. 在终端 2 启动前端
 
 在新的终端中重新进入项目根目录，然后执行：
@@ -365,6 +381,7 @@ DEEPSEEK_API_KEY=your_api_key
 DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 DEEPSEEK_GRADING_MODEL=deepseek-v4-pro
+DEEPSEEK_VISION_MODEL=deepseek-flash
 ANYSEARCH_API_KEY=your_anysearch_api_key
 ANYSEARCH_ENDPOINT=https://api.anysearch.com/mcp
 ```
@@ -374,6 +391,7 @@ ANYSEARCH_ENDPOINT=https://api.anysearch.com/mcp
 - 页面中可以分别设置 AI 讲题助手模型、AI 主观题评分模型和 AI 生成题目模型。
 - `DEEPSEEK_MODEL` 是 AI 讲题助手的后端默认模型。
 - `DEEPSEEK_GRADING_MODEL` 是主观题评分和评分追问的后端默认模型。
+- 含图片的讲题、评分和追问使用独立的 `vision_model`，可在 AI 设置中修改；后端默认值由 `DEEPSEEK_VISION_MODEL` 指定，默认为 `deepseek-flash`。模型不支持图片或无法确认视觉能力时会明确报错，不会静默省略图片改用纯文本。自定义兼容服务需通过 `/models` 的 `input_modalities` 声明图片输入能力。
 - AI 生成题目前端默认使用 `deepseek-v4-pro`；如果请求未传模型，后端也会以 `deepseek-v4-pro` 作为兜底。
 - AI 生成题目可以开启联网搜索增强。AnySearch 配置可以在网页右侧 AI 设置中填写，也可以用 `ANYSEARCH_API_KEY` 和 `ANYSEARCH_ENDPOINT` 作为后端兜底。
 - 前端填写的 DeepSeek Key 和 AnySearch Key 都只保存在本机浏览器，不写入数据库。
@@ -388,6 +406,22 @@ AI 生成题目可以选择开启“联网搜索增强”。这个功能使用 A
 前端填写的 AnySearch 配置优先级高于环境变量。开启联网搜索后，系统会先生成搜索词，再搜索、提取网页正文并筛选相关片段；如果搜索失败，会自动退回普通题目生成流程。
 
 ## 运行测试
+
+图片与相关题目、AI 链路的后端定向测试使用合成图片及模拟模型，不需要真实 API Key：
+
+```bash
+cd backend
+python -m pytest tests/test_image_questions.py tests/test_ai_tutor.py tests/test_ai_grading.py tests/test_ai_question_generation_context.py tests/test_question_create.py tests/test_question_editing.py tests/test_question_soft_delete.py tests/test_import_service.py tests/test_import_v2.py -q
+```
+
+前端交互与图片链路定向测试：
+
+```bash
+cd frontend
+npm test -- src/pages/PracticePage.test.tsx src/pages/AiContextAndUpload.test.tsx src/pages/QuestionLists.test.tsx src/components/content/MarkdownEditor.test.tsx src/components/content/RichContent.test.tsx src/components/common/Dialog.test.tsx src/api/ai.test.ts
+```
+
+后端全量测试（按需执行）：
 
 ```bash
 cd backend
@@ -409,6 +443,7 @@ npm run build
 - 题库 Markdown 的格式需要符合系统解析规则。
 - AI 归档质量依赖集合名称和说明；说明可留空，但只写含糊名称会降低推荐准确度。
 - 网页编辑不会自动回写原始 Markdown 文件。
+- 不支持 OCR 截图转题、批量配图导入或图片自动回收；含图片的题目暂不支持 AI 自动生成新题，图片讲题、评分和追问仍可使用。
 
 ## 适合的使用场景
 
