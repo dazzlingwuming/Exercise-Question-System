@@ -25,7 +25,7 @@ function ErrorList({ errors }: { errors: ImportPreview["errors"] }) {
   };
 
   return (
-    <section className="panel rounded-lg p-4">
+    <section className="panel p-4">
       <h3 className="mb-3 font-medium">解析错误</h3>
       {errors.length === 0 ? (
         <div className="text-sm text-muted">暂无</div>
@@ -60,7 +60,7 @@ function ErrorList({ errors }: { errors: ImportPreview["errors"] }) {
 
 function List({ title, items }: { title: string; items: string[] }) {
   return (
-    <section className="panel rounded-lg p-4">
+    <section className="panel p-4">
       <h3 className="mb-3 font-medium">{title}</h3>
       {items.length === 0 ? (
         <div className="text-sm text-muted">暂无</div>

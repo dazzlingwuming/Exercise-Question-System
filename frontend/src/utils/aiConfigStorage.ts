@@ -8,6 +8,7 @@ const DEFAULT_AI_CONFIG: AiConfig = {
   model: "deepseek-chat",
   tutor_model: "deepseek-chat",
   grading_model: "deepseek-v4-pro",
+  vision_model: "deepseek-flash",
   generation_model: "deepseek-v4-pro",
   anysearch_endpoint: "https://api.anysearch.com/mcp",
 };
@@ -51,6 +52,7 @@ function normalizeConfig(config: AiConfig): AiConfig {
     api_key: config.api_key || "",
     model: legacyModel,
     tutor_model: config.tutor_model || legacyModel || DEFAULT_AI_CONFIG.tutor_model,
+    vision_model: config.vision_model || DEFAULT_AI_CONFIG.vision_model,
     grading_model: config.grading_model || DEFAULT_AI_CONFIG.grading_model,
     generation_model: config.generation_model || DEFAULT_AI_CONFIG.generation_model,
     anysearch_api_key: config.anysearch_api_key || "",

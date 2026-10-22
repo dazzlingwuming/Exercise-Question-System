@@ -24,6 +24,8 @@ from app.schemas.import_schema import ImportCommitResponse, ImportConflictItem, 
 from app.schemas.question import QuestionRead
 from app.services.question_service import active_collection_or_error
 from app.services.collection_service import ensure_system_collections
+from app.services.media_service import MediaError, question_images
+from app.schemas.import_schema import ImportErrorItem
 
 
 class ImportValidationError(ValueError):
@@ -46,6 +48,7 @@ def preview_import(
 
     raw_text, resolved_batch_name = _resolve_batch(text, batch_name, source_name)
     result = parse_markdown_question_bank(raw_text)
+    _validate_import_images(db, result)
     type_distribution = Counter(question.type_label for question in result.questions)
     difficulty_distribution = Counter(question.difficulty or "未标注" for question in result.questions)
     warnings = _warnings_for_preview(result)
@@ -76,6 +79,7 @@ def commit_import(
 
     raw_text, resolved_batch_name = _resolve_batch(text, batch_name, source_name)
     result = parse_markdown_question_bank(raw_text)
+    _validate_import_images(db, result)
     conflicts = _find_database_conflicts(db, result.questions)
     _ensure_committable(result.errors, conflicts)
 
@@ -128,6 +132,7 @@ def reset_and_commit_import(
 
     raw_text, resolved_batch_name = _resolve_batch(text, batch_name, source_name)
     result = parse_markdown_question_bank(raw_text)
+    _validate_import_images(db, result)
     _ensure_committable(result.errors, [])
     _hard_delete_all_question_data(db)
     ensure_system_collections(db)
@@ -317,3 +322,14 @@ def _question_schema_to_model(item: QuestionRead, import_order: int | None = Non
         source_text=item.source_text,
         parse_warnings=item.parse_warnings,
     )
+
+
+def _validate_import_images(db: Session | None, result) -> None:
+    for index, question in enumerate(result.questions, start=1):
+        try:
+            # A managed reference cannot be verified without the database.
+            question_images(db, question.model_dump())
+        except MediaError as exc:
+            result.errors.append(ImportErrorItem(index=index, question_id=question.id,
+                part_id=question.part_id, field=exc.field or "images", message=exc.message,
+                raw_text_preview=""))

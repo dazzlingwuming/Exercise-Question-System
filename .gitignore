@@ -19,6 +19,7 @@ yarn-error.log*
 # Local runtime data
 data/*.sqlite3
 data/*.db
+data/media/
 *.sqlite3
 *.db
 .logs/
@@ -36,3 +37,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Agent / local tooling
+.workbuddy-ai/
+.planning/

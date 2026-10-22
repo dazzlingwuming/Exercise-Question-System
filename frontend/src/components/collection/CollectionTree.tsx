@@ -30,8 +30,8 @@ export function CollectionTree({ tree, selectedId, onSelect, onAction, onDropCol
     if (raw && acceptQuestions) { try { onDropQuestions?.(JSON.parse(raw) as string[], targetId); } catch { /* invalid drag payload */ } }
     else if (collectionId && acceptCollections && collectionId !== targetId) onDropCollection?.(collectionId, targetId);
   };
-  return <aside className="collection-tree panel rounded-lg p-3">
-    <div className="mb-2 flex items-center justify-between gap-2"><div className="font-semibold">集合</div><button type="button" className="rounded-md border border-line bg-white p-1.5" title="新建根集合" onClick={() => onAction("create", null)}><Plus className="h-4 w-4" /></button></div>
+  return <aside className="collection-tree panel p-3">
+    <div className="mb-2 flex items-center justify-between gap-2"><div className="font-semibold">集合</div><button type="button" className="rounded-md border border-line bg-panel p-1.5" title="新建根集合" onClick={() => onAction("create", null)}><Plus className="h-4 w-4" /></button></div>
     {root && <button type="button" className={`collection-tree__row ${selectedId === ROOT_COLLECTION_ID ? "is-selected" : ""}`} onClick={() => onSelect(ROOT_COLLECTION_ID)} onDragOver={(event) => event.preventDefault()} onDrop={(event) => receive(event, ROOT_COLLECTION_ID, false, true)}><FolderOpen className="h-4 w-4" /><span className="truncate">全部题库</span><span className="ml-auto text-xs text-muted">{root.total_question_count}</span></button>}
     <div className="mt-1 space-y-0.5">{topLevel.map((node) => <TreeNode key={node.id} node={node} depth={0} selectedId={selectedId} expanded={expanded} toggle={toggle} onSelect={onSelect} onAction={onAction} receive={receive} />)}</div>
   </aside>;

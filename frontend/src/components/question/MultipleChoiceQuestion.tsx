@@ -9,7 +9,7 @@ export function MultipleChoiceQuestion({ question, value, onChange }: { question
   return (
     <div className="space-y-2">
       {question.options.map((option) => (
-        <label key={option.key} className="flex cursor-pointer gap-3 rounded-md border border-line bg-white p-3 hover:border-accent">
+        <label key={option.key} className={`flex cursor-pointer gap-3 rounded-xl border p-4 ${value.includes(option.key) ? "border-accent bg-accent-soft/70" : "border-line bg-panel hover:border-accent"}`}>
           <input type="checkbox" checked={value.includes(option.key)} onChange={() => toggle(option.key)} />
           <span className="font-medium">{option.key}.</span>
           <div className="min-w-0 flex-1"><RichContent content={option.text} /></div>

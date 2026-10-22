@@ -107,6 +107,15 @@ def run_lightweight_migrations() -> None:
                 connection.execute(text("ALTER TABLE import_batches ADD COLUMN collection_id VARCHAR(80)"))
             connection.execute(text("CREATE INDEX IF NOT EXISTS ix_import_batches_source_id ON import_batches (source_id)"))
             connection.execute(text("CREATE INDEX IF NOT EXISTS ix_import_batches_collection_id ON import_batches (collection_id)"))
+        for table, columns in {
+            "ai_tutor_threads": {"model": "VARCHAR(120)", "image_count": "INTEGER NOT NULL DEFAULT 0"},
+            "ai_grading_results": {"image_count": "INTEGER NOT NULL DEFAULT 0", "chat_model": "VARCHAR(120)", "chat_image_count": "INTEGER NOT NULL DEFAULT 0"},
+        }.items():
+            if table in existing_tables:
+                present = {column["name"] for column in inspector.get_columns(table)}
+                for name, sql_type in columns.items():
+                    if name not in present:
+                        connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
     backfill_question_order_and_directions()
     backfill_user_question_states()
     backfill_question_sources()

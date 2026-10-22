@@ -15,6 +15,7 @@ class AiConfig(BaseModel):
     tutor_model: str | None = None
     grading_model: str | None = None
     generation_model: str | None = None
+    vision_model: str | None = None
     anysearch_api_key: str | None = None
     anysearch_endpoint: str | None = None
     stream: bool = False
@@ -49,6 +50,8 @@ class AiThreadResponse(BaseModel):
     attempt_id: str | None = None
     submitted: bool
     current_stage: str
+    model: str | None = None
+    image_count: int = 0
     has_hint: bool
     has_explanation: bool
     has_engineering_example: bool
@@ -117,6 +120,9 @@ class AiGradingResultRead(BaseModel):
     provider: str | None = None
     model: str | None = None
     rubric_version: str | None = None
+    image_count: int = 0
+    chat_model: str | None = None
+    chat_image_count: int = 0
     score: float | None = None
     max_score: float | None = None
     level: str | None = None

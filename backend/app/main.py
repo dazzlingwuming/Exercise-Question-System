@@ -2,13 +2,17 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from app.services.media_service import MediaError
+from app.middleware.media_limit import MediaUploadLimitMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import ai, attempts, collections, imports, practice, questions, stats
+from app.routers import ai, attempts, collections, imports, media, practice, questions, stats
 
 app = FastAPI(title="Agent 应用层岗位题库刷题系统", version="0.1.0")
 
+app.add_middleware(MediaUploadLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -32,6 +36,12 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.exception_handler(MediaError)
+async def media_error_handler(request, exc: MediaError):
+    return JSONResponse(status_code=exc.status_code, content={"detail": {"code": exc.code, "message": exc.message}})
+
+
+app.include_router(media.router, prefix="/api")
 app.include_router(imports.router, prefix="/api")
 app.include_router(collections.router, prefix="/api")
 app.include_router(questions.router, prefix="/api")

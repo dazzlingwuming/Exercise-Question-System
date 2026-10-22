@@ -1,15 +1,19 @@
-import { Children, Component, isValidElement, type ReactNode } from "react";
+import { Children, Component, isValidElement, type ReactNode, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import { MermaidDiagram } from "./MermaidDiagram";
 
+import { managedImageUrl } from "../../api/media";
+import { Dialog } from "../common/Dialog";
+
 const MAX_CONTENT_LENGTH = 100_000;
 
 type RichContentProps = {
   content: string | null | undefined;
   className?: string;
+  allowImages?: boolean;
 };
 
 // Markdown is deliberately rendered without rehype-raw: stored content must never become HTML.
@@ -20,7 +24,7 @@ const markdownComponents: Components = {
     if (isRootRelativeHref(href)) return <a href={href}>{children}</a>;
     return <span>{children}</span>;
   },
-  img: () => null,
+  img: ({ src, alt }) => <ManagedContentImage path={src || ""} alt={alt || "题目图片"} />,
   pre: ({ children }) => {
     const child = Children.toArray(children)[0];
     if (isValidElement<{ className?: string; children?: ReactNode }>(child) && /(?:^|\s)language-mermaid(?:\s|$)/.test(child.props.className ?? "")) {
@@ -30,7 +34,7 @@ const markdownComponents: Components = {
   },
 };
 
-export function RichContent({ content, className = "" }: RichContentProps) {
+export function RichContent({ content, className = "", allowImages = true }: RichContentProps) {
   const source = String(content ?? "");
   if (!source) return null;
   if (source.length > MAX_CONTENT_LENGTH) {
@@ -43,7 +47,7 @@ export function RichContent({ content, className = "" }: RichContentProps) {
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[[rehypeKatex, { throwOnError: false, trust: false, maxSize: 10, maxExpand: 500 }]]}
-          components={markdownComponents}
+          components={allowImages ? markdownComponents : { ...markdownComponents, img: () => null }}
           skipHtml
           urlTransform={safeUrlTransform}
         >
@@ -73,6 +77,13 @@ export function normalizeMarkdownOutput(source: string): string {
     }
     return withoutHeadingMarker;
   }).join("\n");
+}
+
+function ManagedContentImage({ path, alt }: { path: string; alt: string }) {
+  const [open, setOpen] = useState(false); const [failed, setFailed] = useState(false); const url = managedImageUrl(path);
+  if (!url) return <span className="text-xs text-muted">[外部或无效图片已隐藏：{alt}]</span>;
+  if (failed) return <span role="status" className="text-xs text-bad">图片暂时不可用：{alt}</span>;
+  return <><button type="button" className="rich-content__image-button" aria-label={`放大图片：${alt}`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); setOpen(true); }}><img className="rich-content__image" src={url} alt={alt} loading="lazy" onError={() => setFailed(true)} /></button><Dialog open={open} title={alt} onClose={() => setOpen(false)} className="max-w-5xl"><button type="button" className="btn-secondary mb-3" onClick={() => setOpen(false)}>关闭图片</button><img src={url} alt={alt} className="mx-auto max-h-[72dvh] max-w-full object-contain" /></Dialog></>;
 }
 
 function safeUrlTransform(url: string) {

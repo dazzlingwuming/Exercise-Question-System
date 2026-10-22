@@ -5,6 +5,7 @@ import { getQuestionRevisionDetail, getQuestionRevisions, restoreQuestionRevisio
 import { Badge } from "../components/common/Badge";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
+import { PageHeader } from "../components/common/PageHeader";
 import type { QuestionRevision, QuestionRevisionDetail } from "../types/question";
 
 export function QuestionRevisionPage() {
@@ -31,32 +32,34 @@ export function QuestionRevisionPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">修改历史</h1>
-        <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to={`/questions/${id}`}>返回详情</Link>
-      </div>
+      <PageHeader
+        eyebrow="REVISION HISTORY"
+        title="修改历史"
+        description="查看每次修改的字段，并按需恢复旧版本。"
+        actions={<Link className="btn-secondary min-w-0" to={`/questions/${id}`}>返回详情</Link>}
+      />
       {error && <ErrorState message={error} />}
-      {message && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
+      {message && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{message}</div>}
       {items.length === 0 ? <EmptyState text="暂无修改历史。" /> : (
         <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
           <section className="space-y-2">
             {items.map((item) => (
-              <button key={item.id} className="panel w-full rounded-lg p-4 text-left" onClick={() => showDetail(item.id)}>
+              <button key={item.id} className="panel w-full p-4 text-left" onClick={() => showDetail(item.id)}>
                 <div className="mb-2 flex gap-2"><Badge tone="accent">v{item.version_before} {"->"} v{item.version_after}</Badge><Badge>{item.source}</Badge></div>
                 <div className="text-sm text-muted">{item.changed_fields.join("、")}</div>
                 {item.reason && <div className="mt-2 text-sm">{item.reason}</div>}
               </button>
             ))}
           </section>
-          <section className="panel rounded-lg p-5">
+          <section className="panel p-5">
             {!detail ? (
               <div className="text-sm text-muted">选择一条历史查看字段级对比。</div>
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="font-semibold">v{detail.version_before} {"->"} v{detail.version_after}</div>
-                  <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={() => restore(detail.id)}>
-                    <RotateCcw className="h-4 w-4" />
+                  <button className="btn-secondary min-w-0" onClick={() => restore(detail.id)}>
+                    <RotateCcw className="h-4 w-4 shrink-0" />
                     恢复到修改前
                   </button>
                 </div>

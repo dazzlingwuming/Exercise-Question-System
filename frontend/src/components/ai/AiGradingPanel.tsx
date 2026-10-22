@@ -1,5 +1,5 @@
 import { BarChart3, RefreshCw, Send } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getLatestAiGrading, gradeSubjectiveAnswer, sendAiGradingMessageStream, type AiConfig, type AiGradingCard, type AiGradingResult, type AiMessage } from "../../api/ai";
 import type { PracticeQuestion } from "../../types/question";
 import { aiConfigForRole } from "../../utils/aiConfigStorage";
@@ -20,6 +20,8 @@ export function AiGradingPanel({
   config: AiConfig;
   onSummaryPendingChange?: (pending: boolean) => void;
 }) {
+  const contextActive = useRef(true);
+  useEffect(() => { contextActive.current = true; return () => { contextActive.current = false; }; }, []);
   const [grading, setGrading] = useState<AiGradingResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
@@ -32,12 +34,14 @@ export function AiGradingPanel({
   const gradingModelLabel = gradingConfig.model || "deepseek-v4-pro";
 
   useEffect(() => {
+    let active = true;
     setNotice("");
     setGrading(null);
     if (!attemptId || !supported) return;
     getLatestAiGrading(attemptId).then((response) => {
-      if (response.result) setGrading(response);
+      if (active && response.result) setGrading(response);
     }).catch(() => undefined);
+    return () => { active = false; };
   }, [attemptId, supported]);
 
   useEffect(() => {
@@ -47,12 +51,12 @@ export function AiGradingPanel({
   if (!question || !supported) return null;
 
   async function runGrade() {
-    if (!question || !attemptId || !hasKey) return;
+    if (!question || !attemptId || !hasKey || loading || chatLoading) return;
     setLoading(true);
     setNotice("");
     try {
       const response = await gradeSubjectiveAnswer(question.id, attemptId, gradingConfig);
-      setGrading(response);
+      if (contextActive.current) setGrading(response);
     } catch (err) {
       setNotice(readApiError(err));
     } finally {
@@ -61,7 +65,7 @@ export function AiGradingPanel({
   }
 
   async function sendMessage() {
-    if (!grading?.grading_id || !input.trim() || !hasKey) return;
+    if (!grading?.grading_id || !input.trim() || !hasKey || loading || chatLoading) return;
     const content = input.trim();
     setInput("");
     setChatLoading(true);
@@ -70,6 +74,8 @@ export function AiGradingPanel({
     try {
       await sendAiGradingMessageStream(grading.grading_id, content, gradingConfig, handleStreamEvent);
     } catch (err) {
+      setInput((current) => current.trim() ? current : content);
+      setGrading((current) => removeStreamingAssistant(current));
       setNotice(readApiError(err));
     } finally {
       setChatLoading(false);
@@ -92,6 +98,7 @@ export function AiGradingPanel({
   }
 
   function handleStreamEvent(event: { type: string; content?: string; message?: string; grading?: AiGradingResult }) {
+    if (!contextActive.current) return;
     if (event.type === "error") {
       setNotice(event.message ?? "AI 评分追问失败");
       setGrading((current) => removeStreamingAssistant(current));
@@ -113,19 +120,21 @@ export function AiGradingPanel({
         AI 主观题评分
       </div>
       {!submitted && <div className="rounded-md bg-surface p-3 text-sm text-muted">请先提交主观题答案，再进行 AI 评分。</div>}
-      {submitted && !hasKey && <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">请先在 AI 讲题助手中配置 DeepSeek API Key。</div>}
+      {submitted && !hasKey && <div className="rounded-md bg-warn-soft p-3 text-sm text-warn">请先在 AI 讲题助手中配置 DeepSeek API Key。</div>}
       {submitted && hasKey && <div className="mb-3 text-xs text-muted">评分模型：{gradingModelLabel}。可在 AI 讲题助手设置中单独修改。</div>}
       {submitted && hasKey && (
-        <button className="mb-3 inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm disabled:opacity-50" onClick={runGrade} disabled={loading || !attemptId}>
+        <button className="mb-3 inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-2 text-sm disabled:opacity-50" onClick={runGrade} disabled={loading || chatLoading || !attemptId}>
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           {grading?.result ? "重新评分" : "开始 AI 评分"}
         </button>
       )}
-      {notice && <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{notice}</div>}
-      {grading?.result && (
+      {notice && <div className="mb-3 rounded-md bg-bad-soft p-3 text-sm text-bad">{notice}</div>}
+      {submitted && grading?.result && (
         <>
+          <p className="mb-2 text-xs text-muted">实际评分模型：{grading.model || "未记录"} · 图片：{grading.image_count ?? 0} 张</p>
+          {grading.chat_model && <p className="mb-2 text-xs text-muted">最近追问模型：{grading.chat_model} · 图片：{grading.chat_image_count ?? 0} 张</p>}
           <AiGradingCardView card={grading.result} createdAt={grading.created_at} model={grading.model} />
-          <AiGradingChat messages={grading.messages ?? []} input={input} setInput={setInput} onSend={sendMessage} disabled={!hasKey || chatLoading || !grading.grading_id} loading={chatLoading} />
+          <AiGradingChat messages={grading.messages ?? []} input={input} setInput={setInput} onSend={sendMessage} disabled={!hasKey || loading || chatLoading || !grading.grading_id} loading={chatLoading} />
         </>
       )}
     </section>
@@ -134,7 +143,7 @@ export function AiGradingPanel({
 
 function AiGradingCardView({ card, createdAt, model }: { card: AiGradingCard; createdAt?: string | null; model?: string | null }) {
   return (
-    <div className="space-y-3 rounded-md border border-line bg-white p-4 text-sm">
+    <div className="space-y-3 rounded-md border border-line bg-panel p-4 text-sm">
       <div className="flex items-end justify-between gap-3">
         <div>
           <div className="text-xs text-muted">AI 评分卡</div>
@@ -142,7 +151,7 @@ function AiGradingCardView({ card, createdAt, model }: { card: AiGradingCard; cr
         </div>
         <span className="rounded-md bg-accent/10 px-2 py-1 text-xs font-medium text-accent">{card.level}</span>
       </div>
-      <RichContent content={card.summary} className="leading-6 text-muted" />
+      <RichContent allowImages={false} content={card.summary} className="leading-6 text-muted" />
       <MetaLine createdAt={createdAt} model={model} />
       {card.dimension_scores.length > 0 && (
         <div>
@@ -154,7 +163,7 @@ function AiGradingCardView({ card, createdAt, model }: { card: AiGradingCard; cr
                   <span>{item.name}</span>
                   <span>{item.score} / {item.max_score}</span>
                 </div>
-                {item.comment && <RichContent content={item.comment} className="mt-1 text-xs leading-5 text-muted" />}
+                {item.comment && <RichContent allowImages={false} content={item.comment} className="mt-1 text-xs leading-5 text-muted" />}
               </div>
             ))}
           </div>
@@ -179,12 +188,12 @@ function MetaLine({ createdAt, model }: { createdAt?: string | null; model?: str
 
 function PointList({ title, items, tone }: { title: string; items: string[]; tone: "good" | "warn" | "bad" }) {
   if (!items.length) return null;
-  const color = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-700" : "text-red-700";
+  const color = tone === "good" ? "text-good" : tone === "warn" ? "text-warn" : "text-bad";
   return (
     <div>
       <div className="mb-1 font-medium">{title}</div>
       <ul className={`space-y-1 leading-6 ${color}`}>
-        {items.map((item, index) => <li key={`${title}-${index}`}><RichContent content={item} /></li>)}
+        {items.map((item, index) => <li key={`${title}-${index}`}><RichContent allowImages={false} content={item} /></li>)}
       </ul>
     </div>
   );
@@ -194,7 +203,7 @@ function TextBlock({ title, content }: { title: string; content: string }) {
   return (
     <div>
       <div className="mb-1 font-medium">{title}</div>
-      <RichContent content={content} className="rounded-md bg-surface p-2 leading-6" />
+      <RichContent allowImages={false} content={content} className="rounded-md bg-surface p-2 leading-6" />
     </div>
   );
 }
@@ -215,14 +224,14 @@ function AiGradingChat({
   loading: boolean;
 }) {
   return (
-    <div className="mt-3 rounded-md border border-line bg-white p-3 text-sm">
+    <div className="mt-3 rounded-md border border-line bg-panel p-3 text-sm">
       <div className="mb-2 font-medium">围绕评分追问</div>
       <div className="mb-3 max-h-80 min-h-32 space-y-3 overflow-auto rounded-md bg-surface p-3">
         {messages.length ? messages.map((message, index) => (
           <div key={`${message.created_at}-${index}`} className={message.role === "assistant" ? "leading-6" : "text-muted"}>
             <div className="mb-1 text-xs text-muted">{message.role === "assistant" ? "AI" : "你"}</div>
             {message.role === "assistant" && !String(message.created_at ?? "").includes("assistant-streaming") ? (
-              <RichContent content={message.content} />
+              <RichContent allowImages={false} content={message.content} />
             ) : (
               <div className="whitespace-pre-wrap">{message.content}</div>
             )}
@@ -242,7 +251,7 @@ function AiGradingChat({
           disabled={disabled}
           rows={4}
         />
-        <button className="inline-flex h-24 w-12 items-center justify-center rounded-md bg-accent text-white disabled:opacity-50" onClick={onSend} disabled={disabled || !input.trim()} title="发送，Ctrl+Enter">
+        <button className="inline-flex h-24 w-12 items-center justify-center rounded-md bg-accent text-on-accent disabled:opacity-50" onClick={onSend} disabled={disabled || !input.trim()} title="发送，Ctrl+Enter">
           <Send className="h-4 w-4" />
         </button>
       </div>

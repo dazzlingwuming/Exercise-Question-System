@@ -1,0 +1,21 @@
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QuestionBankPage } from "./QuestionBankPage";
+import { ReviewPage } from "./ReviewPage";
+import { listQuestions, getFilterOptions } from "../api/questions";
+import { listWrongAttempts } from "../api/attempts";
+import type { Question } from "../types/question";
+vi.mock("../api/questions",()=>({listQuestions:vi.fn(),getFilterOptions:vi.fn(),deleteQuestion:vi.fn(),bulkMoveQuestions:vi.fn()}));
+vi.mock("../api/attempts",()=>({listWrongAttempts:vi.fn()}));
+vi.mock("../api/collections",()=>({getCollectionTree:vi.fn().mockResolvedValue([]),createCollection:vi.fn(),deleteCollection:vi.fn(),mergeCollection:vi.fn(),moveCollection:vi.fn(),updateCollection:vi.fn()}));
+vi.mock("../components/collection/CollectionTree",()=>({CollectionTree:()=>null}));
+vi.mock("../components/content/RichContent",()=>({RichContent:({content}:{content:string})=><div>{content}</div>}));
+const q = (stem:string):Question => ({id:stem,type:"short_answer",type_label:"简答题",stem,options:[],tags:[],directions:[],exam_points:[],version:1,is_deleted:false,source_text:"",parse_warnings:[]});
+const mount=(page:"bank"|"review")=>render(<MemoryRouter>{page==="bank"?<QuestionBankPage/>:<ReviewPage/>}</MemoryRouter>);
+beforeEach(()=>{vi.clearAllMocks();vi.mocked(getFilterOptions).mockResolvedValue({types:["short_answer"],difficulties:["2"],tags:[],exam_points:[],directions:[]});});
+describe("question list requests",()=>{
+ it("paginates the bank and returns to page one after a filter changes",async()=>{vi.mocked(listQuestions).mockImplementation(async filters=>({items:[q(`第${filters.page}页题目`)],total:41,page:filters.page||1,page_size:20}));mount("bank");await screen.findByText("第1页题目");fireEvent.click(screen.getByText("下一页"));await screen.findByText("第2页题目");fireEvent.change(screen.getByLabelText("全部题型"),{target:{value:"short_answer"}});await waitFor(()=>expect(listQuestions).toHaveBeenLastCalledWith(expect.objectContaining({page:1,type:"short_answer",page_size:20})));await screen.findByText("第1页题目");});
+ it("discards an older bank response that arrives after newer search results",async()=>{let old!:(v:Awaited<ReturnType<typeof listQuestions>>)=>void;vi.mocked(listQuestions).mockImplementationOnce(()=>new Promise(resolve=>{old=resolve;})).mockResolvedValue({items:[q("新的搜索结果")],total:1,page:1,page_size:20});mount("bank");fireEvent.change(screen.getByLabelText("搜索题干"),{target:{value:"新的"}});await screen.findByText("新的搜索结果");old({items:[q("过期结果")],total:1,page:1,page_size:20});await waitFor(()=>expect(screen.queryByText("过期结果")).toBeNull());expect(screen.getByText("新的搜索结果")).toBeTruthy();});
+ it("shows review loading and resets pagination when sorting changes",async()=>{vi.mocked(listWrongAttempts).mockResolvedValue({items:[],total:20,page:1,page_size:10,has_next:true});mount("review");await screen.findByText("暂无错题。");fireEvent.click(screen.getByText("下一页"));await waitFor(()=>expect(listWrongAttempts).toHaveBeenLastCalledWith(expect.objectContaining({page:2})));fireEvent.change(screen.getByLabelText("错题排序"),{target:{value:"wrong_count_desc"}});await waitFor(()=>expect(listWrongAttempts).toHaveBeenLastCalledWith(expect.objectContaining({page:1,sort:"wrong_count_desc"})));});
+});

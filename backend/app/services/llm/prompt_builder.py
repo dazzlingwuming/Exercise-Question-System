@@ -6,6 +6,7 @@ import json
 
 from app.models.attempt import Attempt
 from app.models.question import Question
+from app.services.llm.vision_context import question_context_data
 
 
 MATH_MARKDOWN_INSTRUCTION = (
@@ -41,26 +42,27 @@ def build_messages(
 
 
 def _question_context(question: Question, attempt: Attempt | None, submitted: bool) -> dict[str, object]:
+    data = question_context_data(question, attempt if submitted else None)
     base: dict[str, object] = {
         "question_id": question.id,
-        "type": question.type,
-        "type_label": question.type_label,
-        "difficulty": question.difficulty,
-        "module": (question.directions or question.tags or [None])[0],
-        "knowledge_points": question.exam_points,
-        "stem": question.stem,
-        "material": question.material,
-        "options": question.options,
+        "type": data.get("type"),
+        "type_label": data.get("type_label"),
+        "difficulty": data.get("difficulty"),
+        "module": (data.get("directions") or data.get("tags") or [None])[0],
+        "knowledge_points": data.get("exam_points"),
+        "stem": data.get("stem"),
+        "material": data.get("material"),
+        "options": data.get("options"),
         "submitted": submitted,
     }
     if submitted:
         base.update(
             {
-                "standard_answer": question.standard_answer,
-                "explanation": question.explanation,
-                "scoring_standard": question.scoring_standard,
-                "common_mistakes": question.common_mistakes,
-                "follow_up_question": question.follow_up_question,
+                "standard_answer": data.get("standard_answer"),
+                "explanation": data.get("explanation"),
+                "scoring_standard": data.get("scoring_standard"),
+                "common_mistakes": data.get("common_mistakes"),
+                "follow_up_question": data.get("follow_up_question"),
                 "user_answer": attempt.user_answer_raw if attempt else None,
                 "is_correct": attempt.is_correct if attempt else None,
             }
@@ -71,24 +73,24 @@ def _question_context(question: Question, attempt: Attempt | None, submitted: bo
 def _system_prompt(stage: str, submitted: bool) -> str:
     if not submitted:
         return (
-            "你是一个面向 Agent 应用层岗位题库的 AI 讲题助手。当前用户还没有提交本题答案。"
+            "你是一个根据题目所属学科辅导学习的 AI 讲题助手。当前用户还没有提交本题答案。"
             "你只能给解题提示、概念解释和题干理解帮助，不能泄露正确答案，不能直接说应该选择哪个选项，"
             "不能输出标准答案或完整解析。使用中文，不超过 200 字。"
         )
     if stage == "explanation":
         return (
-            "你是一个 Agent 应用层岗位题库的 AI 讲题助手。当前用户已经提交本题答案。"
+            "你是一个 根据题目所属学科辅导学习的 AI 讲题助手。当前用户已经提交本题答案。"
             "请按结构输出：## 这题考什么 ## 标准思路 ## 你的答案分析 ## 背后的原理 ## 推荐补充表达 ## 一句话记忆。"
             "以题库标准答案为主要依据，不要编造无关信息。"
         )
     if stage == "engineering_example":
         return (
-            "你是一个 Agent 工程面试辅导助手。请基于当前题目、标准答案和用户答案给出一个具体工程例子。"
-            "按结构输出：## 工程场景 ## 为什么这个场景对应本题 ## 方案落地 ## 可能的问题 ## 面试表达。"
+            "你是一个 跨学科辅导助手。请基于当前题目、标准答案和用户答案给出一个与本题所属学科相符的具体例子。"
+            "按结构输出：## 具体例子 ## 与本题的联系 ## 解题过程 ## 常见误区 ## 表达要点。"
         )
     if stage == "interview_followup":
         return (
-            "你是一个 Agent 应用层岗位面试官。请基于当前题目生成 1 个贴合本题的面试追问，"
+            "你是一个 学习辅导老师。请基于当前题目生成 1 个贴合本题的学习追问，"
             "不要生成多个追问。输出结构包含：问题、考察点、回答要点。"
         )
     return "你是一个题目感知型 AI 讲题助手。请只围绕当前题目回答，使用中文，避免无关扩展。"

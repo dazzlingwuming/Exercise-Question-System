@@ -13,6 +13,7 @@ from app.models.question import Question
 from app.models.question_revision import QuestionRevision
 from app.schemas.question import QuestionUpdate
 from app.services.direction_service import normalize_directions
+from app.services.media_service import question_images
 from app.services.question_validation_service import validate_question_for_save
 
 EDITABLE_FIELDS = {
@@ -87,6 +88,7 @@ def update_question(db: Session, question: Question, payload: QuestionUpdate) ->
         next_data["answer_text"] = str(update_data["standard_answer"])
 
     validate_question_for_save(next_data)
+    question_images(db, next_data)
     changed_fields = [field for field in EDITABLE_FIELDS if before_data.get(field) != next_data.get(field)]
     if not changed_fields:
         return question
@@ -130,6 +132,7 @@ def restore_revision(db: Session, question: Question, revision: QuestionRevision
     if "standard_answer" in target_data:
         next_data["answer_text"] = str(target_data["standard_answer"])
     validate_question_for_save(next_data)
+    question_images(db, next_data)
     changed_fields = [field for field in EDITABLE_FIELDS if before_data.get(field) != next_data.get(field)]
     if not changed_fields:
         return question

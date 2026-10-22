@@ -15,6 +15,7 @@ from app.services.collection_service import ensure_system_collections
 from app.services.question_revision_service import _build_revision, question_to_snapshot
 from app.schemas.question import QuestionCreate, QuestionType
 from app.services.direction_service import normalize_directions
+from app.services.media_service import question_images
 from app.services.question_validation_service import validate_question_for_save
 
 
@@ -52,6 +53,7 @@ def create_question(db: Session, payload: QuestionCreate) -> Question:
     import_order = next_import_order(db)
     question_data = _payload_to_question_data(payload, import_order, collection.id)
     validate_question_for_save(question_data)
+    question_images(db, question_data)
     question = Question(**question_data)
     db.add(question)
     db.flush()
