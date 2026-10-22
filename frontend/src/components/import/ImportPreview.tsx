@@ -13,7 +13,7 @@ export function ImportPreview({ preview }: { preview: ImportPreviewType }) {
 
 function Metric({ label, value }: { label: string; value: number }) {
   return (
-    <div className="panel rounded-lg p-4">
+    <div className="panel p-4">
       <div className="text-sm text-muted">{label}</div>
       <div className="mt-2 text-3xl font-semibold">{value}</div>
     </div>

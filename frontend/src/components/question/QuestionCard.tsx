@@ -4,14 +4,20 @@ import { RichContent } from "../content/RichContent";
 
 export function QuestionCard({ question }: { question: PracticeQuestion }) {
   return (
-    <section className="panel rounded-lg p-5">
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+    <section className="panel overflow-hidden">
+      <div className="flex flex-wrap items-center gap-2 border-b border-line/70 bg-panel-2/70 px-5 py-3">
         <Badge tone="accent">{question.type_label}</Badge>
-        {question.difficulty && <Badge>{question.difficulty}</Badge>}
-        {question.part_id && <span className="text-xs text-muted">{question.part_id}</span>}
+        {question.difficulty && <Badge>难度 · {question.difficulty}</Badge>}
+        {question.part_id && <span className="ml-auto text-[11px] font-medium tracking-wide text-muted">{question.part_id}</span>}
       </div>
-      <RichContent content={question.stem} className="text-lg font-semibold leading-8" />
-      {question.material && <RichContent content={question.material} className="mt-4 rounded-md bg-surface p-4 text-sm leading-6" />}
+      <div className="p-5 sm:p-6">
+        <RichContent content={question.stem} className="text-[1.05rem] font-semibold leading-8" />
+        {question.material && (
+          <div className="mt-4 rounded-xl border border-line bg-panel-2 p-4">
+            <RichContent content={question.material} className="text-sm leading-7" />
+          </div>
+        )}
+      </div>
     </section>
   );
 }

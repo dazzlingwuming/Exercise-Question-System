@@ -49,8 +49,8 @@ export function QuestionEditPage() {
       <div className="space-y-5">
         <ErrorState message="题目已删除，需先恢复再编辑。" />
         <div className="flex gap-2">
-          <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to={`/questions/${form.id}`}>返回详情</Link>
-          <Link className="rounded-md border border-line bg-white px-3 py-2 text-sm" to="/questions/deleted">查看回收站</Link>
+          <Link className="rounded-md border border-line bg-panel px-3 py-2 text-sm" to={`/questions/${form.id}`}>返回详情</Link>
+          <Link className="rounded-md border border-line bg-panel px-3 py-2 text-sm" to="/questions/deleted">查看回收站</Link>
         </div>
       </div>
     );
@@ -106,7 +106,7 @@ export function QuestionEditPage() {
     <div className="space-y-5">
       <PageHeader eyebrow="REFINE YOUR KNOWLEDGE" title="编辑题目" description={`${form.part_id ?? form.id} · v${form.version} · 每一次完善，都让题目更有价值。`} actions={<Link className="btn-secondary" to={returnTo || `/questions/${form.id}`}>取消</Link>} />
       {error && <ErrorState message={error} />}
-      {message && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
+      {message && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{message}</div>}
       <EditSection title="基础信息">
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="题型">
@@ -142,10 +142,10 @@ export function QuestionEditPage() {
             <div key={`${option.key}-${index}`} className="grid gap-2 md:grid-cols-[80px_1fr_40px]">
               <input className="focus-ring rounded-md border border-line px-2 py-2" value={option.key} onChange={(event) => updateOption(index, { key: event.target.value.toUpperCase() })} />
               <MarkdownEditor onUploadingChange={onUploadingChange} label={`选项 ${option.key}`} rows={2} value={option.text} onChange={(value) => updateOption(index, { text: value })} />
-              <button aria-label={`删除选项 ${option.key}`} className="h-fit rounded-md border border-line bg-white p-2" type="button" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></button>
+              <button aria-label={`删除选项 ${option.key}`} className="h-fit rounded-md border border-line bg-panel p-2" type="button" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}
-          <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" type="button" onClick={addOption}>新增选项</button>
+          <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm" type="button" onClick={addOption}>新增选项</button>
         </div>
       </EditSection>
       <EditSection title="标准答案">
@@ -164,7 +164,7 @@ export function QuestionEditPage() {
         <textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="例如：原标准答案有误，修正为 B" />
       </EditSection>
       {uploadCount > 0 && <p role="status" className="text-sm text-accent">图片正在上传，请等待完成后保存题目。</p>}
-      <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={save} disabled={saving || uploadCount > 0}>
+      <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent" onClick={save} disabled={saving || uploadCount > 0}>
         <Save className="h-4 w-4" />
         {saving ? "保存中…" : "保存修改"}
       </button>
@@ -173,7 +173,7 @@ export function QuestionEditPage() {
 }
 
 function EditSection({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="panel rounded-lg p-5"><h2 className="mb-4 font-semibold">{title}</h2>{children}</section>;
+  return <section className="panel p-5"><h2 className="mb-4 font-semibold">{title}</h2>{children}</section>;
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

@@ -82,7 +82,7 @@ export function normalizeMarkdownOutput(source: string): string {
 function ManagedContentImage({ path, alt }: { path: string; alt: string }) {
   const [open, setOpen] = useState(false); const [failed, setFailed] = useState(false); const url = managedImageUrl(path);
   if (!url) return <span className="text-xs text-muted">[外部或无效图片已隐藏：{alt}]</span>;
-  if (failed) return <span role="status" className="text-xs text-red-700">图片暂时不可用：{alt}</span>;
+  if (failed) return <span role="status" className="text-xs text-bad">图片暂时不可用：{alt}</span>;
   return <><button type="button" className="rich-content__image-button" aria-label={`放大图片：${alt}`} onClick={(event) => { event.preventDefault(); event.stopPropagation(); setOpen(true); }}><img className="rich-content__image" src={url} alt={alt} loading="lazy" onError={() => setFailed(true)} /></button><Dialog open={open} title={alt} onClose={() => setOpen(false)} className="max-w-5xl"><button type="button" className="btn-secondary mb-3" onClick={() => setOpen(false)}>关闭图片</button><img src={url} alt={alt} className="mx-auto max-h-[72dvh] max-w-full object-contain" /></Dialog></>;
 }
 

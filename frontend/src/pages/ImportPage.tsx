@@ -161,7 +161,7 @@ export function ImportPage() {
       />
       <section className="panel p-5">
 
-        <section className="mt-5 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+        <section className="mt-5 rounded-md border border-warn-border bg-warn-soft p-4 text-sm leading-6 text-warn">
           <h2 className="font-semibold">格式必读</h2>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>只需把上方这一份完整模板与原始资料交给 GPT；模板顶部是规则，后面是所有题型的正式示例，不需要再拼接其他说明。</li>
@@ -180,7 +180,7 @@ export function ImportPage() {
             <label className="sr-only" htmlFor="question-bank-file">选择 Markdown 文件</label>
             <input
               id="question-bank-file"
-              className="focus-ring block w-full cursor-pointer rounded-md border border-line bg-white text-sm text-muted file:mr-3 file:cursor-pointer file:border-0 file:border-r file:border-line file:bg-white file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-surface"
+              className="focus-ring block w-full cursor-pointer rounded-md border border-line bg-panel text-sm text-muted file:mr-3 file:cursor-pointer file:border-0 file:border-r file:border-line file:bg-panel file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-surface"
               type="file"
               aria-label="选择 Markdown 文件"
               accept=".md,.markdown,.txt,text/markdown,text/plain"
@@ -197,13 +197,13 @@ export function ImportPage() {
             }}>使用项目默认题库</button>
           </div>
           <div>
-            <label className="block text-sm font-medium">导入批次名称 <span className="text-red-600">*</span></label>
+            <label className="block text-sm font-medium">导入批次名称 <span className="text-bad">*</span></label>
             <input className="focus-ring mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" value={batchName} onChange={(event) => {
               setBatchName(event.target.value);
               setPreview(null);
             }} placeholder="例如：bias_variance_A批次.md" />
             <p className="mt-1 text-xs leading-5 text-muted">批次名和原文件名只用于导入审计，不决定题目归档位置。</p>
-            <label className="mt-3 block text-sm font-medium">目标集合 <span className="text-red-600">*</span></label>
+            <label className="mt-3 block text-sm font-medium">目标集合 <span className="text-bad">*</span></label>
             <div className="mt-1"><CollectionPicker tree={collectionTree} selectedId={collectionId} onSelect={(id) => { setCollectionId(id); setPreview(null); }} allowUnfiled label="请选择这批题目的归档集合" /></div>
             <p className="mt-1 text-xs leading-5 text-muted">同一主题的 A/B 批次可以导入同一个集合；之后仍可在题库中重命名、移动或合并集合。</p>
             <label className="mt-3 block text-sm font-medium">题库 Markdown</label>
@@ -222,7 +222,7 @@ export function ImportPage() {
             <RotateCcw className="h-4 w-4 shrink-0" />重置并重新导入
           </button>
         </div>
-        {message && <div className="mt-4 whitespace-pre-line rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
+        {message && <div className="mt-4 whitespace-pre-line rounded-md bg-good-soft p-3 text-sm text-good">{message}</div>}
       </section>
 
       {error && <ErrorState message={error} />}
@@ -231,7 +231,7 @@ export function ImportPage() {
           <section className="flex flex-wrap items-center gap-2 text-sm text-muted">
             <span>导入批次：{preview.batch_name}</span>
             <Badge tone={preview.is_legacy ? "neutral" : "accent"}>{preview.is_legacy ? "旧格式兼容解析" : preview.format_version}</Badge>
-            {preview.blocking_error_count > 0 && <span className="text-red-600">存在 {preview.blocking_error_count} 个阻断问题，不能导入。</span>}
+            {preview.blocking_error_count > 0 && <span className="text-bad">存在 {preview.blocking_error_count} 个阻断问题，不能导入。</span>}
           </section>
           <ImportPreview preview={preview} />
           <ImportErrorList preview={preview} />
@@ -251,7 +251,7 @@ export function ImportPage() {
 
 function QuestionPreviewCard({ question, expanded, onToggle }: { question: ImportPreviewType["questions"][number]; expanded: boolean; onToggle: () => void }) {
   return (
-    <article className="rounded-md border border-line bg-white p-3">
+    <article className="rounded-md border border-line bg-panel p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-2 flex flex-wrap gap-2">

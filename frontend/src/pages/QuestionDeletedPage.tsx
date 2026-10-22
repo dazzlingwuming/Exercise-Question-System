@@ -83,7 +83,7 @@ export function QuestionDeletedPage() {
       </> : <>
       <section className="panel p-4">
         <div className="grid gap-3 md:grid-cols-5">
-          <div className="flex items-center gap-2 rounded-md border border-line bg-white px-3">
+          <div className="flex items-center gap-2 rounded-md border border-line bg-panel px-3">
             <Search className="h-4 w-4 text-muted" />
             <input className="h-10 min-w-0 outline-none" value={keyword} onChange={(event) => { setPage(1); setKeyword(event.target.value); }} placeholder="搜索题干" />
           </div>
@@ -128,14 +128,14 @@ export function QuestionDeletedPage() {
         </div>
       </div>
       </>}
-      {restoringQuestion && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"><section className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl"><h2 className="text-lg font-semibold">恢复题目</h2><p className="mt-2 text-sm text-muted">若原集合已不存在，系统已预选“未归类”；你也可以改选其他集合。</p><div className="mt-4"><CollectionPicker tree={collectionTree} selectedId={restoreTarget} onSelect={setRestoreTarget} allowUnfiled label="请选择恢复位置" /></div><div className="mt-5 flex flex-wrap justify-end gap-2"><button className="btn-secondary min-w-0" onClick={() => setRestoringQuestion(null)}>取消</button><button disabled={!restoreTarget} className="btn-primary min-w-0 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void confirmRestoreQuestion()}>恢复题目</button></div></section></div>}
+      {restoringQuestion && <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/40 px-4"><section className="w-full max-w-lg rounded-2xl bg-panel p-5 shadow-xl"><h2 className="text-lg font-semibold">恢复题目</h2><p className="mt-2 text-sm text-muted">若原集合已不存在，系统已预选“未归类”；你也可以改选其他集合。</p><div className="mt-4"><CollectionPicker tree={collectionTree} selectedId={restoreTarget} onSelect={setRestoreTarget} allowUnfiled label="请选择恢复位置" /></div><div className="mt-5 flex flex-wrap justify-end gap-2"><button className="btn-secondary min-w-0" onClick={() => setRestoringQuestion(null)}>取消</button><button disabled={!restoreTarget} className="btn-primary min-w-0 disabled:cursor-not-allowed disabled:opacity-50" onClick={() => void confirmRestoreQuestion()}>恢复题目</button></div></section></div>}
     </div>
   );
 }
 
 function Select({ value, onChange, options, empty }: { value: string; onChange: (value: string) => void; options: string[]; empty: string }) {
   return (
-    <select className="rounded-md border border-line bg-white px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
+    <select className="rounded-md border border-line bg-panel px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">{empty}</option>
       {options.map((item) => <option key={item} value={item}>{item}</option>)}
     </select>

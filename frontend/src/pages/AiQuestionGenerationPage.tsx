@@ -172,7 +172,7 @@ export function AiQuestionGenerationPage() {
         }
       />
       {error && <ErrorState message={error} />}
-      {notice && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
+      {notice && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{notice}</div>}
       <div className="space-y-4">
         {generation?.candidates.map((candidate, index) => (
           <CandidateCard
@@ -265,7 +265,7 @@ function CandidateCard({
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700">候选题 {index + 1}</span>
+            <span className="rounded-md bg-good-soft px-2 py-1 text-good">候选题 {index + 1}</span>
             <span className="rounded-md bg-surface px-2 py-1">{question.type_label || question.type}</span>
             {question.difficulty && <span className="rounded-md bg-surface px-2 py-1">难度：{question.difficulty}</span>}
             <span className="rounded-md bg-surface px-2 py-1">状态：{statusText(candidate.status)}</span>
@@ -276,12 +276,12 @@ function CandidateCard({
       </div>
 
       {editing ? (
-        <section className="mt-4 rounded-md border border-line bg-white p-4">
+        <section className="mt-4 rounded-md border border-line bg-panel p-4">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h3 className="font-medium">编辑候选题</h3>
             <button className="btn-secondary min-w-0" onClick={() => { setDraft(question); setEditing(false); setEditError(""); }}>取消编辑</button>
           </div>
-          {editError && <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{editError}</div>}
+          {editError && <div className="mb-3 rounded-md bg-bad-soft p-3 text-sm text-bad">{editError}</div>}
           <div className="grid gap-3 md:grid-cols-3">
             <Field label="题型"><input className="w-full rounded-md border border-line px-3 py-2" value={draft.type_label ?? draft.type} onChange={(event) => updateDraft("type_label", event.target.value)} /></Field>
             <Field label="难度"><input className="w-full rounded-md border border-line px-3 py-2" value={draft.difficulty ?? ""} onChange={(event) => updateDraft("difficulty", event.target.value)} /></Field>
@@ -315,7 +315,7 @@ function CandidateCard({
         </section>
       ) : question.options?.length > 0 && (
         <div className="mb-4 grid gap-2">
-          {question.options.map((option) => <div key={option.key} className="rounded-md border border-line bg-white px-3 py-2 text-sm"><div className="mb-1 font-medium">{option.key}.</div><RichContent content={option.text} /></div>)}
+          {question.options.map((option) => <div key={option.key} className="rounded-md border border-line bg-panel px-3 py-2 text-sm"><div className="mb-1 font-medium">{option.key}.</div><RichContent content={option.text} /></div>)}
         </div>
       )}
 
@@ -324,7 +324,7 @@ function CandidateCard({
       {candidate.status === "pending" && <div className="mt-4"><AiCollectionPlacement tree={collectionTree} selectedId={placement.collectionId} recommendation={placement.recommendation} confirmed={placement.confirmed} loading={placementLoading} onSelect={onPlacementSelect} onConfirm={onPlacementConfirm} onRecommend={onPlacementRecommend} /></div>}
 
       {!revealed ? (
-        <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+        <div className="mt-3 rounded-md border border-warn-border bg-warn-soft p-3 text-sm leading-6 text-warn">
           先审核题干和选项是否清楚、是否有独立作答价值。通过初审后再查看标准答案、解析、常见错误和面试追问。
         </div>
       ) : (
@@ -339,12 +339,12 @@ function CandidateCard({
       )}
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
-        <div className={`rounded-md border p-3 text-sm ${candidate.structure_validation.ok ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-red-200 bg-red-50 text-red-800"}`}>
+        <div className={`rounded-md border p-3 text-sm ${candidate.structure_validation.ok ? "border-good-border bg-good-soft text-good" : "border-bad-border bg-bad-soft text-bad"}`}>
           <div className="mb-1 font-medium">结构校验：{candidate.structure_validation.ok ? "通过" : "未通过"}</div>
           {candidate.structure_validation.errors.map((item) => <p key={item}>问题：{item}</p>)}
           {candidate.structure_validation.warnings.map((item) => <p key={item}>提示：{item}</p>)}
         </div>
-        <div className={`rounded-md border p-3 text-sm ${candidate.ai_validation.is_consistent ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>
+        <div className={`rounded-md border p-3 text-sm ${candidate.ai_validation.is_consistent ? "border-good-border bg-good-soft text-good" : "border-warn-border bg-warn-soft text-warn"}`}>
           {staleSkippedQualityCheck ? (
             <>
               <div className="mb-1 font-medium">AI 质量校验：未重新校验</div>
@@ -361,7 +361,7 @@ function CandidateCard({
         </div>
       </div>
 
-      <div className="mt-4 rounded-md border border-line bg-white p-3 text-sm">
+      <div className="mt-4 rounded-md border border-line bg-panel p-3 text-sm">
         <div className="mb-2 font-medium">题干相似度最高的 3 道已有题</div>
         <div className="space-y-2">
           {candidate.similar_questions.map((item) => (
@@ -382,7 +382,7 @@ function CandidateCard({
           </button>
         )}
         {hasQualityRisk && candidate.status === "pending" && (
-          <div className="w-full rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <div className="w-full rounded-md border border-warn-border bg-warn-soft p-3 text-sm text-warn">
             AI 质量校验提示这道题可能存在风险。是否入库由你最终判断；建议先查看答案与解析后再决定。
           </div>
         )}
@@ -396,7 +396,7 @@ function CandidateCard({
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {loading ? "处理中..." : "加入题库"}
         </button>
-        {candidate.status === "pending" && revealed && (!placement.collectionId || !placement.confirmed) && <p className="w-full text-sm text-amber-700">加入题库前，请先选择并确认归档集合。</p>}
+        {candidate.status === "pending" && revealed && (!placement.collectionId || !placement.confirmed) && <p className="w-full text-sm text-warn">加入题库前，请先选择并确认归档集合。</p>}
         {candidate.status === "pending" && (
           <button className="btn-secondary min-w-0 disabled:cursor-not-allowed disabled:opacity-50" onClick={onReject} disabled={loading}>
             <Trash2 className="h-4 w-4 shrink-0" />

@@ -236,34 +236,67 @@ export function QuestionBankPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader eyebrow="MY QUESTION LIBRARY" title="我的题库" description="整理知识的每一片拼图，找到下一次练习的方向。" actions={<div className="flex flex-wrap gap-2"><Link className="inline-flex h-10 items-center gap-2 rounded-md bg-accent px-3 text-sm text-white" to={`/questions/new?collection_id=${encodeURIComponent(collectionId === ROOT_COLLECTION_ID ? UNFILED_COLLECTION_ID : collectionId)}`}><Plus className="h-4 w-4" />新增题目</Link><Link className="inline-flex h-10 items-center rounded-md border border-line bg-white px-3 text-sm" to="/questions/deleted">回收站</Link></div>} />
+      <PageHeader eyebrow="MY QUESTION LIBRARY" title="我的题库" description="整理知识的每一片拼图，找到下一次练习的方向。" actions={<div className="flex flex-wrap gap-2"><Link className="inline-flex h-10 items-center gap-2 rounded-md bg-accent px-3 text-sm text-on-accent" to={`/questions/new?collection_id=${encodeURIComponent(collectionId === ROOT_COLLECTION_ID ? UNFILED_COLLECTION_ID : collectionId)}`}><Plus className="h-4 w-4" />新增题目</Link><Link className="inline-flex h-10 items-center rounded-md border border-line bg-panel px-3 text-sm" to="/questions/deleted">回收站</Link></div>} />
       {error && <ErrorState message={error} />}
-      {notice && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
+      {notice && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{notice}</div>}
       <button type="button" className="collection-mobile-trigger lg:hidden" onClick={() => setMobileTreeOpen(true)}>选择集合：{current?.path || "全部题库"}</button>
       {mobileTreeOpen && <Dialog open title="选择集合" onClose={() => setMobileTreeOpen(false)}><button type="button" className="btn-secondary" aria-label="关闭集合导航" onClick={() => setMobileTreeOpen(false)}><X className="h-5 w-5" />关闭</button><div className="mt-3"><CollectionTree tree={tree} selectedId={collectionId} onSelect={selectCollection} onAction={invokeAction} onDropCollection={(id, target) => void moveCollectionByDrop(id, target)} onDropQuestions={(ids, target) => void moveQuestions(ids, target)} /></div></Dialog>}
       <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden lg:block"><CollectionTree tree={tree} selectedId={collectionId} onSelect={selectCollection} onAction={invokeAction} onDropCollection={(id, target) => void moveCollectionByDrop(id, target)} onDropQuestions={(ids, target) => void moveQuestions(ids, target)} /></div>
         <section className="min-w-0 space-y-4">
-          <div className="panel rounded-lg p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><h2 className="text-lg font-semibold">{collectionId === ROOT_COLLECTION_ID ? "全部题库" : current?.path || "集合"}</h2>{current?.description && <p className="mt-1 text-sm text-muted">{current.description}</p>}<p className="mt-1 text-sm text-muted">{current ? `${current.total_question_count} 道题` : "正在读取集合…"}</p></div>
-              <div className="flex flex-wrap gap-2">
-                {collectionId === UNFILED_COLLECTION_ID && items.length > 0 && <button className="inline-flex items-center gap-2 rounded-md border border-accent px-3 py-2 text-sm text-accent" type="button" disabled={organizeLoading} onClick={() => void recommendOrganization(items)}><Sparkles className="h-4 w-4" />{organizeLoading ? "正在推荐…" : "AI 整理本页未归类题"}</button>}
-                <Link className="rounded-md bg-accent px-3 py-2 text-sm text-white" to={collectionId === ROOT_COLLECTION_ID ? "/practice" : `/practice?collection_id=${encodeURIComponent(collectionId)}&include_descendants=${includeDescendants}`}>练习此集合</Link>
+          <div className="panel overflow-hidden">
+            <div
+              className="relative flex flex-wrap items-center justify-between gap-4 border-b border-line p-5"
+              style={{ background: "linear-gradient(120deg, rgb(var(--c-accent-soft)) 0%, rgb(var(--c-panel)) 64%)" }}
+            >
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -right-8 -top-16 h-44 w-44 rounded-full opacity-70 blur-3xl"
+                style={{ background: "radial-gradient(circle, rgb(var(--c-accent) / 0.28), transparent 70%)" }}
+              />
+              <div className="relative z-10 min-w-0">
+                <p className="page-eyebrow">COLLECTION</p>
+                <h2 className="text-2xl font-extrabold tracking-tight">
+                  {collectionId === ROOT_COLLECTION_ID ? "全部题库" : current?.path || "集合"}
+                </h2>
+                {current?.description && <p className="mt-1 max-w-xl text-sm leading-6 text-muted">{current.description}</p>}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <span className="chip border-accent-border bg-panel/70 text-accent">
+                    {current ? `${current.total_question_count} 道题` : "正在读取集合…"}
+                  </span>
+                  <span className="chip bg-panel/70">{current?.children.length ?? 0} 个子集合</span>
+                  {collectionId === UNFILED_COLLECTION_ID && <span className="chip bg-panel/70">未归类</span>}
+                </div>
+              </div>
+              <div className="relative z-10 flex flex-wrap gap-2">
+                {collectionId === UNFILED_COLLECTION_ID && items.length > 0 && (
+                  <button className="btn-secondary" type="button" disabled={organizeLoading} onClick={() => void recommendOrganization(items)}>
+                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                    {organizeLoading ? "正在推荐…" : "AI 整理本页"}
+                  </button>
+                )}
+                <Link
+                  className="btn-primary"
+                  to={collectionId === ROOT_COLLECTION_ID ? "/practice" : `/practice?collection_id=${encodeURIComponent(collectionId)}&include_descendants=${includeDescendants}`}
+                >
+                  练习此集合
+                </Link>
               </div>
             </div>
-            {Boolean(current?.children.length) && <label className="mt-3 inline-flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={includeDescendants} onChange={(event) => setIncludeDescendants(event.target.checked)} />包含子集合题目（默认）</label>}
-            <div className="mt-4 flex flex-wrap gap-2">
-              <div className="flex items-center gap-2 rounded-md border border-line bg-white px-3"><Search className="h-4 w-4 text-muted" /><input aria-label="搜索题干" className="h-10 w-44 outline-none" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索题干" /></div>
+            <div className="p-4">
+            {Boolean(current?.children.length) && <label className="mb-3 inline-flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={includeDescendants} onChange={(event) => setIncludeDescendants(event.target.checked)} />包含子集合题目（默认）</label>}
+            <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-2 rounded-md border border-line bg-panel px-3"><Search className="h-4 w-4 text-muted" /><input aria-label="搜索题干" className="h-10 w-44 outline-none" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索题干" /></div>
               <FilterSelect value={type} onChange={setType} empty="全部题型" options={filterOptions?.types ?? []} />
               <FilterSelect value={difficulty} onChange={setDifficulty} empty="全部难度" options={filterOptions?.difficulties ?? []} />
               <FilterSelect value={tag} onChange={setTag} empty="全部标签" options={filterOptions?.tags ?? []} />
               <FilterSelect value={examPoint} onChange={setExamPoint} empty="全部考察点" options={filterOptions?.exam_points ?? []} />
               <FilterSelect value={direction} onChange={setDirection} empty="全部方向" options={filterOptions?.directions ?? []} />
             </div>
+            </div>
           </div>
-          {selected.size > 0 && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent/30 bg-blue-50 p-3 text-sm"><span>已选 {selected.size} 道题</span><button type="button" className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-white" onClick={() => { setMoveTarget(selectedQuestions.length === 1 ? selectedQuestions[0].collection_id ?? null : null); setMoveOpen(true); }}><FolderInput className="h-4 w-4" />移动到集合</button><button type="button" className="inline-flex items-center gap-1 rounded-md border border-accent px-3 py-1.5 text-accent" disabled={organizeLoading} onClick={() => void recommendOrganization(selectedQuestions)}><Sparkles className="h-4 w-4" />AI 推荐位置</button><button type="button" onClick={() => setSelected(new Set())}>取消选择</button></div>}
-          {loading ? <LoadingState text="正在查找题目…" /> : items.length === 0 ? <EmptyState text="此集合范围内暂无题目。" /> : <div className="grid gap-3">{items.map((question) => <article key={question.id} className="panel rounded-lg p-4" draggable onDragStart={(event) => event.dataTransfer.setData("application/x-question-ids", JSON.stringify(draggedQuestions(question.id)))}><div className="flex gap-3"><input className="mt-1 h-4 w-4" type="checkbox" aria-label={`选择题目 ${question.title || question.id}`} checked={selected.has(question.id)} onChange={(event) => setSelected((currentSet) => { const next = new Set(currentSet); event.target.checked ? next.add(question.id) : next.delete(question.id); return next; })} /><GripVertical className="mt-1 h-4 w-4 shrink-0 text-muted" /><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap gap-2"><Badge tone="accent">{question.type_label}</Badge><Badge>v{question.version}</Badge>{question.collection_path && <Badge>{`集合：${question.collection_path}`}</Badge>}{question.difficulty && <Badge>{question.difficulty}</Badge>}</div><RichContent content={question.stem} className="font-medium leading-7" /><div className="mt-3 flex flex-wrap gap-2"><Link className="rounded-md border border-line bg-white px-3 py-1.5 text-sm" to={`/questions/${question.id}`}>详情</Link><Link className="rounded-md bg-accent px-3 py-1.5 text-sm text-white" to={`/questions/${question.id}/edit`}>编辑</Link><button type="button" className="rounded-md border border-line bg-white px-3 py-1.5 text-sm" onClick={() => { setSelected(new Set([question.id])); setMoveTarget(question.collection_id ?? null); setMoveOpen(true); }}>移动到…</button><button className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700" onClick={() => setDeleting(question)}><Trash2 className="h-4 w-4" />删除</button></div></div></div></article>)}</div>}
+          {selected.size > 0 && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent/30 bg-accent-soft p-3 text-sm"><span>已选 {selected.size} 道题</span><button type="button" className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-on-accent" onClick={() => { setMoveTarget(selectedQuestions.length === 1 ? selectedQuestions[0].collection_id ?? null : null); setMoveOpen(true); }}><FolderInput className="h-4 w-4" />移动到集合</button><button type="button" className="inline-flex items-center gap-1 rounded-md border border-accent px-3 py-1.5 text-accent" disabled={organizeLoading} onClick={() => void recommendOrganization(selectedQuestions)}><Sparkles className="h-4 w-4" />AI 推荐位置</button><button type="button" onClick={() => setSelected(new Set())}>取消选择</button></div>}
+          {loading ? <LoadingState text="正在查找题目…" /> : items.length === 0 ? <EmptyState text="此集合范围内暂无题目。" /> : <div className="grid gap-3">{items.map((question) => <article key={question.id} className="panel panel-hover p-4" draggable onDragStart={(event) => event.dataTransfer.setData("application/x-question-ids", JSON.stringify(draggedQuestions(question.id)))}><div className="flex gap-3"><input className="mt-1 h-4 w-4" type="checkbox" aria-label={`选择题目 ${question.title || question.id}`} checked={selected.has(question.id)} onChange={(event) => setSelected((currentSet) => { const next = new Set(currentSet); event.target.checked ? next.add(question.id) : next.delete(question.id); return next; })} /><GripVertical className="mt-1 h-4 w-4 shrink-0 text-muted" /><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap gap-2"><Badge tone="accent">{question.type_label}</Badge><Badge>v{question.version}</Badge>{question.collection_path && <Badge>{`集合：${question.collection_path}`}</Badge>}{question.difficulty && <Badge>{question.difficulty}</Badge>}</div><RichContent content={question.stem} className="font-medium leading-7" /><div className="mt-3 flex flex-wrap gap-2"><Link className="rounded-md border border-line bg-panel px-3 py-1.5 text-sm" to={`/questions/${question.id}`}>详情</Link><Link className="rounded-md bg-accent px-3 py-1.5 text-sm text-on-accent" to={`/questions/${question.id}/edit`}>编辑</Link><button type="button" className="rounded-md border border-line bg-panel px-3 py-1.5 text-sm" onClick={() => { setSelected(new Set([question.id])); setMoveTarget(question.collection_id ?? null); setMoveOpen(true); }}>移动到…</button><button className="inline-flex items-center gap-1 rounded-md border border-bad-border bg-bad-soft px-3 py-1.5 text-sm text-bad" onClick={() => setDeleting(question)}><Trash2 className="h-4 w-4" />删除</button></div></div></div></article>)}</div>}
           <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">共 {total} 道题 · 第 {page} / {Math.max(1, Math.ceil(total / 20))} 页</p><div className="flex gap-2"><button className="btn-secondary" disabled={loading || page <= 1} onClick={() => setPage(page - 1)}>上一页</button><button className="btn-secondary" disabled={loading || page * 20 >= total} onClick={() => setPage(page + 1)}>下一页</button></div></div>
         </section>
       </div>
@@ -276,15 +309,15 @@ export function QuestionBankPage() {
 }
 
 function MoveQuestionsDialog({ count, tree, target, busy, onTarget, onClose, onConfirm }: { count: number; tree: CollectionNode[]; target: string | null; busy: boolean; onTarget: (id: string | null) => void; onClose: () => void; onConfirm: () => void }) {
-  return <Dialog open title={`移动 ${count} 道题`} onClose={onClose} busy={busy}><p className="mt-2 text-sm text-muted">选择具体集合或“未归类”。移动只改变归档位置，不增加题目内容版本。</p><div className="mt-4"><CollectionPicker tree={tree} selectedId={target} onSelect={onTarget} allowUnfiled label="请选择目标集合" /></div><div className="mt-5 flex justify-end gap-2"><button type="button" className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={onClose}>取消</button><button type="button" className="rounded-md bg-accent px-4 py-2 text-sm text-white disabled:opacity-50" disabled={busy || !target || target === ROOT_COLLECTION_ID} onClick={onConfirm}>确认移动</button></div></Dialog>;
+  return <Dialog open title={`移动 ${count} 道题`} onClose={onClose} busy={busy}><p className="mt-2 text-sm text-muted">选择具体集合或“未归类”。移动只改变归档位置，不增加题目内容版本。</p><div className="mt-4"><CollectionPicker tree={tree} selectedId={target} onSelect={onTarget} allowUnfiled label="请选择目标集合" /></div><div className="mt-5 flex justify-end gap-2"><button type="button" className="rounded-md border border-line bg-panel px-4 py-2 text-sm" onClick={onClose}>取消</button><button type="button" className="rounded-md bg-accent px-4 py-2 text-sm text-on-accent disabled:opacity-50" disabled={busy || !target || target === ROOT_COLLECTION_ID} onClick={onConfirm}>确认移动</button></div></Dialog>;
 }
 
 function OrganizeDialog({ proposals, tree, busy, onChange, onClose, onConfirm }: { proposals: OrganizeProposal[]; tree: CollectionNode[]; busy: boolean; onChange: (questionId: string, targetId: string | null) => void; onClose: () => void; onConfirm: () => void }) {
-  return <Dialog open title="确认 AI 归档建议" onClose={onClose} busy={busy} className="max-w-3xl"><p className="mt-2 text-sm leading-6 text-muted">AI 只提供建议，不会自动移动题目。请逐题检查或改选集合，最后统一确认。</p><div className="mt-4 space-y-3">{proposals.map((item) => <article key={item.question.id} className="rounded-md border border-line p-3"><RichContent content={item.question.stem} className="max-h-20 overflow-hidden text-sm font-medium" /><div className="mt-2 text-xs leading-5 text-muted">置信度 {Math.round(item.confidence * 100)}% · {item.reason}</div><div className="mt-3"><CollectionPicker tree={tree} selectedId={item.collectionId} onSelect={(id) => onChange(item.question.id, id)} allowUnfiled /></div></article>)}</div><div className="mt-5 flex justify-end gap-2"><button type="button" className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={onClose}>取消</button><button type="button" className="rounded-md bg-accent px-4 py-2 text-sm text-white disabled:opacity-50" disabled={busy} onClick={onConfirm}>{busy ? "正在移动…" : `确认并移动 ${proposals.length} 道题`}</button></div></Dialog>;
+  return <Dialog open title="确认 AI 归档建议" onClose={onClose} busy={busy} className="max-w-3xl"><p className="mt-2 text-sm leading-6 text-muted">AI 只提供建议，不会自动移动题目。请逐题检查或改选集合，最后统一确认。</p><div className="mt-4 space-y-3">{proposals.map((item) => <article key={item.question.id} className="rounded-md border border-line p-3"><RichContent content={item.question.stem} className="max-h-20 overflow-hidden text-sm font-medium" /><div className="mt-2 text-xs leading-5 text-muted">置信度 {Math.round(item.confidence * 100)}% · {item.reason}</div><div className="mt-3"><CollectionPicker tree={tree} selectedId={item.collectionId} onSelect={(id) => onChange(item.question.id, id)} allowUnfiled /></div></article>)}</div><div className="mt-5 flex justify-end gap-2"><button type="button" className="rounded-md border border-line bg-panel px-4 py-2 text-sm" onClick={onClose}>取消</button><button type="button" className="rounded-md bg-accent px-4 py-2 text-sm text-on-accent disabled:opacity-50" disabled={busy} onClick={onConfirm}>{busy ? "正在移动…" : `确认并移动 ${proposals.length} 道题`}</button></div></Dialog>;
 }
 
 function FilterSelect({ value, onChange, empty, options }: { value: string; onChange: (value: string) => void; empty: string; options: string[] }) {
-  return <select aria-label={empty} className="h-10 rounded-md border border-line bg-white px-3" value={value} onChange={(event) => onChange(event.target.value)}><option value="">{empty}</option>{options.map((item) => <option key={item} value={item}>{item}</option>)}</select>;
+  return <select aria-label={empty} className="h-10 rounded-md border border-line bg-panel px-3" value={value} onChange={(event) => onChange(event.target.value)}><option value="">{empty}</option>{options.map((item) => <option key={item} value={item}>{item}</option>)}</select>;
 }
 
 function collectionContains(node: CollectionNode, collectionId: string): boolean {

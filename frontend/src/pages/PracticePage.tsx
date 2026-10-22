@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, RotateCcw, Send, Trash2, Sparkles, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, RotateCcw, Send, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { finalizeAiSummaryStream, type AiConfig } from "../api/ai";
@@ -30,6 +30,8 @@ import { aiConfigForRole, loadStoredAiConfig } from "../utils/aiConfigStorage";
 
 import { Dialog } from "../components/common/Dialog";
 import { PageHeader } from "../components/common/PageHeader";
+import { HeroScene } from "../components/layout/HeroScene";
+import { useTheme } from "../theme/ThemeProvider";
 import { getDraft, saveDraft, removeDraft, clearSessionDrafts } from "../utils/practiceDrafts";
 
 const MODE_LABELS: Record<string, string> = {
@@ -58,6 +60,7 @@ type CachedPracticeAnswer = {
 };
 
 export function PracticePage() {
+  const { theme } = useTheme();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -374,10 +377,62 @@ export function PracticePage() {
     <div className={`practice-layout ${assistantOpen ? "has-assistant" : ""}`}>
       <div className="practice-main space-y-5">
         <PageHeader eyebrow="PRACTICE TIME" title="专注这一题" description="慢慢想，大胆答。每一次练习都算数。" actions={<button className="btn-secondary" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}><Sparkles className="h-4 w-4 text-accent" />{assistantOpen ? "收起 AI 助手" : "展开 AI 助手"}</button>} />
-        {sessionId && <section className="panel p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-sm font-semibold">{MODE_LABELS[mode]} · {currentIndex + 1} / {total} 题</div><div className="mt-1 text-xs text-muted">{collectionName || "全部题库"} · 每组 {pageSize} 题 · {ORDER_LABELS[order]}</div></div><button className="btn-secondary" onClick={() => setConfigOpen(!configOpen)} aria-expanded={configOpen}>练习配置<ChevronDown className="h-4 w-4" /></button></div><div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-50"><div className="h-full rounded-full bg-accent transition-all" style={{ width: `${total ? (currentIndex + 1) / total * 100 : 0}%` }} /></div></section>}
-        {(!sessionId || configOpen) && <section className="panel rounded-lg p-5">
-          <h2 className="mb-4 text-lg font-semibold">准备一组练习</h2>
-          <div className="grid gap-3 md:grid-cols-4">
+        {sessionId && (
+          <section className="panel overflow-hidden p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="chip border-accent-border bg-accent-soft text-accent">{MODE_LABELS[mode]}</span>
+                  <span className="text-sm font-semibold stat-value">{currentIndex + 1} / {total} 题</span>
+                </div>
+                <div className="mt-1.5 text-xs text-muted">{collectionName || "全部题库"} · 每组 {pageSize} 题 · {ORDER_LABELS[order]}</div>
+              </div>
+              <button className="btn-secondary btn-sm" onClick={() => setConfigOpen(!configOpen)} aria-expanded={configOpen}>
+                练习配置
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${configOpen ? "rotate-180" : ""}`} />
+              </button>
+            </div>
+            <div className="progress-track mt-3">
+              <div className="progress-fill" style={{ width: `${total ? ((currentIndex + 1) / total) * 100 : 0}%` }} />
+            </div>
+          </section>
+        )}
+        {(!sessionId || configOpen) && <section className="panel overflow-hidden">
+          <div className="grid lg:grid-cols-[250px_minmax(0,1fr)]">
+            <aside
+              className="relative hidden flex-col justify-between overflow-hidden border-r border-line p-5 lg:flex"
+              style={{ background: "linear-gradient(165deg, rgb(var(--c-accent-soft)), rgb(var(--c-panel)) 70%)" }}
+            >
+              <div>
+                {theme === "whale" ? (
+                  <img
+                    src="/mascot/xiaojing.png"
+                    alt="小鲸"
+                    className="mx-auto h-40 w-auto drop-shadow-[0_12px_24px_rgba(30,58,138,0.18)]"
+                  />
+                ) : (
+                  <HeroScene className="mx-auto max-w-[9.5rem]" />
+                )}
+                <p className="mt-2 text-center text-sm font-bold tracking-tight">准备好了吗？</p>
+                <p className="mt-1 text-center text-xs leading-5 text-muted">
+                  选好范围，小鲸陪你把这组题刷完。
+                </p>
+              </div>
+              <ul className="mt-5 space-y-2 text-[11px] leading-5 text-muted">
+                <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />先做会做的，再回头啃难点</li>
+                <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />答错会自动进入错题复习</li>
+                <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />草稿会保留，随时可以切题</li>
+              </ul>
+            </aside>
+            <div className="p-5">
+              <div className="mb-5 flex items-start gap-3">
+                <span className="stat-icon shrink-0"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
+                <div>
+                  <h2 className="text-lg font-bold tracking-tight">准备一组练习</h2>
+                  <p className="mt-0.5 text-xs text-muted">选好范围与节奏，剩下的交给专注。</p>
+                </div>
+              </div>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             <Select label="练习模式" value={mode} onChange={setMode} options={Object.entries(MODE_LABELS).map(([value, label]) => ({ value, label }))} />
             <label className="block"><span className="mb-1 block text-sm text-muted">集合</span><CollectionPicker tree={collectionTree} selectedId={collectionId} onSelect={setCollectionId} allowUnfiled allowEmpty emptyLabel="全部题库" /></label>
             <Select label="题型" value={type} onChange={setType} options={(filters?.types ?? []).map((value) => ({ value, label: value }))} empty="全部题型" />
@@ -388,103 +443,137 @@ export function PracticePage() {
             <Select label="方向" value={direction} onChange={setDirection} options={(filters?.directions ?? []).map((value) => ({ value, label: value }))} empty="全部方向" />
           </div>
           {collectionId && <label className="mt-3 inline-flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={includeDescendants} onChange={(event) => setIncludeDescendants(event.target.checked)} />包含子集合题目</label>}
-          <p className="mt-3 text-sm text-muted">每次加载多少道题，刷完后可以继续下一组。题目顺序选择“随机打乱”时，会在创建练习会话时一次性打乱，后续上一题、下一组和刷新恢复都保持同一顺序。</p>
+          <p className="mt-4 rounded-xl border border-line bg-panel-2/60 p-3 text-xs leading-6 text-muted">每次加载多少道题，刷完后可以继续下一组。题目顺序选择“随机打乱”时，会在创建练习会话时一次性打乱，后续上一题、下一组和刷新恢复都保持同一顺序。</p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={requestStart} disabled={busy}>开始练习</button>
+            <button className="btn-primary" onClick={requestStart} disabled={busy}>开始练习</button>
             {sessionId && (
               <>
-                <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={requestStart} disabled={busy}>
+                <button className="btn-secondary" onClick={requestStart} disabled={busy}>
                   <RotateCcw className="h-4 w-4" />
                   重新开始本模式
                 </button>
-                <button className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={() => void perform(endPractice)} disabled={busy}>结束练习</button>
+                <button className="btn-secondary" onClick={() => void perform(endPractice)} disabled={busy}>结束练习</button>
               </>
             )}
           </div>
+            </div>
+          </div>
         </section>}
         {error && <ErrorState message={error} />}
-        {notice && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
+        {notice && (
+          <div className="flex items-start gap-2.5 rounded-2xl border border-good-border bg-good-soft p-3.5 text-sm leading-6 text-good">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <span className="min-w-0">{notice}</span>
+          </div>
+        )}
         {groupFinished && hasNextGroup && (
-          <section className="panel rounded-lg p-5">
-            <h2 className="text-lg font-semibold">当前组已完成</h2>
-            <p className="mt-2 text-sm text-muted">已完成 {groupEnd} / {total}</p>
-            <button className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={() => void perform(continueNextGroup)} disabled={busy}>继续下一组</button>
+          <section className="panel flex flex-col items-start gap-3 p-6">
+            <span className="stat-icon"><CheckCircle2 className="h-5 w-5" aria-hidden="true" /></span>
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">当前组已完成</h2>
+              <p className="mt-1 text-sm text-muted">已完成 {groupEnd} / {total} 题，下一组继续。</p>
+            </div>
+            <button className="btn-primary" onClick={() => void perform(continueNextGroup)} disabled={busy}>继续下一组</button>
           </section>
         )}
         {sessionFinished && (
-          <section className="panel rounded-lg p-5">
-            <h2 className="text-lg font-semibold">练习完成</h2>
-            <p className="mt-2 text-sm text-muted">当前练习已全部完成。</p>
+          <section className="panel flex flex-col items-start gap-3 p-6">
+            <span className="stat-icon"><Sparkles className="h-5 w-5" aria-hidden="true" /></span>
+            <div>
+              <h2 className="text-lg font-bold tracking-tight">这一轮练习完成</h2>
+              <p className="mt-1 text-sm text-muted">辛苦了，去统计页看看今天的变化。</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link className="btn-primary" to="/stats">查看学习统计</Link>
+              <Link className="btn-secondary" to="/review">复习错题</Link>
+            </div>
           </section>
         )}
         {sessionId && total > 0 && !question && !groupFinished && !sessionFinished && (
-          <section className="panel rounded-lg p-5">
+          <section className="panel p-5">
             <h2 className="text-lg font-semibold">当前题目不可用</h2>
             <p className="mt-2 text-sm text-muted">当前练习中的题目已被删除或不可用，请重新创建练习。</p>
-            <button className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={requestStart} disabled={busy}>重新开始本模式</button>
+            <button className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent" onClick={requestStart} disabled={busy}>重新开始本模式</button>
           </section>
         )}
         {question && !groupFinished && !sessionFinished && (
           <>
-            <div className="flex items-center justify-between">
-              <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={() => void perform(goPrev)} disabled={currentIndex === 0 || busy || aiSummaryRunning}>
-                <ArrowLeft className="h-4 w-4" />
+            <div className="flex items-center justify-between gap-3">
+              <button className="btn-secondary btn-sm" onClick={() => void perform(goPrev)} disabled={currentIndex === 0 || busy || aiSummaryRunning}>
+                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 上一题
               </button>
-              <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={() => void perform(goNext)} disabled={busy || aiSummaryRunning}>
+              <span className="text-xs font-medium tabular-nums text-muted">
+                {currentIndex + 1} / {total}
+              </span>
+              <button className="btn-secondary btn-sm" onClick={() => void perform(goNext)} disabled={busy || aiSummaryRunning}>
                 下一题
-                <ArrowRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
             <QuestionCard question={question} />
             {questionState && questionState.attempt_count > 0 && !result && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <div className="rounded-md border border-warn-border bg-warn-soft p-3 text-sm text-warn">
                 这道题之前已答过 {questionState.attempt_count} 次，{stateStatusText(questionState)}。本次练习不会预填历史答案，提交后才显示解析。
               </div>
             )}
             <div className="flex flex-wrap gap-2">
-              <Link className="inline-flex rounded-md border border-line bg-white px-3 py-2 text-sm" to={editQuestionPath(question.id, returnTo)}>
+              <Link className="btn-secondary btn-sm" to={editQuestionPath(question.id, returnTo)}>
                 编辑题目
               </Link>
-              <button className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700" onClick={() => setDeleteOpen(true)} disabled={busy}>
+              <button className="btn-danger btn-sm" onClick={() => setDeleteOpen(true)} disabled={busy}>
                 <Trash2 className="h-4 w-4" />
                 删除题目
               </button>
             </div>
-            <section className="panel rounded-lg p-5">
-              <fieldset disabled={busy || Boolean(result)} className="min-w-0"><legend className="mb-3 text-sm font-semibold">你的作答</legend><QuestionRenderer question={question} answer={answer} setAnswer={setAnswer} /></fieldset>
-              {!result && <p className="mt-3 text-xs text-muted">草稿会保留在当前浏览器标签页中，切题和刷新均可恢复。</p>}
-              <button className="mt-4 btn-primary" onClick={() => void perform(submit)} disabled={busy || Boolean(result) || (Array.isArray(answer) ? answer.length === 0 : !answer.trim())}>
-                <Send className="h-4 w-4" />
-                {busy ? "处理中…" : result ? "已提交答案" : "提交答案"}
-              </button>
-              {result && <button className="btn-secondary ml-2 mt-4" disabled={busy} onClick={() => void perform(async () => { await finalizeCurrentAiSummary(); removeCachedPracticeAnswer(sessionId, question.id); saveDraft(sessionId, question.id, answer); setResult(null); })}>重新作答</button>}
+            <section className="panel overflow-hidden">
+              <div className="flex items-center justify-between gap-2 border-b border-line/70 bg-panel-2/70 px-5 py-3">
+                <h2 className="text-sm font-bold tracking-tight">你的作答</h2>
+                <span className="text-[11px] text-muted">提交后显示解析</span>
+              </div>
+              <div className="p-5">
+                <fieldset disabled={busy || Boolean(result)} className="min-w-0">
+                  <legend className="sr-only">你的作答</legend>
+                  <QuestionRenderer question={question} answer={answer} setAnswer={setAnswer} />
+                </fieldset>
+                {!result && <p className="mt-3 text-xs text-muted">草稿会保留在当前浏览器标签页中，切题和刷新均可恢复。</p>}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button className="btn-primary" onClick={() => void perform(submit)} disabled={busy || Boolean(result) || (Array.isArray(answer) ? answer.length === 0 : !answer.trim())}>
+                    <Send className="h-4 w-4" aria-hidden="true" />
+                    {busy ? "处理中…" : result ? "已提交答案" : "提交答案"}
+                  </button>
+                  {result && <button className="btn-secondary" disabled={busy} onClick={() => void perform(async () => { await finalizeCurrentAiSummary(); removeCachedPracticeAnswer(sessionId, question.id); saveDraft(sessionId, question.id, answer); setResult(null); })}>重新作答</button>}
+                </div>
+              </div>
             </section>
             {result && (
               <>
                 <ExplanationPanel result={result} />
-                <Link className="inline-flex rounded-md border border-line bg-white px-3 py-2 text-sm" to={editQuestionPath(question.id, returnTo)}>
+                <Link className="btn-secondary btn-sm" to={editQuestionPath(question.id, returnTo)}>
                   发现题目有误？编辑题目
                 </Link>
               </>
             )}
             {result?.requires_self_review && (
               <div className="flex gap-2">
-                <button className="rounded-md bg-accent px-4 py-2 text-sm text-white" onClick={() => void perform(() => review("correct"))} disabled={busy}>我答对了</button>
-                <button className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={() => void perform(() => review("partial"))} disabled={busy}>部分答对</button>
-                <button className="rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700" onClick={() => void perform(() => review("wrong"))} disabled={busy}>我答错了</button>
+                <button className="rounded-md bg-accent px-4 py-2 text-sm text-on-accent" onClick={() => void perform(() => review("correct"))} disabled={busy}>我答对了</button>
+                <button className="btn-secondary" onClick={() => void perform(() => review("partial"))} disabled={busy}>部分答对</button>
+                <button className="btn-danger" onClick={() => void perform(() => review("wrong"))} disabled={busy}>我答错了</button>
               </div>
             )}
           </>
         )}
       </div>
       <aside hidden={!assistantOpen} className="practice-assistant panel p-5">
-        <h2 className="mb-3 font-semibold">练习上下文</h2>
-        <div className="space-y-2 text-sm text-muted">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-bold tracking-tight">练习上下文</h2>
+          <span className="chip">实时</span>
+        </div>
+        <div className="space-y-1.5 rounded-xl border border-line bg-panel-2/60 p-3.5 text-xs leading-5 text-muted">
           {contextText.map((item) => <p key={item}>{item}</p>)}
         </div>
-        {hasPreviousGroup && <p className="mt-3 text-xs text-muted">上一题可回到上一组内容。</p>}
-        {hasNextGroup && <p className="mt-1 text-xs text-muted">当前组刷完后可继续下一组。</p>}
+        {hasPreviousGroup && <p className="mt-2.5 text-[11px] text-muted">上一题可回到上一组内容。</p>}
+        {hasNextGroup && <p className="mt-1 text-[11px] text-muted">当前组刷完后可继续下一组。</p>}
         <AiTutorPanel key={`tutor:${question?.id ?? "none"}:${result?.attempt_id ?? "unsubmitted"}`} question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} onSummaryPendingChange={setAiTutorSummaryPending} onConfigChange={setAiConfig} />
         <AiGradingPanel key={`grading:${question?.id ?? "none"}:${result?.attempt_id ?? "unsubmitted"}`} question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} config={aiConfig} onSummaryPendingChange={setAiGradingSummaryPending} />
       </aside>
@@ -510,7 +599,7 @@ function Select({
   return (
     <label className="block">
       <span className="mb-1 block text-sm text-muted">{label}</span>
-      <select className="w-full rounded-md border border-line bg-white px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
+      <select className="w-full rounded-md border border-line bg-panel px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
         {empty && <option value="">{empty}</option>}
         {options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
       </select>

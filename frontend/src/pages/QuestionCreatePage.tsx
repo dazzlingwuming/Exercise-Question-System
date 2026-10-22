@@ -172,7 +172,7 @@ export function QuestionCreatePage() {
       <PageHeader eyebrow="MAKE ROOM FOR NEW KNOWLEDGE" title="收集一道好题" description="把值得练习的知识放进题库，题干、材料和解析都可以插入图片。" actions={<><button className="btn-secondary" type="button" onClick={() => setParseOpen(true)}><Sparkles className="h-4 w-4 text-accent" />从原文解析</button><Link className="btn-secondary" to="/questions">取消</Link></>} />
       {error && <ErrorState message={error} />}
       {aiParseIssues.length > 0 && (
-        <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <section className="rounded-lg border border-warn-border bg-warn-soft p-4 text-sm text-warn">
           <div className="font-medium">AI 解析待核对</div>
           <div className="mt-2 space-y-1 leading-6">
             {aiParseIssues.map((issue, index) => <div key={`${issue.code}-${index}`}>{issue.severity === "error" ? "需处理" : "提示"}{issue.field ? ` · ${issue.field}` : ""}：{issue.message}</div>)}
@@ -236,18 +236,18 @@ export function QuestionCreatePage() {
               <div key={`${option.key}-${index}`} className="grid gap-2 md:grid-cols-[80px_1fr_40px]">
                 <input className="focus-ring rounded-md border border-line px-2 py-2" value={option.key} onChange={(event) => updateOption(index, { key: event.target.value.toUpperCase() })} />
                 <MarkdownEditor onUploadingChange={onUploadingChange} label={`选项 ${option.key}`} rows={2} value={option.text} onChange={(value) => updateOption(index, { text: value })} />
-                <button aria-label={`删除选项 ${option.key}`} className="h-fit rounded-md border border-line bg-white p-2" type="button" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></button>
+                <button aria-label={`删除选项 ${option.key}`} className="h-fit rounded-md border border-line bg-panel p-2" type="button" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
-            <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" type="button" onClick={addOption}>新增选项</button>
+            <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm" type="button" onClick={addOption}>新增选项</button>
           </div>
         </EditSection>
       )}
       {isTrueFalse && (
         <EditSection title="判断选项">
           <div className="grid gap-2 sm:grid-cols-2">
-            <div className="rounded-md border border-line bg-white p-3">A. 正确</div>
-            <div className="rounded-md border border-line bg-white p-3">B. 错误</div>
+            <div className="rounded-md border border-line bg-panel p-3">A. 正确</div>
+            <div className="rounded-md border border-line bg-panel p-3">B. 错误</div>
           </div>
         </EditSection>
       )}
@@ -267,7 +267,7 @@ export function QuestionCreatePage() {
         <textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.reason ?? ""} onChange={(event) => update("reason", event.target.value)} placeholder="例如：补充工具调用基础题" />
       </EditSection>
       {uploadCount > 0 && <p role="status" className="text-sm text-accent">图片正在上传，请等待完成后保存题目。</p>}
-      <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white" onClick={save} disabled={saving || uploadCount > 0}>
+      <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent" onClick={save} disabled={saving || uploadCount > 0}>
         <Save className="h-4 w-4" />
         {saving ? "保存中…" : "保存题目"}
       </button>
@@ -277,7 +277,7 @@ export function QuestionCreatePage() {
 }
 
 function EditSection({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="panel rounded-lg p-5"><h2 className="mb-4 font-semibold">{title}</h2>{children}</section>;
+  return <section className="panel p-5"><h2 className="mb-4 font-semibold">{title}</h2>{children}</section>;
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {

@@ -76,7 +76,7 @@ export function QuestionDetailPage() {
         {question.directions.map((item) => <Badge key={item}>{item}</Badge>)}
       </div>
       {question.is_deleted && (
-        <section className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+        <section className="rounded-lg border border-bad-border bg-bad-soft p-4 text-sm text-bad">
           <div className="font-medium">已删除</div>
           <div className="mt-1">删除时间：{question.deleted_at ? new Date(question.deleted_at).toLocaleString() : "-"}</div>
           <div className="mt-1">删除原因：{question.delete_reason || "-"}</div>
@@ -103,7 +103,7 @@ export function QuestionDetailPage() {
           <h2 className="mb-3 font-semibold">选项</h2>
           <div className="space-y-2">
             {question.options.map((option) => (
-              <div key={option.key} className="rounded-md border border-line bg-white p-3">
+              <div key={option.key} className="rounded-md border border-line bg-panel p-3">
                 <div className="mb-1 font-medium">{option.key}.</div>
                 <RichContent content={option.text} />
               </div>

@@ -39,7 +39,7 @@ export function QuestionRevisionPage() {
         actions={<Link className="btn-secondary min-w-0" to={`/questions/${id}`}>返回详情</Link>}
       />
       {error && <ErrorState message={error} />}
-      {message && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{message}</div>}
+      {message && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{message}</div>}
       {items.length === 0 ? <EmptyState text="暂无修改历史。" /> : (
         <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
           <section className="space-y-2">

@@ -60,14 +60,14 @@ export function ReviewPage() {
   return (
     <div className="space-y-5">
       <PageHeader eyebrow="A LITTLE BETTER EACH TIME" title="把错题变成进步" description="回看没掌握的地方，下一次就会更有把握。" />
-      <section className="panel rounded-lg p-4">
+      <section className="panel p-4">
         <div className="grid gap-3 md:grid-cols-6">
           <input aria-label="搜索错题题干" className="rounded-md border border-line px-3 py-2" value={keyword} onChange={(event) => { setPage(1); setKeyword(event.target.value); }} placeholder="搜索题干" />
           <Select value={type} onChange={setType} empty="全部题型" options={filters?.types ?? []} />
           <Select value={difficulty} onChange={setDifficulty} empty="全部难度" options={filters?.difficulties ?? []} />
           <Select value={examPoint} onChange={setExamPoint} empty="全部考察点" options={filters?.exam_points ?? []} />
           <Select value={direction} onChange={setDirection} empty="全部方向" options={filters?.directions ?? []} />
-          <select aria-label="错题排序" className="rounded-md border border-line bg-white px-3 py-2" value={sort} onChange={(event) => setSort(event.target.value)}>
+          <select aria-label="错题排序" className="rounded-md border border-line bg-panel px-3 py-2" value={sort} onChange={(event) => setSort(event.target.value)}>
             <option value="latest_wrong">最新错题</option>
             <option value="oldest_wrong">最早错题</option>
             <option value="import_order">导入顺序</option>
@@ -76,13 +76,13 @@ export function ReviewPage() {
         </div>
       </section>
       {error && <ErrorState message={error} />}
-      {notice && <div className="rounded-md bg-emerald-50 p-3 text-sm text-emerald-700">{notice}</div>}
+      {notice && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{notice}</div>}
       {loading ? <LoadingState text="正在准备复习内容…" /> : items.length === 0 ? (
         <EmptyState text="暂无错题。" />
       ) : (
         <div className="grid gap-3">
           {items.map(({ attempt, question, wrong_count, last_wrong_at, last_wrong_answer }) => (
-            <article className="panel rounded-lg p-4" key={attempt.id}>
+            <article className="panel panel-hover p-4" key={attempt.id}>
               <div className="mb-2 flex flex-wrap gap-2">
                 <Badge tone="bad">错 {wrong_count} 次</Badge>
                 <Badge tone="accent">{question.type_label}</Badge>
@@ -101,19 +101,19 @@ export function ReviewPage() {
                 <div>最近错误：{last_wrong_at ? new Date(last_wrong_at).toLocaleString() : "-"}</div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Link className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-sm text-white" to={`/practice?mode=wrong&start_question_id=${question.id}`}>
+                <Link className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-sm text-on-accent" to={`/practice?mode=wrong&start_question_id=${question.id}`}>
                   <RotateCcw className="h-4 w-4" />
                   重新练习
                 </Link>
-                <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-1.5 text-sm" to={`/questions/${question.id}`}>
+                <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5 text-sm" to={`/questions/${question.id}`}>
                   <BookOpen className="h-4 w-4" />
                   查看解析
                 </Link>
-                <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-1.5 text-sm" to={`/questions/${question.id}/edit?${new URLSearchParams({ return_to: returnTo }).toString()}`}>
+                <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5 text-sm" to={`/questions/${question.id}/edit?${new URLSearchParams({ return_to: returnTo }).toString()}`}>
                   <Edit3 className="h-4 w-4" />
                   编辑题目
                 </Link>
-                <button className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-sm text-red-700" onClick={() => setDeleting(question)}>
+                <button className="inline-flex items-center gap-2 rounded-md border border-bad-border bg-bad-soft px-3 py-1.5 text-sm text-bad" onClick={() => setDeleting(question)}>
                   <Trash2 className="h-4 w-4" />
                   删除题目
                 </button>
@@ -125,8 +125,8 @@ export function ReviewPage() {
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted">共 {total} 道错题</div>
         <div className="flex gap-2">
-          <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" disabled={loading || page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>
-          <button className="rounded-md border border-line bg-white px-3 py-2 text-sm" disabled={loading || !hasNext} onClick={() => setPage((value) => value + 1)}>下一页</button>
+          <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm" disabled={loading || page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>上一页</button>
+          <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm" disabled={loading || !hasNext} onClick={() => setPage((value) => value + 1)}>下一页</button>
         </div>
       </div>
       <DeleteQuestionDialog
@@ -156,7 +156,7 @@ function formatStandardAnswer(value: unknown): string {
 
 function Select({ value, onChange, options, empty }: { value: string; onChange: (value: string) => void; options: string[]; empty: string }) {
   return (
-    <select aria-label={empty} className="rounded-md border border-line bg-white px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
+    <select aria-label={empty} className="rounded-md border border-line bg-panel px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">{empty}</option>
       {options.map((item) => <option key={item} value={item}>{item}</option>)}
     </select>

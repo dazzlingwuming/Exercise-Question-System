@@ -28,7 +28,7 @@ function SingleChoiceAnswerEditor({ options, value, onChange }: { options: Optio
   return (
     <div className="space-y-2">
       {options.map((option) => (
-        <label key={option.key} className="flex gap-2 rounded-md border border-line bg-white p-2">
+        <label key={option.key} className="flex gap-2 rounded-md border border-line bg-panel p-2">
           <input type="radio" name="standard-answer" checked={value === option.key} onChange={() => onChange(option.key)} />
           <span>{option.key}.</span><div className="min-w-0"><RichContent content={option.text} /></div>
         </label>
@@ -47,7 +47,7 @@ function MultipleChoiceAnswerEditor({ options, value, onChange }: { options: Opt
   return (
     <div className="space-y-2">
       {options.map((option) => (
-        <label key={option.key} className="flex gap-2 rounded-md border border-line bg-white p-2">
+        <label key={option.key} className="flex gap-2 rounded-md border border-line bg-panel p-2">
           <input type="checkbox" checked={selected.includes(option.key)} onChange={() => toggle(option.key)} />
           <span>{option.key}.</span><div className="min-w-0"><RichContent content={option.text} /></div>
         </label>
@@ -61,7 +61,7 @@ function TrueFalseAnswerEditor({ value, onChange }: { value: string; onChange: (
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {["正确", "错误"].map((item) => (
-        <button key={item} type="button" onClick={() => onChange(item)} className={`rounded-md border px-3 py-2 ${value === item ? "border-accent bg-blue-50 text-accent" : "border-line bg-white"}`}>
+        <button key={item} type="button" onClick={() => onChange(item)} className={`rounded-md border px-3 py-2 ${value === item ? "border-accent bg-accent-soft text-accent" : "border-line bg-panel"}`}>
           {item}
         </button>
       ))}

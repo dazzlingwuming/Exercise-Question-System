@@ -226,7 +226,7 @@ export function AiTutorPanel({
           <Bot className="h-4 w-4" />
           AI 学习伙伴
         </div>
-        <button className="rounded-md border border-line bg-white p-2" onClick={() => setShowSettings((value) => !value)} title="AI 设置" aria-label="AI 设置" aria-expanded={showSettings}>
+        <button className="rounded-md border border-line bg-panel p-2" onClick={() => setShowSettings((value) => !value)} title="AI 设置" aria-label="AI 设置" aria-expanded={showSettings}>
           <Settings className="h-4 w-4" />
         </button>
       </div>
@@ -259,21 +259,21 @@ export function AiTutorPanel({
               <input className="w-full rounded-md border border-line px-3 py-2 text-sm" type="password" value={config.anysearch_api_key ?? ""} onChange={(event) => setConfig({ ...config, anysearch_api_key: event.target.value })} placeholder="可选，不填则使用匿名额度或后端环境变量" />
             </label>
           </div>
-          <button className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm" onClick={testConnection} disabled={!hasKey || loading === "test"}>
+          <button className="inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-2 text-sm" onClick={testConnection} disabled={!hasKey || loading === "test"}>
             <KeyRound className="h-4 w-4" />
             测试连接
           </button>
         </div>
       )}
-      {!hasKey && <div className="mb-3 rounded-md bg-amber-50 p-3 text-sm text-amber-800">请先配置 DeepSeek API Key 后使用 AI 讲题助手。API Key 仅保存在本机浏览器 localStorage，不会写入后端数据库。</div>}
+      {!hasKey && <div className="mb-3 rounded-md bg-warn-soft p-3 text-sm text-warn">请先配置 DeepSeek API Key 后使用 AI 讲题助手。API Key 仅保存在本机浏览器 localStorage，不会写入后端数据库。</div>}
       {notice && <div className="mb-3 rounded-md bg-surface p-3 text-sm text-muted">{notice}</div>}
       {submitted && thread?.has_previous_ai_history && !thread.previous_summary && (
-        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+        <div className="mb-3 rounded-md border border-warn-border bg-warn-soft p-3 text-sm leading-6 text-warn">
           离开本题前会自动总结本题 AI 对话；总结完成后原始聊天记录会被删除。生成中请不要直接关闭页面。
         </div>
       )}
       {submitted && thread?.previous_summary && (
-        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+        <div className="mb-3 rounded-md border border-warn-border bg-warn-soft p-3 text-sm leading-6 text-warn">
           <div className="mb-1 font-medium">AI 学习摘要</div>
           <RichContent allowImages={false} content={thread.previous_summary} />
         </div>
@@ -282,7 +282,7 @@ export function AiTutorPanel({
         {ACTIONS.map((action) => {
           const allowed = action.key === "hint" ? true : Boolean(thread?.allowed_actions[action.key]);
           return (
-            <button key={action.key} className="rounded-md border border-line bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50" disabled={!question || !hasKey || !allowed || Boolean(loading)} onClick={() => triggerAction(action.key)}>
+            <button key={action.key} className="rounded-md border border-line bg-panel px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50" disabled={!question || !hasKey || !allowed || Boolean(loading)} onClick={() => triggerAction(action.key)}>
               {loading === action.key ? "生成中..." : action.label}
             </button>
           );
@@ -290,7 +290,7 @@ export function AiTutorPanel({
       </div>
       <div className="mb-3">
         <button
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-line bg-white px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-line bg-panel px-3 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
           disabled={!question || !hasKey || Boolean(loading) || hasQuestionImages}
           onClick={() => {
             setGenerationMessage(null);
@@ -302,13 +302,13 @@ export function AiTutorPanel({
         </button>
         <p className="mt-1 text-xs leading-5 text-muted">{hasQuestionImages ? "暂不支持基于含图片的题目自动生成新题；图片讲题、评分和追问仍可正常使用。" : "基于当前题目、用户答案、AI 讲题对话、AI 评分与评分追问的完整上下文生成。"}</p>
       </div>
-      <div className="max-h-[34rem] min-h-72 space-y-4 overflow-auto rounded-md border border-line bg-white p-4">
+      <div className="max-h-[34rem] min-h-72 space-y-4 overflow-auto rounded-md border border-line bg-panel p-4">
         {thread?.messages.length ? thread.messages.map((message, index) => (
           <div key={`${message.created_at}-${index}`} className={message.role === "assistant" ? "text-[15px] leading-7" : "text-sm leading-6 text-muted"}>
             <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted">
               <span>{message.role === "assistant" ? "AI" : "你"} · {stageLabel(message.stage)}</span>
               {message.role === "assistant" && message.content.trim() && !String(message.created_at ?? "").includes("assistant-streaming") && (
-                <button className="inline-flex items-center gap-1 rounded-md border border-line bg-white px-2 py-1 text-xs text-foreground" onClick={() => { setGenerationMessage(message); setShowGenerationPanel(true); }} disabled={!hasKey || Boolean(loading) || hasQuestionImages}>
+                <button className="inline-flex items-center gap-1 rounded-md border border-line bg-panel px-2 py-1 text-xs text-foreground" onClick={() => { setGenerationMessage(message); setShowGenerationPanel(true); }} disabled={!hasKey || Boolean(loading) || hasQuestionImages}>
                   <Sparkles className="h-3 w-3" />
                   生成题目
                 </button>
@@ -333,7 +333,7 @@ export function AiTutorPanel({
           placeholder={placeholder}
           rows={3}
         />
-        <button className="inline-flex h-20 w-12 items-center justify-center rounded-md bg-accent text-sm text-white disabled:opacity-50" onClick={send} disabled={!question || !hasKey || !input.trim() || Boolean(loading)} title="发送，Ctrl+Enter">
+        <button className="inline-flex h-20 w-12 items-center justify-center rounded-md bg-accent text-sm text-on-accent disabled:opacity-50" onClick={send} disabled={!question || !hasKey || !input.trim() || Boolean(loading)} title="发送，Ctrl+Enter">
           <Send className="h-4 w-4" />
         </button>
       </div>
@@ -345,7 +345,7 @@ export function AiTutorPanel({
                 <p className="font-semibold">把薄弱点变成下一道好题</p>
                 <p className="mt-1 text-sm text-muted">基于当前题目、作答记录、AI 对话和评分上下文生成，生成后需要人工确认入库。</p>
               </div>
-              <button className="rounded-md border border-line bg-white p-2" aria-label="关闭生成候选题" onClick={() => { setShowGenerationPanel(false); setGenerationMessage(null); }}><X className="h-4 w-4" /></button>
+              <button className="rounded-md border border-line bg-panel p-2" aria-label="关闭生成候选题" onClick={() => { setShowGenerationPanel(false); setGenerationMessage(null); }}><X className="h-4 w-4" /></button>
             </div>
             <div className="space-y-3">
               <label className="block">
@@ -397,8 +397,8 @@ export function AiTutorPanel({
               )}
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <button className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={() => { setShowGenerationPanel(false); setGenerationMessage(null); }}>取消</button>
-              <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50" onClick={generateQuestions} disabled={!hasKey || loading === "question_generation"}>
+              <button className="rounded-md border border-line bg-panel px-4 py-2 text-sm" onClick={() => { setShowGenerationPanel(false); setGenerationMessage(null); }}>取消</button>
+              <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent disabled:opacity-50" onClick={generateQuestions} disabled={!hasKey || loading === "question_generation"}>
                 <Sparkles className="h-4 w-4" />
                 {loading === "question_generation" ? "生成中..." : "生成候选题"}
               </button>

@@ -23,15 +23,15 @@ export function DeleteQuestionDialog({
         <p className="mt-2 text-sm leading-6 text-muted">删除后该题不会再出现在练习和统计中，但历史答题记录仍会保留。</p>
         <label className="mt-4 block">
           <span className="mb-1 block text-sm text-muted">删除原因</span>
-          <select className="w-full rounded-md border border-line bg-white px-3 py-2" value={reasonType} onChange={(event) => setReasonType(event.target.value)}>
+          <select className="w-full rounded-md border border-line bg-panel px-3 py-2" value={reasonType} onChange={(event) => setReasonType(event.target.value)}>
             {REASONS.map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         </label>
         <textarea className="mt-3 min-h-24 w-full rounded-md border border-line px-3 py-2" value={detail} onChange={(event) => setDetail(event.target.value)} placeholder="可补充重复于哪道题或具体原因" />
-        {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
+        {error && <p role="alert" className="mt-3 text-sm text-bad">{error}</p>}
         <div className="mt-4 flex justify-end gap-2">
-          <button className="rounded-md border border-line bg-white px-4 py-2 text-sm" onClick={onCancel} disabled={busy}>取消</button>
-          <button className="rounded-md bg-red-600 px-4 py-2 text-sm text-white" disabled={busy} onClick={async () => { if (busy) return; setBusy(true); setError(""); try { await onConfirm(reason); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }}>{busy ? "删除中…" : "确认删除"}</button>
+          <button className="rounded-md border border-line bg-panel px-4 py-2 text-sm" onClick={onCancel} disabled={busy}>取消</button>
+          <button className="rounded-md bg-bad px-4 py-2 text-sm text-on-accent" disabled={busy} onClick={async () => { if (busy) return; setBusy(true); setError(""); try { await onConfirm(reason); } catch (err) { setError((err as Error).message); } finally { setBusy(false); } }}>{busy ? "删除中…" : "确认删除"}</button>
         </div>
     </Dialog>
   );

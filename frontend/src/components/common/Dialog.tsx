@@ -17,8 +17,8 @@ export function Dialog({ open, title, children, onClose, busy = false, className
     return () => { cancelAnimationFrame(frame); document.body.style.overflow = oldOverflow; previous?.focus(); };
   }, [open]);
   if (!open) return null;
-  return createPortal(<div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/35 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) close.current(); }}>
-    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-busy={busy} tabIndex={-1} className={`panel max-h-[90dvh] w-full overflow-auto bg-white p-5 shadow-xl sm:p-6 ${className}`} onKeyDown={(event) => {
+  return createPortal(<div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/45 p-4 backdrop-blur-sm" onMouseDown={(event) => { if (event.target === event.currentTarget && !busy) close.current(); }}>
+    <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-busy={busy} tabIndex={-1} className={`panel max-h-[90dvh] w-full overflow-auto bg-panel p-5 shadow-xl sm:p-6 ${className}`} onKeyDown={(event) => {
       if (event.key === "Escape") { event.stopPropagation(); if (!busy) close.current(); }
       if (event.key === "Tab") {
         const nodes = [...(panel.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? [])].filter((node) => !node.hidden && node.getAttribute("aria-hidden") !== "true");

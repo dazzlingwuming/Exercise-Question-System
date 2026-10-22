@@ -120,15 +120,15 @@ export function AiGradingPanel({
         AI 主观题评分
       </div>
       {!submitted && <div className="rounded-md bg-surface p-3 text-sm text-muted">请先提交主观题答案，再进行 AI 评分。</div>}
-      {submitted && !hasKey && <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">请先在 AI 讲题助手中配置 DeepSeek API Key。</div>}
+      {submitted && !hasKey && <div className="rounded-md bg-warn-soft p-3 text-sm text-warn">请先在 AI 讲题助手中配置 DeepSeek API Key。</div>}
       {submitted && hasKey && <div className="mb-3 text-xs text-muted">评分模型：{gradingModelLabel}。可在 AI 讲题助手设置中单独修改。</div>}
       {submitted && hasKey && (
-        <button className="mb-3 inline-flex items-center gap-2 rounded-md border border-line bg-white px-3 py-2 text-sm disabled:opacity-50" onClick={runGrade} disabled={loading || chatLoading || !attemptId}>
+        <button className="mb-3 inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-2 text-sm disabled:opacity-50" onClick={runGrade} disabled={loading || chatLoading || !attemptId}>
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           {grading?.result ? "重新评分" : "开始 AI 评分"}
         </button>
       )}
-      {notice && <div className="mb-3 rounded-md bg-red-50 p-3 text-sm text-red-700">{notice}</div>}
+      {notice && <div className="mb-3 rounded-md bg-bad-soft p-3 text-sm text-bad">{notice}</div>}
       {submitted && grading?.result && (
         <>
           <p className="mb-2 text-xs text-muted">实际评分模型：{grading.model || "未记录"} · 图片：{grading.image_count ?? 0} 张</p>
@@ -143,7 +143,7 @@ export function AiGradingPanel({
 
 function AiGradingCardView({ card, createdAt, model }: { card: AiGradingCard; createdAt?: string | null; model?: string | null }) {
   return (
-    <div className="space-y-3 rounded-md border border-line bg-white p-4 text-sm">
+    <div className="space-y-3 rounded-md border border-line bg-panel p-4 text-sm">
       <div className="flex items-end justify-between gap-3">
         <div>
           <div className="text-xs text-muted">AI 评分卡</div>
@@ -188,7 +188,7 @@ function MetaLine({ createdAt, model }: { createdAt?: string | null; model?: str
 
 function PointList({ title, items, tone }: { title: string; items: string[]; tone: "good" | "warn" | "bad" }) {
   if (!items.length) return null;
-  const color = tone === "good" ? "text-emerald-700" : tone === "warn" ? "text-amber-700" : "text-red-700";
+  const color = tone === "good" ? "text-good" : tone === "warn" ? "text-warn" : "text-bad";
   return (
     <div>
       <div className="mb-1 font-medium">{title}</div>
@@ -224,7 +224,7 @@ function AiGradingChat({
   loading: boolean;
 }) {
   return (
-    <div className="mt-3 rounded-md border border-line bg-white p-3 text-sm">
+    <div className="mt-3 rounded-md border border-line bg-panel p-3 text-sm">
       <div className="mb-2 font-medium">围绕评分追问</div>
       <div className="mb-3 max-h-80 min-h-32 space-y-3 overflow-auto rounded-md bg-surface p-3">
         {messages.length ? messages.map((message, index) => (
@@ -251,7 +251,7 @@ function AiGradingChat({
           disabled={disabled}
           rows={4}
         />
-        <button className="inline-flex h-24 w-12 items-center justify-center rounded-md bg-accent text-white disabled:opacity-50" onClick={onSend} disabled={disabled || !input.trim()} title="发送，Ctrl+Enter">
+        <button className="inline-flex h-24 w-12 items-center justify-center rounded-md bg-accent text-on-accent disabled:opacity-50" onClick={onSend} disabled={disabled || !input.trim()} title="发送，Ctrl+Enter">
           <Send className="h-4 w-4" />
         </button>
       </div>
