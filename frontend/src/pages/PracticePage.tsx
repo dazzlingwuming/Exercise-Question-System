@@ -375,15 +375,16 @@ export function PracticePage() {
 
   return (
     <div className={`practice-layout ${assistantOpen ? "has-assistant" : ""}`}>
-      <div className="practice-main space-y-5">
+      <div className="practice-main mx-auto w-full max-w-[1000px] space-y-5">
         <PageHeader eyebrow="PRACTICE TIME" title="专注这一题" description="慢慢想，大胆答。每一次练习都算数。" actions={<button className="btn-secondary" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}><Sparkles className="h-4 w-4 text-accent" />{assistantOpen ? "收起 AI 助手" : "展开 AI 助手"}</button>} />
         {sessionId && (
-          <section className="panel overflow-hidden p-4">
+          <section className="bento-card p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="chip border-accent-border bg-accent-soft text-accent">{MODE_LABELS[mode]}</span>
-                  <span className="text-sm font-semibold stat-value">{currentIndex + 1} / {total} 题</span>
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="figure-lg">{currentIndex + 1}</span>
+                  <span className="text-sm text-muted">/ {total} 题</span>
+                  <span className="chip ml-1 border-accent-border bg-accent-soft text-accent">{MODE_LABELS[mode]}</span>
                 </div>
                 <div className="mt-1.5 text-xs text-muted">{collectionName || "全部题库"} · 每组 {pageSize} 题 · {ORDER_LABELS[order]}</div>
               </div>
@@ -392,13 +393,13 @@ export function PracticePage() {
                 <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${configOpen ? "rotate-180" : ""}`} />
               </button>
             </div>
-            <div className="progress-track mt-3">
+            <div className="progress-track mt-4">
               <div className="progress-fill" style={{ width: `${total ? ((currentIndex + 1) / total) * 100 : 0}%` }} />
             </div>
           </section>
         )}
-        {(!sessionId || configOpen) && <section className="panel overflow-hidden">
-          <div className="grid lg:grid-cols-[250px_minmax(0,1fr)]">
+        {(!sessionId || configOpen) && <section className="bento-card">
+          <div className="grid lg:grid-cols-[280px_minmax(0,1fr)]">
             <aside
               className="relative hidden flex-col justify-between overflow-hidden border-r border-line p-5 lg:flex"
               style={{ background: "linear-gradient(165deg, rgb(var(--c-accent-soft)), rgb(var(--c-panel)) 70%)" }}
@@ -408,7 +409,7 @@ export function PracticePage() {
                   <img
                     src="/mascot/xiaojing.png"
                     alt="小鲸"
-                    className="mx-auto h-40 w-auto drop-shadow-[0_12px_24px_rgba(30,58,138,0.18)]"
+                    className="mx-auto h-52 w-auto drop-shadow-[0_16px_30px_rgba(30,58,138,0.2)]"
                   />
                 ) : (
                   <HeroScene className="mx-auto max-w-[9.5rem]" />
@@ -490,23 +491,24 @@ export function PracticePage() {
           </section>
         )}
         {sessionId && total > 0 && !question && !groupFinished && !sessionFinished && (
-          <section className="panel p-5">
-            <h2 className="text-lg font-semibold">当前题目不可用</h2>
+          <section className="bento-card p-6">
+            <h2 className="text-lg font-bold tracking-tight">当前题目不可用</h2>
             <p className="mt-2 text-sm text-muted">当前练习中的题目已被删除或不可用，请重新创建练习。</p>
-            <button className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent" onClick={requestStart} disabled={busy}>重新开始本模式</button>
+            <button className="btn-primary mt-4" onClick={requestStart} disabled={busy}>重新开始本模式</button>
           </section>
         )}
         {question && !groupFinished && !sessionFinished && (
           <>
-            <div className="flex items-center justify-between gap-3">
+            <div className="glass-bar flex items-center justify-between gap-3 px-3 py-2">
               <button className="btn-secondary btn-sm" onClick={() => void perform(goPrev)} disabled={currentIndex === 0 || busy || aiSummaryRunning}>
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 上一题
               </button>
-              <span className="text-xs font-medium tabular-nums text-muted">
-                {currentIndex + 1} / {total}
-              </span>
-              <button className="btn-secondary btn-sm" onClick={() => void perform(goNext)} disabled={busy || aiSummaryRunning}>
+              <div className="flex flex-col items-center leading-tight">
+                <span className="text-[9px] uppercase tracking-[0.18em] text-muted">Progress</span>
+                <span className="text-sm font-bold tabular-nums">{currentIndex + 1} / {total}</span>
+              </div>
+              <button className="btn-primary btn-sm" onClick={() => void perform(goNext)} disabled={busy || aiSummaryRunning}>
                 下一题
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -526,12 +528,15 @@ export function PracticePage() {
                 删除题目
               </button>
             </div>
-            <section className="panel overflow-hidden">
-              <div className="flex items-center justify-between gap-2 border-b border-line/70 bg-panel-2/70 px-5 py-3">
-                <h2 className="text-sm font-bold tracking-tight">你的作答</h2>
+            <section className="bento-card">
+              <div className="flex items-center justify-between gap-2 border-b border-line/60 bg-panel-2/40 px-5 py-4 sm:px-7">
+                <div>
+                  <p className="eyebrow">Your answer</p>
+                  <h2 className="mt-1 text-base font-bold tracking-tight">你的作答</h2>
+                </div>
                 <span className="text-[11px] text-muted">提交后显示解析</span>
               </div>
-              <div className="p-5">
+              <div className="p-5 sm:p-7">
                 <fieldset disabled={busy || Boolean(result)} className="min-w-0">
                   <legend className="sr-only">你的作答</legend>
                   <QuestionRenderer question={question} answer={answer} setAnswer={setAnswer} />

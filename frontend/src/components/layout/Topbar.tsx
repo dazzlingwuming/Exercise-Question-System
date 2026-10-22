@@ -1,7 +1,6 @@
-import { Menu, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { ChevronRight, Flame } from "lucide-react";
 import { useLocation } from "react-router-dom";
-import { MobileNavigation } from "./Sidebar";
+import { BrandMark } from "./BrandMark";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 
 const ROUTE_TITLES: Array<[RegExp, string]> = [
@@ -15,7 +14,7 @@ const ROUTE_TITLES: Array<[RegExp, string]> = [
   [/^\/questions/, "我的题库"],
   [/^\/review/, "错题复习"],
   [/^\/stats/, "学习统计"],
-  [/^\/import/, "导入题库"],
+  [/^\/import/, "题库导入"],
   [/^\/ai\//, "AI 生成题目"],
 ];
 
@@ -25,44 +24,28 @@ function usePageTitle() {
 }
 
 export function Topbar() {
-  const [open, setOpen] = useState(false);
   const title = usePageTitle();
 
   return (
-    <>
-      <header className="sticky top-0 z-30 border-b border-line/60 glass">
-        <div className="mx-auto flex h-16 w-full max-w-[1680px] items-center justify-between gap-3 px-4 md:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              type="button"
-              className="icon-btn md:hidden"
-              aria-label="打开导航"
-              aria-expanded={open}
-              onClick={() => setOpen(true)}
-            >
-              <Menu className="h-5 w-5" aria-hidden="true" />
-            </button>
-            <div className="min-w-0">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted">我的学习空间</p>
-              <p className="truncate text-sm font-semibold tracking-tight">{title}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="hidden items-center gap-2 rounded-full border border-line bg-panel/70 px-3 py-1.5 text-xs text-muted xl:flex">
-              <Sparkles className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
-              一点积累，一点成长
-            </span>
-            <ThemeSwitcher />
-          </div>
+    <header className="sticky top-0 z-30 border-b border-line/50 bg-surface/70 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 w-full max-w-[1560px] items-center justify-between gap-3 px-4 md:px-7">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="lg:hidden">
+            <BrandMark size={28} />
+          </span>
+          <span className="hidden text-[11px] font-medium tracking-wide text-muted sm:inline">工作台</span>
+          <ChevronRight className="hidden h-3 w-3 text-muted/70 sm:inline" aria-hidden="true" />
+          <span className="truncate text-[13px] font-semibold tracking-tight text-ink">{title}</span>
         </div>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 -bottom-px h-px"
-          style={{ backgroundImage: "linear-gradient(90deg, transparent, rgb(var(--c-accent) / 0.35), transparent)" }}
-        />
-      </header>
-      <MobileNavigation open={open} onClose={() => setOpen(false)} />
-    </>
+
+        <div className="flex items-center gap-2">
+          <span className="hidden items-center gap-1.5 rounded-full border border-line bg-panel/70 px-2.5 py-1 text-[11px] text-muted md:flex">
+            <Flame className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
+            今天也保持手感
+          </span>
+          <ThemeSwitcher />
+        </div>
+      </div>
+    </header>
   );
 }

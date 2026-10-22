@@ -311,9 +311,7 @@ function AuroraScene(props: SceneProps) {
         ))}
       </g>
 
-      <path d="M-10 202c42-42 76-60 110-60s60 22 86 34 48 18 74 16 44-10 62-20v72H-10Z" fill="rgb(var(--c-surface-2))" />
-      <path d="M-10 218c46-24 84-34 122-28s62 22 92 26 52 0 76-10v40H-10Z" fill="rgb(var(--c-panel))" opacity="0.6" />
-      <path d="M150 160c10-16 22-22 36-22" stroke="rgb(var(--c-accent-2))" strokeWidth="2" fill="none" opacity="0.4" />
+      <path d="M150 168c10-16 22-22 36-22" stroke="rgb(var(--c-accent-2))" strokeWidth="2" fill="none" opacity="0.4" />
     </svg>
   );
 }
