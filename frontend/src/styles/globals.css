@@ -1766,3 +1766,197 @@ header {
   color: rgb(var(--c-on-accent));
   border-color: rgb(255 255 255 / 0.4);
 }
+
+/* ============================================================
+   表单控件：统一高度、底色与聚焦反馈
+   ============================================================ */
+
+.field {
+  width: 100%;
+  min-height: 2.5rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgb(var(--c-line));
+  background-color: rgb(var(--c-panel-2) / 0.55);
+  padding: 0.5rem 0.85rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: rgb(var(--c-ink));
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.field:hover {
+  border-color: rgb(var(--c-accent) / 0.32);
+}
+
+.field:focus {
+  outline: none;
+  border-color: rgb(var(--c-accent));
+  background-color: rgb(var(--c-panel));
+  box-shadow: 0 0 0 3px rgb(var(--c-accent) / 0.14);
+}
+
+.field--icon {
+  padding-left: 2.35rem;
+}
+
+.field::placeholder {
+  color: rgb(var(--c-muted) / 0.75);
+}
+
+textarea.field {
+  min-height: 5.5rem;
+  line-height: 1.75;
+  resize: vertical;
+}
+
+textarea.field--tall {
+  min-height: 20rem;
+}
+
+textarea.field--code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 0.78rem;
+  line-height: 1.75;
+}
+
+select.field {
+  cursor: pointer;
+  padding-right: 2rem;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23888' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1.1rem;
+}
+
+.field-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--c-muted));
+}
+
+.field-label > span:last-child:not(:first-child) {
+  font-weight: 400;
+  color: rgb(var(--c-muted) / 0.8);
+}
+
+/* 吸底操作条 */
+.action-bar {
+  position: sticky;
+  bottom: 1rem;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid rgb(var(--c-line));
+  border-radius: 1.1rem;
+  background: rgb(var(--c-panel) / 0.96);
+  padding: 0.7rem 0.9rem;
+  box-shadow: 0 24px 48px -28px rgb(var(--c-scrim) / 0.55), 0 2px 8px -4px rgb(var(--c-scrim) / 0.18);
+  backdrop-filter: saturate(1.7) blur(18px);
+  -webkit-backdrop-filter: saturate(1.7) blur(18px);
+}
+
+/* 移动端底部有 Dock，吸底操作条必须抬起来，避免互相遮挡。
+   放在文件末尾，确保覆盖 .action-bar 的基础 bottom。 */
+@media (max-width: 1023px) {
+  .action-bar {
+    bottom: 5rem;
+  }
+}
+
+/* 紧凑图标按钮：用于列表行的次级操作 */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  color: rgb(var(--c-muted));
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.icon-btn:hover {
+  background: rgb(var(--c-accent-soft));
+  color: rgb(var(--c-accent));
+}
+
+.icon-btn-danger:hover {
+  background: rgb(var(--c-bad-soft));
+  color: rgb(var(--c-bad));
+}
+
+/* 提交后的判分态：正确项绿、错选项红，必须能压过 is-selected 的强调色 */
+.option-card.is-correct {
+  border-color: rgb(var(--c-good));
+  background-color: rgb(var(--c-good-soft) / 0.75);
+  box-shadow: 0 0 0 1px rgb(var(--c-good) / 0.35);
+}
+
+.option-card.is-correct .option-key {
+  border-color: transparent;
+  background-image: none;
+  background-color: rgb(var(--c-good));
+  color: #fff;
+  box-shadow: none;
+}
+
+.option-card.is-wrong {
+  border-color: rgb(var(--c-bad));
+  background-color: rgb(var(--c-bad-soft) / 0.7);
+  box-shadow: 0 0 0 1px rgb(var(--c-bad) / 0.28);
+}
+
+.option-card.is-wrong .option-key {
+  border-color: transparent;
+  background-image: none;
+  background-color: rgb(var(--c-bad));
+  color: #fff;
+  box-shadow: none;
+}
+
+.option-card.is-correct:hover,
+.option-card.is-wrong:hover {
+  transform: none;
+}
+
+/* 提交后的判分态：正确项绿、错选项红，必须能压过 is-selected 的强调色 */
+.option-card.is-correct {
+  border-color: rgb(var(--c-good));
+  background-color: rgb(var(--c-good-soft) / 0.75);
+  box-shadow: 0 0 0 1px rgb(var(--c-good) / 0.35);
+}
+
+.option-card.is-correct .option-key {
+  border-color: transparent;
+  background-image: none;
+  background-color: rgb(var(--c-good));
+  color: #fff;
+  box-shadow: none;
+}
+
+.option-card.is-wrong {
+  border-color: rgb(var(--c-bad));
+  background-color: rgb(var(--c-bad-soft) / 0.7);
+  box-shadow: 0 0 0 1px rgb(var(--c-bad) / 0.28);
+}
+
+.option-card.is-wrong .option-key {
+  border-color: transparent;
+  background-image: none;
+  background-color: rgb(var(--c-bad));
+  color: #fff;
+  box-shadow: none;
+}
+
+.option-card.is-correct:hover,
+.option-card.is-wrong:hover {
+  transform: none;
+}

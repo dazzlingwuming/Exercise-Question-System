@@ -1,6 +1,8 @@
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-const FILLS = [1, 2, 3, 4, 5].map((index) => `rgb(var(--chart-${index}))`);
+// 难度是递进关系，用同一主色的深浅表达强度，而不是五种互不相关的颜色。
+const RAMP = [0.28, 0.44, 0.62, 0.8, 1];
+const fillFor = (index: number) => `rgb(var(--c-accent-2) / ${RAMP[index % RAMP.length]})`;
 
 export function AccuracyChart({ data }: { data: Record<string, number> }) {
   const rows = Object.entries(data).map(([name, value]) => ({ name, value }));
@@ -38,9 +40,9 @@ export function AccuracyChart({ data }: { data: Record<string, number> }) {
             }}
             itemStyle={{ color: "rgb(var(--c-ink))" }}
           />
-          <Bar dataKey="value" radius={[8, 8, 4, 4]} maxBarSize={54}>
+          <Bar dataKey="value" radius={[8, 8, 0, 0]} maxBarSize={54}>
             {rows.map((_, index) => (
-              <Cell key={index} fill={FILLS[index % FILLS.length]} />
+              <Cell key={index} fill={fillFor(index)} />
             ))}
             <LabelList dataKey="value" position="top" fill="rgb(var(--c-muted))" fontSize={12} />
           </Bar>

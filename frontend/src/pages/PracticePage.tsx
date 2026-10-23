@@ -23,6 +23,7 @@ import { ExplanationPanel } from "../components/question/ExplanationPanel";
 import { DeleteQuestionDialog } from "../components/question/DeleteQuestionDialog";
 import { QuestionCard } from "../components/question/QuestionCard";
 import { QuestionRenderer } from "../components/question/QuestionRenderer";
+import { answerKeys } from "../utils/answers";
 import type { QuestionState, SubmitAnswerResponse } from "../types/attempt";
 import type { FilterOptions, PracticeQuestion } from "../types/question";
 import type { CollectionNode } from "../types/collection";
@@ -640,7 +641,12 @@ export function PracticePage() {
               <div className="p-5 sm:p-7">
                 <fieldset disabled={busy || Boolean(result)} className="min-w-0">
                   <legend className="sr-only">你的作答</legend>
-                  <QuestionRenderer question={question} answer={answer} setAnswer={setAnswer} />
+                  <QuestionRenderer
+                    question={question}
+                    answer={answer}
+                    setAnswer={setAnswer}
+                    grade={result ? { correctKeys: answerKeys(result.standard_answer), isCorrect: result.is_correct } : null}
+                  />
                 </fieldset>
                 {!result && <p className="mt-3 text-xs text-muted">草稿会保留在当前浏览器标签页中，切题和刷新均可恢复。</p>}
                 <div className="mt-4 flex flex-wrap gap-2">

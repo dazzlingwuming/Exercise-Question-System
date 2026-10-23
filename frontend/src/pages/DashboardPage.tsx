@@ -241,8 +241,8 @@ export function DashboardPage() {
                         aria-hidden="true"
                         className={`h-1.5 w-1.5 shrink-0 rounded-full ${correct ? "bg-good" : wrong ? "bg-warn" : "bg-accent-muted"}`}
                       />
-                      <span className="min-w-0 flex-1 truncate text-xs text-ink" title={String(item.question_id)}>
-                        {shortQuestionId(String(item.question_id))}
+                      <span className="min-w-0 flex-1 truncate font-mono text-[0.7rem] text-ink" title={String(item.question_id)}>
+                        {String(item.question_id)}
                       </span>
                       <span className="hidden shrink-0 text-xs text-muted xl:inline">
                         {shortWhen(item.created_at)}
@@ -289,7 +289,7 @@ export function DashboardPage() {
 
 function StatTile({ label, value, caption, icon }: { label: string; value: number | string; caption: string; icon: ReactNode }) {
   return (
-    <section className="bento-card dot-grid col-span-6 p-5 md:col-span-3" style={{ backgroundColor: "rgb(var(--c-panel-2))" }}>
+    <section className="bento-card dot-grid col-span-6 flex min-h-[8.5rem] flex-col justify-between p-5 md:col-span-3" style={{ backgroundColor: "rgb(var(--c-panel-2))" }}>
       <div className="relative z-10 flex items-start justify-between gap-2">
         <span className="text-xs font-medium tracking-wide text-muted">{label}</span>
         <span className="text-accent/80">{icon}</span>

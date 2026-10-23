@@ -1,7 +1,8 @@
 import type { PracticeQuestion } from "../../types/question";
+import { trueFalseAnswer } from "../../utils/answers";
 import { FillBlankQuestion } from "./FillBlankQuestion";
 import { MultipleChoiceQuestion } from "./MultipleChoiceQuestion";
-import { SingleChoiceQuestion } from "./SingleChoiceQuestion";
+import { SingleChoiceQuestion, type AnswerGrade } from "./SingleChoiceQuestion";
 import { SubjectiveQuestion } from "./SubjectiveQuestion";
 import { TrueFalseQuestion } from "./TrueFalseQuestion";
 
@@ -10,16 +11,36 @@ export function QuestionRenderer({
   question,
   answer,
   setAnswer,
+  grade = null,
 }: {
   question: PracticeQuestion;
   answer: string | string[];
   setAnswer: (value: string | string[]) => void;
+  /** 提交后传入，用于给选项标注正确 / 错误。 */
+  grade?: AnswerGrade;
 }) {
-  if (question.type === "single_choice") return <SingleChoiceQuestion question={question} value={String(answer)} onChange={setAnswer} />;
-  if (question.type === "multiple_choice") {
-    return <MultipleChoiceQuestion question={question} value={Array.isArray(answer) ? answer : []} onChange={setAnswer} />;
+  if (question.type === "single_choice") {
+    return <SingleChoiceQuestion question={question} value={String(answer)} onChange={setAnswer} grade={grade} />;
   }
-  if (question.type === "true_false") return <TrueFalseQuestion value={String(answer)} onChange={setAnswer} />;
+  if (question.type === "multiple_choice") {
+    return (
+      <MultipleChoiceQuestion
+        question={question}
+        value={Array.isArray(answer) ? answer : []}
+        onChange={setAnswer}
+        grade={grade}
+      />
+    );
+  }
+  if (question.type === "true_false") {
+    return (
+      <TrueFalseQuestion
+        value={String(answer)}
+        onChange={setAnswer}
+        correctValue={grade ? trueFalseAnswer([...grade.correctKeys]) : ""}
+      />
+    );
+  }
   if (question.type === "fill_blank") return <FillBlankQuestion value={String(answer)} onChange={setAnswer} />;
   return <SubjectiveQuestion value={String(answer)} onChange={setAnswer} />;
 }

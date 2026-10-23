@@ -35,12 +35,10 @@ export function StatsPage() {
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <p className="eyebrow eyebrow-dot">Learning insights</p>
-          <h1 className="hero-display mt-3 text-[clamp(1.9rem,3vw,2.6rem)]">你的学习报告</h1>
-        </div>
-        <p className="max-w-sm text-xs leading-6 text-muted">
+      <header className="px-1">
+        <p className="eyebrow eyebrow-dot">Learning insights</p>
+        <h1 className="hero-display mt-3 text-[clamp(1.9rem,3vw,2.6rem)]">你的学习报告</h1>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-muted">
           数据不会说谎：先看正确率，再看错题集中在哪里，最后决定下一次练什么。
         </p>
       </header>
@@ -73,35 +71,44 @@ export function StatsPage() {
           </div>
         </section>
 
-        {/* 三个数字 */}
-        <div className="col-span-12 flex flex-col gap-3 xl:col-span-5">
-        <section className="bento-card dot-grid flex-1 p-5">
-          <div className="relative z-10 flex items-center justify-between text-xs text-muted">
-            题库总量
-            <BookOpen className="h-4 w-4 text-accent/80" aria-hidden="true" />
-          </div>
-          <div className="figure-xl relative z-10 mt-3"><AnimatedNumber value={stats.total_questions} /></div>
-          <p className="relative z-10 mt-1 text-xs text-muted">道题在库里</p>
+        {/* 三个数字：合成一张卡，避免三张卡被拉出大片空白 */}
+        <section className="bento-card dot-grid col-span-12 flex flex-col justify-center p-3 xl:col-span-5">
+          <dl className="relative z-10 divide-y divide-line/60">
+            {[
+              {
+                label: "题库总量",
+                value: stats.total_questions,
+                unit: "道题在库里",
+                icon: <BookOpen className="h-4 w-4" aria-hidden="true" />,
+              },
+              {
+                label: "已练习",
+                value: stats.answered_count,
+                unit: `覆盖 ${stats.total_questions ? Math.round((stats.answered_count / stats.total_questions) * 100) : 0}%`,
+                icon: <Target className="h-4 w-4" aria-hidden="true" />,
+              },
+              {
+                label: "待复习",
+                value: stats.wrong_count,
+                unit: "道错题等你",
+                icon: <Flame className="h-4 w-4" aria-hidden="true" />,
+              },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-4 px-3 py-4">
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted">{item.label}</dt>
+                  <dd className="mt-1 flex items-baseline gap-2">
+                    <span className="figure-lg">
+                      <AnimatedNumber value={item.value} />
+                    </span>
+                    <span className="truncate text-xs text-muted">{item.unit}</span>
+                  </dd>
+                </div>
+                <span className="stat-icon shrink-0 text-accent">{item.icon}</span>
+              </div>
+            ))}
+          </dl>
         </section>
-        <section className="bento-card dot-grid flex-1 p-5">
-          <div className="relative z-10 flex items-center justify-between text-xs text-muted">
-            已练习
-            <Target className="h-4 w-4 text-accent/80" aria-hidden="true" />
-          </div>
-          <div className="figure-xl relative z-10 mt-3"><AnimatedNumber value={stats.answered_count} /></div>
-          <p className="relative z-10 mt-1 text-xs text-muted">
-            覆盖 {stats.total_questions ? Math.round((stats.answered_count / stats.total_questions) * 100) : 0}%
-          </p>
-        </section>
-        <section className="bento-card dot-grid flex-1 p-5">
-          <div className="relative z-10 flex items-center justify-between text-xs text-muted">
-            待复习
-            <Flame className="h-4 w-4 text-accent/80" aria-hidden="true" />
-          </div>
-          <div className="figure-xl relative z-10 mt-3"><AnimatedNumber value={stats.wrong_count} /></div>
-          <p className="relative z-10 mt-1 text-xs text-muted">道错题等你</p>
-        </section>
-        </div>
 
         {/* 图表 */}
         <section className="bento-card col-span-12 p-5 sm:p-6 lg:col-span-6">

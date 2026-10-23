@@ -1,4 +1,4 @@
-import { BookOpen, Edit3, RotateCcw, Trash2 } from "lucide-react";
+import { BookOpen, Edit3, RotateCcw, Search, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { listWrongAttempts } from "../api/attempts";
@@ -60,25 +60,36 @@ export function ReviewPage() {
   return (
     <div className="space-y-5">
       <PageHeader eyebrow="A LITTLE BETTER EACH TIME" title="把错题变成进步" description="回看没掌握的地方，下一次就会更有把握。" />
-      <section className="panel p-4">
-        <div className="grid gap-3 md:grid-cols-6">
-          <input aria-label="搜索错题题干" className="rounded-md border border-line px-3 py-2" value={keyword} onChange={(event) => { setPage(1); setKeyword(event.target.value); }} placeholder="搜索题干" />
-          <Select value={type} onChange={setType} empty="全部题型" options={filters?.types ?? []} />
-          <Select value={difficulty} onChange={setDifficulty} empty="全部难度" options={filters?.difficulties ?? []} />
-          <Select value={examPoint} onChange={setExamPoint} empty="全部考察点" options={filters?.exam_points ?? []} />
-          <Select value={direction} onChange={setDirection} empty="全部方向" options={filters?.directions ?? []} />
-          <select aria-label="错题排序" className="rounded-md border border-line bg-panel px-3 py-2" value={sort} onChange={(event) => setSort(event.target.value)}>
-            <option value="latest_wrong">最新错题</option>
-            <option value="oldest_wrong">最早错题</option>
-            <option value="import_order">导入顺序</option>
-            <option value="wrong_count_desc">错误次数</option>
-          </select>
+      <section className="bento-card p-4">
+        <div className="space-y-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+            <input
+              aria-label="搜索错题题干"
+              className="field field--icon"
+              value={keyword}
+              onChange={(event) => { setPage(1); setKeyword(event.target.value); }}
+              placeholder="搜索题干关键词…"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <Select value={type} onChange={setType} empty="全部题型" options={filters?.types ?? []} />
+            <Select value={difficulty} onChange={setDifficulty} empty="全部难度" options={filters?.difficulties ?? []} />
+            <Select value={examPoint} onChange={setExamPoint} empty="全部考察点" options={filters?.exam_points ?? []} />
+            <Select value={direction} onChange={setDirection} empty="全部方向" options={filters?.directions ?? []} />
+            <select aria-label="错题排序" className="field" value={sort} onChange={(event) => setSort(event.target.value)}>
+              <option value="latest_wrong">最新错题</option>
+              <option value="oldest_wrong">最早错题</option>
+              <option value="import_order">导入顺序</option>
+              <option value="wrong_count_desc">错误次数</option>
+            </select>
+          </div>
         </div>
       </section>
       {error && <ErrorState message={error} />}
       {notice && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{notice}</div>}
       {loading ? <ListSkeleton rows={3} /> : items.length === 0 ? (
-        <EmptyState text="暂无错题。" />
+        <EmptyState title="错题本是干净的" text="答错的题会自动收进这里，方便你回头再啃一遍。" action={<Link className="btn-secondary btn-sm" to="/practice">去练一组</Link>} />
       ) : (
         <div className="grid gap-3">
           {items.map(({ attempt, question, wrong_count, last_wrong_at, last_wrong_answer }) => (
@@ -170,7 +181,7 @@ function formatStandardAnswer(value: unknown): string {
 
 function Select({ value, onChange, options, empty }: { value: string; onChange: (value: string) => void; options: string[]; empty: string }) {
   return (
-    <select aria-label={empty} className="rounded-md border border-line bg-panel px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
+    <select aria-label={empty} className="field" value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">{empty}</option>
       {options.map((item) => <option key={item} value={item}>{item}</option>)}
     </select>
