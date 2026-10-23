@@ -2,8 +2,8 @@ import { ArrowRight, ArrowUpRight, BookOpen, CheckCircle2, History, Sparkles, Ta
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { getStatsSummary } from "../api/stats";
+import { AnimatedNumber } from "../components/common/AnimatedNumber";
 import { ErrorState } from "../components/common/ErrorState";
-import { LoadingState } from "../components/common/LoadingState";
 import { HeroScene } from "../components/layout/HeroScene";
 import { TypeDistributionChart } from "../components/stats/TypeDistributionChart";
 import { useTheme } from "../theme/ThemeProvider";
@@ -44,7 +44,7 @@ export function DashboardPage() {
   }, []);
 
   if (error) return <ErrorState message={error} />;
-  if (!stats) return <LoadingState />;
+  if (!stats) return <DashboardSkeleton />;
 
   const progress = stats.total_questions ? Math.round((stats.answered_count / stats.total_questions) * 100) : 0;
   const remaining = Math.max(0, stats.total_questions - stats.answered_count);
@@ -75,7 +75,7 @@ export function DashboardPage() {
             </div>
 
             <div className="mt-7 flex flex-wrap items-center gap-3 border-t border-accent-border/50 pt-4">
-              <span className="rounded-full border border-accent-border bg-panel/70 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-accent">
+              <span className="rounded-full border border-accent-border bg-panel/70 px-2.5 py-1 text-xs font-semibold tracking-[0.12em] text-accent">
                 今日建议
               </span>
               <p className="text-xs leading-6 text-muted">
@@ -210,7 +210,7 @@ export function DashboardPage() {
             </Link>
           </div>
           {stats.total_questions ? (
-            <TypeDistributionChart data={stats.type_distribution} />
+            <TypeDistributionChart data={stats.type_distribution} maxItems={7} />
           ) : (
             <div className="flex flex-col items-center py-6 text-center">
               <p className="text-sm text-muted">先导入一些题，版图才会亮起来。</p>
@@ -241,8 +241,11 @@ export function DashboardPage() {
                         aria-hidden="true"
                         className={`h-1.5 w-1.5 shrink-0 rounded-full ${correct ? "bg-good" : wrong ? "bg-warn" : "bg-accent-muted"}`}
                       />
-                      <span className="min-w-0 flex-1 truncate text-[12px] text-ink">
-                        题目 {String(item.question_id).slice(0, 8)}
+                      <span className="min-w-0 flex-1 truncate text-xs text-ink" title={String(item.question_id)}>
+                        {shortQuestionId(String(item.question_id))}
+                      </span>
+                      <span className="hidden shrink-0 text-xs text-muted xl:inline">
+                        {shortWhen(item.created_at)}
                       </span>
                       <span className={`shrink-0 text-xs font-medium ${correct ? "text-good" : wrong ? "text-warn" : "text-muted"}`}>
                         {correct ? "答对" : wrong ? "巩固" : "待评"}
@@ -291,7 +294,9 @@ function StatTile({ label, value, caption, icon }: { label: string; value: numbe
         <span className="text-xs font-medium tracking-wide text-muted">{label}</span>
         <span className="text-accent/80">{icon}</span>
       </div>
-      <div className="figure-xl relative z-10 mt-3">{value}</div>
+      <div className="figure-xl relative z-10 mt-3">
+        {typeof value === "number" ? <AnimatedNumber value={value} /> : value}
+      </div>
       <p className="relative z-10 mt-1 text-xs text-muted">{caption}</p>
     </section>
   );
@@ -325,8 +330,43 @@ function ProgressRing({ value, light = false }: { value: number; light?: boolean
         />
       </svg>
       <div className="absolute text-center">
-        <div className="figure-xl">{clamped}%</div>
+        <div className="figure-xl">
+          <AnimatedNumber value={clamped} />%
+        </div>
         <div className="mt-1 text-xs uppercase tracking-[0.16em] text-muted">coverage</div>
+      </div>
+    </div>
+  );
+}
+
+/** 取题目 ID 的尾段，避免同前缀的题目在列表里看起来一模一样。 */
+function shortQuestionId(id: string) {
+  const parts = id.split("_");
+  if (parts.length >= 2) return parts.slice(-2).join("_");
+  return id.length > 12 ? `…${id.slice(-10)}` : id;
+}
+
+function shortWhen(value: unknown) {
+  if (typeof value !== "string") return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** 首屏骨架：按 Bento 结构占位，避免加载时整页塌成一张卡片。 */
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-4" aria-hidden="true">
+      <div className="bento">
+        <div className="bento-card skeleton col-span-12 h-[21rem] xl:col-span-8" />
+        <div className="bento-card skeleton col-span-12 h-[21rem] sm:col-span-6 xl:col-span-4" />
+        {[0, 1, 2, 3].map((index) => (
+          <div key={index} className="bento-card skeleton col-span-6 h-28 md:col-span-3" />
+        ))}
+        <div className="bento-card skeleton col-span-12 h-72 lg:col-span-5" />
+        <div className="bento-card skeleton col-span-12 h-72 md:col-span-6 lg:col-span-4" />
+        <div className="bento-card skeleton col-span-12 h-72 md:col-span-6 lg:col-span-3" />
       </div>
     </div>
   );

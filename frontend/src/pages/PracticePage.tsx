@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, RotateCcw, Send, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, Maximize2, Minimize2, RotateCcw, Send, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { finalizeAiSummaryStream, type AiConfig } from "../api/ai";
@@ -97,9 +97,11 @@ export function PracticePage() {
   const [aiConfig, setAiConfig] = useState<AiConfig>(() => loadStoredAiConfig());
   const [busy, setBusy] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [restartOpen, setRestartOpen] = useState(false);
   const actionLock = useRef(false);
+  const explanationRef = useRef<HTMLDivElement>(null);
   async function perform(action: () => Promise<void>) {
     if (actionLock.current) return;
     actionLock.current = true; setBusy(true); setError("");
@@ -127,6 +129,73 @@ export function PracticePage() {
 
   const question = currentGroup[currentIndex - groupStart] ?? null;
   const questionState = question ? questionStates[question.id] : undefined;
+
+  // 键盘流：数字键选选项、Enter 提交、左右键切题（输入框聚焦时不拦截）
+  useEffect(() => {
+    if (!question || groupFinished || sessionFinished) return;
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        void perform(goPrev);
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        void perform(goNext);
+        return;
+      }
+      if (event.key === "Enter" && !result) {
+        const empty = Array.isArray(answer) ? answer.length === 0 : !String(answer).trim();
+        if (!empty && !busy) {
+          event.preventDefault();
+          void perform(submit);
+        }
+        return;
+      }
+      if (result) return;
+      const index = Number(event.key);
+      if (!Number.isInteger(index) || index < 1 || index > question.options.length) return;
+      const option = question.options[index - 1];
+      if (!option) return;
+      event.preventDefault();
+      if (question.type === "multiple_choice") {
+        const current = Array.isArray(answer) ? answer : [];
+        setAnswer(current.includes(option.key) ? current.filter((key) => key !== option.key) : [...current, option.key].sort());
+      } else if (question.type === "single_choice") {
+        setAnswer(option.key);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [question, answer, result, busy, groupFinished, sessionFinished, currentIndex]);
+
+  // 提交后把解析滚动到视野内，省掉一次手动下滑
+  useEffect(() => {
+    if (!result) return;
+    const timer = window.setTimeout(() => {
+      explanationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 140);
+    return () => window.clearTimeout(timer);
+  }, [result?.attempt_id]);
+
+  // 专注模式：隐藏 Dock 与顶栏，Esc 退出
+  useEffect(() => {
+    document.body.classList.toggle("focus-mode", focusMode);
+    if (!focusMode) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFocusMode(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.classList.remove("focus-mode");
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [focusMode]);
+
   const collectionName = findNode(collectionTree, collectionId)?.path ?? "";
   const returnTo = `${location.pathname}${location.search}`;
   const contextText = useMemo(() => {
@@ -375,8 +444,34 @@ export function PracticePage() {
 
   return (
     <div className={`practice-layout ${assistantOpen ? "has-assistant" : ""}`}>
+      {focusMode && (
+        <button
+          type="button"
+          className="btn-secondary btn-sm fixed right-4 top-4 z-50 shadow-lift"
+          onClick={() => setFocusMode(false)}
+        >
+          <Minimize2 className="h-4 w-4" aria-hidden="true" />
+          退出专注
+        </button>
+      )}
       <div className="practice-main mx-auto w-full max-w-[1000px] space-y-5">
-        <PageHeader eyebrow="PRACTICE TIME" title="专注这一题" description="慢慢想，大胆答。每一次练习都算数。" actions={<button className="btn-secondary" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}><Sparkles className="h-4 w-4 text-accent" />{assistantOpen ? "收起 AI 助手" : "展开 AI 助手"}</button>} />
+        <PageHeader
+          eyebrow="PRACTICE TIME"
+          title="专注这一题"
+          description="慢慢想，大胆答。每一次练习都算数。"
+          actions={
+            <>
+              <button className="btn-secondary" onClick={() => setFocusMode(true)}>
+                <Maximize2 className="h-4 w-4" aria-hidden="true" />
+                专注模式
+              </button>
+              <button className="btn-secondary" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}>
+                <Sparkles className="h-4 w-4 text-accent" aria-hidden="true" />
+                {assistantOpen ? "收起 AI 助手" : "展开 AI 助手"}
+              </button>
+            </>
+          }
+        />
         {sessionId && (
           <section className="bento-card p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -499,13 +594,13 @@ export function PracticePage() {
         )}
         {question && !groupFinished && !sessionFinished && (
           <>
-            <div className="glass-bar flex items-center justify-between gap-3 px-3 py-2">
+            <div className="glass-bar sticky top-16 z-20 flex items-center justify-between gap-3 px-3 py-2">
               <button className="btn-secondary btn-sm" onClick={() => void perform(goPrev)} disabled={currentIndex === 0 || busy || aiSummaryRunning}>
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 上一题
               </button>
               <div className="flex flex-col items-center leading-tight">
-                <span className="text-[9px] uppercase tracking-[0.18em] text-muted">Progress</span>
+                <span className="text-[11px] uppercase tracking-[0.18em] text-muted">Progress</span>
                 <span className="text-sm font-bold tabular-nums">{currentIndex + 1} / {total}</span>
               </div>
               <button className="btn-primary btn-sm" onClick={() => void perform(goNext)} disabled={busy || aiSummaryRunning}>
@@ -513,7 +608,12 @@ export function PracticePage() {
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
-            <QuestionCard question={question} />
+            <p className="hidden text-center text-xs text-muted sm:block">
+              快捷键：1–4 选择选项 · Enter 提交 · ← → 切题
+            </p>
+            <div key={question.id} className="animate-rise">
+              <QuestionCard question={question} />
+            </div>
             {questionState && questionState.attempt_count > 0 && !result && (
               <div className="rounded-md border border-warn-border bg-warn-soft p-3 text-sm text-warn">
                 这道题之前已答过 {questionState.attempt_count} 次，{stateStatusText(questionState)}。本次练习不会预填历史答案，提交后才显示解析。
@@ -553,12 +653,12 @@ export function PracticePage() {
               </div>
             </section>
             {result && (
-              <>
+              <div ref={explanationRef} className="scroll-mt-24 space-y-4">
                 <ExplanationPanel result={result} />
                 <Link className="btn-secondary btn-sm" to={editQuestionPath(question.id, returnTo)}>
                   发现题目有误？编辑题目
                 </Link>
-              </>
+              </div>
             )}
             {result?.requires_self_review && (
               <div className="flex gap-2">

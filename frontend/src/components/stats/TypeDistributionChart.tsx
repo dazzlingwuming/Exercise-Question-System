@@ -2,9 +2,26 @@ import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 const COLORS = [1, 2, 3, 4, 5, 6].map((index) => `rgb(var(--chart-${index}))`);
 
-export function TypeDistributionChart({ data, layout = "stack" }: { data: Record<string, number>; layout?: "stack" | "row" }) {
-  const rows = Object.entries(data).map(([name, value]) => ({ name, value }));
-  const total = rows.reduce((sum, row) => sum + row.value, 0);
+export function TypeDistributionChart({
+  data,
+  layout = "stack",
+  maxItems,
+}: {
+  data: Record<string, number>;
+  layout?: "stack" | "row";
+  maxItems?: number;
+}) {
+  const all = Object.entries(data)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+  const rows =
+    maxItems && all.length > maxItems
+      ? [
+          ...all.slice(0, maxItems - 1),
+          { name: "其他", value: all.slice(maxItems - 1).reduce((sum, item) => sum + item.value, 0) },
+        ]
+      : all;
+  const total = all.reduce((sum, row) => sum + row.value, 0);
 
   if (!rows.length) {
     return <p className="py-10 text-center text-sm text-muted">还没有题型数据。</p>;

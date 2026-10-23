@@ -1,4 +1,4 @@
-import { ChevronRight, Flame } from "lucide-react";
+import { ChevronRight, Flame, Search } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { BrandMark } from "./BrandMark";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -23,7 +23,7 @@ function usePageTitle() {
   return ROUTE_TITLES.find(([pattern]) => pattern.test(pathname))?.[1] ?? "学习空间";
 }
 
-export function Topbar() {
+export function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const title = usePageTitle();
 
   return (
@@ -39,7 +39,19 @@ export function Topbar() {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="hidden items-center gap-1.5 rounded-full border border-line bg-panel/70 px-2.5 py-1 text-xs text-muted md:flex">
+          <button
+            type="button"
+            onClick={onOpenPalette}
+            className="group flex h-9 items-center gap-2 rounded-full border border-line bg-panel/70 px-3 text-xs text-muted transition hover:border-accent/40 hover:text-accent"
+            aria-label="打开命令面板"
+          >
+            <Search className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">搜索</span>
+            <kbd className="hidden rounded border border-line bg-panel-2 px-1.5 py-0.5 text-[11px] text-muted group-hover:border-accent/30 sm:block">
+              ⌘K
+            </kbd>
+          </button>
+          <span className="hidden items-center gap-1.5 rounded-full border border-line bg-panel/70 px-2.5 py-1 text-xs text-muted xl:flex">
             <Flame className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
             今天也保持手感
           </span>

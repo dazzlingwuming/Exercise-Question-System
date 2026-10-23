@@ -2,6 +2,7 @@ import { BarChart3, BookOpen, CheckCircle2, Flame, Target } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { getStatsSummary } from "../api/stats";
+import { AnimatedNumber } from "../components/common/AnimatedNumber";
 import { ErrorState } from "../components/common/ErrorState";
 import { LoadingState } from "../components/common/LoadingState";
 import { AccuracyChart } from "../components/stats/AccuracyChart";
@@ -51,7 +52,7 @@ export function StatsPage() {
             <div>
             <p className="eyebrow">Accuracy</p>
             <div className="mt-3 flex items-end gap-2">
-              <span className="hero-display text-[3.6rem] leading-none">{accuracy}</span>
+              <span className="hero-display text-[3.6rem] leading-none"><AnimatedNumber value={accuracy} decimals={2} /></span>
               <span className="mb-1 text-xl font-bold text-muted">%</span>
             </div>
             <p className="mt-3 max-w-[15rem] text-xs leading-6 text-muted">
@@ -79,7 +80,7 @@ export function StatsPage() {
             题库总量
             <BookOpen className="h-4 w-4 text-accent/80" aria-hidden="true" />
           </div>
-          <div className="figure-xl relative z-10 mt-3">{stats.total_questions}</div>
+          <div className="figure-xl relative z-10 mt-3"><AnimatedNumber value={stats.total_questions} /></div>
           <p className="relative z-10 mt-1 text-xs text-muted">道题在库里</p>
         </section>
         <section className="bento-card dot-grid flex-1 p-5">
@@ -87,7 +88,7 @@ export function StatsPage() {
             已练习
             <Target className="h-4 w-4 text-accent/80" aria-hidden="true" />
           </div>
-          <div className="figure-xl relative z-10 mt-3">{stats.answered_count}</div>
+          <div className="figure-xl relative z-10 mt-3"><AnimatedNumber value={stats.answered_count} /></div>
           <p className="relative z-10 mt-1 text-xs text-muted">
             覆盖 {stats.total_questions ? Math.round((stats.answered_count / stats.total_questions) * 100) : 0}%
           </p>
@@ -97,7 +98,7 @@ export function StatsPage() {
             待复习
             <Flame className="h-4 w-4 text-accent/80" aria-hidden="true" />
           </div>
-          <div className="figure-xl relative z-10 mt-3">{stats.wrong_count}</div>
+          <div className="figure-xl relative z-10 mt-3"><AnimatedNumber value={stats.wrong_count} /></div>
           <p className="relative z-10 mt-1 text-xs text-muted">道错题等你</p>
         </section>
         </div>

@@ -11,7 +11,7 @@ import { DeleteQuestionDialog } from "../components/question/DeleteQuestionDialo
 import type { WrongAttempt } from "../types/attempt";
 import type { FilterOptions, Question } from "../types/question";
 
-import { LoadingState } from "../components/common/LoadingState";
+import { ListSkeleton } from "../components/common/ListSkeleton";
 import { PageHeader } from "../components/common/PageHeader";
 
 export function ReviewPage() {
@@ -77,7 +77,7 @@ export function ReviewPage() {
       </section>
       {error && <ErrorState message={error} />}
       {notice && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{notice}</div>}
-      {loading ? <LoadingState text="正在准备复习内容…" /> : items.length === 0 ? (
+      {loading ? <ListSkeleton rows={3} /> : items.length === 0 ? (
         <EmptyState text="暂无错题。" />
       ) : (
         <div className="grid gap-3">

@@ -1,10 +1,24 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
+import { CommandPalette } from "./CommandPalette";
 import { Dock } from "./Dock";
 import { Topbar } from "./Topbar";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setPaletteOpen((value) => !value);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <div className="relative min-h-screen">
       <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
@@ -28,20 +42,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
         style={{ background: "linear-gradient(to top, rgb(var(--c-surface)) 18%, rgb(var(--c-surface) / 0.75) 55%, transparent)" }}
       />
 
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-24 lg:hidden"
-        style={{ background: "linear-gradient(to top, rgb(var(--c-surface)) 18%, rgb(var(--c-surface) / 0.75) 55%, transparent)" }}
-      />
-
       <Dock />
 
-      <div className="lg:pl-[6.4rem]">
-        <Topbar />
+      <div className="app-shell lg:pl-[6.4rem]">
+        <Topbar onOpenPalette={() => setPaletteOpen(true)} />
         <main key={pathname} className="mx-auto w-full max-w-[1560px] animate-rise px-4 pb-28 pt-4 md:px-7 lg:pb-14">
           {children}
         </main>
       </div>
+
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
   );
 }
