@@ -15,7 +15,7 @@ export function ExplanationPanel({ result }: { result: SubmitAnswerResponse }) {
           <Badge tone="bad">再看一眼</Badge>
         )}
         <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-sm text-muted">
-          <span className="text-[11px] uppercase tracking-wider">标准答案</span>
+          <span className="text-xs uppercase tracking-wider">标准答案</span>
           <RichContent content={formatRichValue(result.standard_answer)} className="inline-rich-content font-medium text-ink" />
         </div>
       </div>
@@ -35,7 +35,7 @@ export function ExplanationPanel({ result }: { result: SubmitAnswerResponse }) {
 function Info({ title, value }: { title: string; value: string }) {
   return (
     <div className="rounded-xl border border-line bg-panel-2 p-3.5">
-      <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">{title}</div>
+      <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-muted">{title}</div>
       <RichContent content={value} className="leading-6" />
     </div>
   );

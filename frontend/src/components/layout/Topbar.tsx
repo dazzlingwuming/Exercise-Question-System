@@ -33,13 +33,13 @@ export function Topbar() {
           <span className="lg:hidden">
             <BrandMark size={28} />
           </span>
-          <span className="hidden text-[11px] font-medium tracking-wide text-muted sm:inline">工作台</span>
+          <span className="hidden text-xs font-medium tracking-wide text-muted sm:inline">工作台</span>
           <ChevronRight className="hidden h-3 w-3 text-muted/70 sm:inline" aria-hidden="true" />
           <span className="truncate text-[13px] font-semibold tracking-tight text-ink">{title}</span>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="hidden items-center gap-1.5 rounded-full border border-line bg-panel/70 px-2.5 py-1 text-[11px] text-muted md:flex">
+          <span className="hidden items-center gap-1.5 rounded-full border border-line bg-panel/70 px-2.5 py-1 text-xs text-muted md:flex">
             <Flame className="h-3.5 w-3.5 text-accent" aria-hidden="true" />
             今天也保持手感
           </span>

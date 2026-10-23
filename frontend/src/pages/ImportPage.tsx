@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronUp, Copy, Download, Play, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Download, Play, RotateCcw, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getCollectionTree } from "../api/collections";
 import { commitImport, previewImport, resetCommitImport, type ImportPreview as ImportPreviewType } from "../api/imports";
@@ -161,8 +161,11 @@ export function ImportPage() {
       />
       <section className="panel p-5">
 
-        <section className="mt-5 rounded-md border border-warn-border bg-warn-soft p-4 text-sm leading-6 text-warn">
-          <h2 className="font-semibold">格式必读</h2>
+        <details className="group mt-5 rounded-xl border border-warn-border bg-warn-soft/70 p-4 text-sm leading-6 text-warn">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold">
+            格式必读（6 条规则）
+            <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+          </summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>只需把上方这一份完整模板与原始资料交给 GPT；模板顶部是规则，后面是所有题型的正式示例，不需要再拼接其他说明。</li>
             <li>完整模板本身用于指导 GPT，不能导入；应导入 GPT 根据原始资料生成的新 Markdown 文件。</li>
@@ -171,26 +174,32 @@ export function ImportPage() {
             <li>行内公式用 <code>$...$</code>，块公式独占段落用 <code>$$...$$</code>；中文标点写在定界符外。</li>
             <li>代码和 Mermaid 必须放在 <code>|</code> 多行字段中；选项正文只能单行。</li>
           </ul>
-        </section>
+        </details>
 
         <div className="mt-5 grid gap-4 lg:grid-cols-[0.7fr_1.3fr]">
-          <div className="space-y-3 rounded-md border border-dashed border-line bg-surface p-4">
-            <div className="text-sm font-medium">从文件读取</div>
-            <p className="text-sm leading-6 text-muted">选择 UTF-8 编码的 .md 文件后，内容会填入右侧输入框；不会直接上传或写入数据库。</p>
-            <label className="sr-only" htmlFor="question-bank-file">选择 Markdown 文件</label>
-            <input
-              id="question-bank-file"
-              className="focus-ring block w-full cursor-pointer rounded-md border border-line bg-panel text-sm text-muted file:mr-3 file:cursor-pointer file:border-0 file:border-r file:border-line file:bg-panel file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-surface"
-              type="file"
-              aria-label="选择 Markdown 文件"
-              accept=".md,.markdown,.txt,text/markdown,text/plain"
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                event.currentTarget.value = "";
-                if (file) void readFile(file);
-              }}
-            />
-            <button className="block text-sm text-accent underline-offset-2 hover:underline" type="button" onClick={() => {
+          <div className="flex flex-col gap-3 self-start rounded-xl border border-dashed border-line bg-panel-2/60 p-4">
+            <div className="text-sm font-semibold">从文件读取</div>
+            <p className="text-xs leading-5 text-muted">选择 UTF-8 编码的 .md 文件后，内容会填入右侧输入框；不会直接上传或写入数据库。</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="btn-secondary btn-sm cursor-pointer">
+                <Upload className="h-4 w-4" aria-hidden="true" />
+                选择 .md 文件
+                <input
+                  id="question-bank-file"
+                  className="sr-only"
+                  type="file"
+                  aria-label="选择 Markdown 文件"
+                  accept=".md,.markdown,.txt,text/markdown,text/plain"
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.[0];
+                    event.currentTarget.value = "";
+                    if (file) void readFile(file);
+                  }}
+                />
+              </label>
+              <span className="min-w-0 flex-1 truncate text-xs text-muted">{batchName || "尚未选择文件"}</span>
+            </div>
+            <button className="w-fit py-1 text-xs text-accent underline-offset-2 hover:underline" type="button" onClick={() => {
               updateText("");
               setBatchName("agent基础题目.md");
               setMessage("已切换为项目默认题库 data/个人题库/agent基础题目.md。");

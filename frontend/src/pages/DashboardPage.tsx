@@ -74,17 +74,15 @@ export function DashboardPage() {
               </Link>
             </div>
 
-            <div className="mt-7 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-accent-border/50 pt-4">
-              {[
-                { label: "题库", value: stats.total_questions },
-                { label: "已练", value: stats.answered_count },
-                { label: "正确率", value: stats.accuracy === null ? "—" : `${stats.accuracy}%` },
-              ].map((item) => (
-                <div key={item.label}>
-                  <div className="text-[10px] uppercase tracking-[0.16em] text-muted">{item.label}</div>
-                  <div className="mt-0.5 text-lg font-extrabold tabular-nums tracking-tight">{item.value}</div>
-                </div>
-              ))}
+            <div className="mt-7 flex flex-wrap items-center gap-3 border-t border-accent-border/50 pt-4">
+              <span className="rounded-full border border-accent-border bg-panel/70 px-2.5 py-1 text-[11px] font-semibold tracking-[0.12em] text-accent">
+                今日建议
+              </span>
+              <p className="text-xs leading-6 text-muted">
+                {stats.wrong_count > 0
+                  ? `先过 10 道错题（共 ${stats.wrong_count} 道），再开新题，记忆留存更高。`
+                  : "从还没做过的题里挑 10 道开始，先把覆盖面铺开。"}
+              </p>
             </div>
           </div>
 
@@ -121,14 +119,14 @@ export function DashboardPage() {
             ) : (
               <HeroScene className="max-w-[15rem]" />
             )}
-            <div className="absolute -left-4 -top-3 max-w-[8.5rem] rounded-2xl rounded-bl-md border border-line bg-panel/90 px-3 py-2 text-[11px] font-medium leading-5 shadow-soft backdrop-blur xl:-left-8">
+            <div className="absolute -left-4 -top-7 max-w-[8.5rem] rounded-2xl rounded-bl-md border border-line bg-panel/90 px-3 py-2 text-xs font-medium leading-5 shadow-soft backdrop-blur xl:-left-8">
               这一组，也一起刷完吧！
             </div>
           </div>
         </section>
 
         {/* Progress */}
-        <section className="bento-card bento-invert col-span-12 flex flex-col justify-between gap-5 p-6 sm:col-span-6 xl:col-span-4">
+        <section className="bento-card bento-invert col-span-12 flex flex-col gap-4 p-6 sm:col-span-6 xl:col-span-4">
           <div className="flex items-start justify-between">
             <div>
               <p className="eyebrow">Learning coverage</p>
@@ -139,7 +137,7 @@ export function DashboardPage() {
             </span>
           </div>
 
-          <div className="flex items-center justify-center py-1">
+          <div className="flex flex-1 items-center justify-center">
             <ProgressRing value={progress} light />
           </div>
 
@@ -179,12 +177,12 @@ export function DashboardPage() {
         <section className="bento-card col-span-12 p-5 lg:col-span-5">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-base font-bold tracking-tight">选一种方式进入状态</h2>
-            <span className="text-[10px] uppercase tracking-[0.16em] text-muted">Modes</span>
+            <span className="text-xs uppercase tracking-[0.16em] text-muted">Modes</span>
           </div>
           <div className="space-y-1">
             {PRACTICE_MODES.map(({ to, title, note, icon: Icon }, index) => (
               <Link key={to} to={`/practice?mode=${to}`} className="row-link group">
-                <span className="w-6 shrink-0 text-[11px] font-bold tabular-nums text-muted/70">
+                <span className="w-6 shrink-0 text-xs font-bold tabular-nums text-muted/70">
                   {String(index + 1).padStart(2, "0")}
                 </span>
                 <span className="stat-icon h-9 w-9 shrink-0 rounded-xl">
@@ -192,13 +190,13 @@ export function DashboardPage() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-ink">{title}</span>
-                  <span className="block text-[11px] text-muted">{note}</span>
+                  <span className="block text-xs text-muted">{note}</span>
                 </span>
                 <ArrowUpRight className="h-4 w-4 shrink-0 text-muted/50 transition group-hover:text-accent" aria-hidden="true" />
               </Link>
             ))}
           </div>
-          <p className="mt-3 rounded-xl border border-dashed border-line bg-panel-2/50 px-3 py-2.5 text-[11px] leading-5 text-muted">
+          <p className="mt-3 rounded-xl border border-dashed border-line bg-panel-2/50 px-3 py-2.5 text-xs leading-5 text-muted">
             建议节奏：先刷错题 → 再开新题 → 最后用专项练习收口。
           </p>
         </section>
@@ -207,7 +205,7 @@ export function DashboardPage() {
         <section className="bento-card col-span-12 p-5 md:col-span-6 lg:col-span-4">
           <div className="mb-1 flex items-baseline justify-between">
             <h2 className="text-base font-bold tracking-tight">知识版图</h2>
-            <Link className="text-[11px] font-medium text-accent hover:underline" to="/stats">
+            <Link className="-my-1 inline-flex items-center py-1 text-xs font-medium text-accent hover:underline" to="/stats">
               详细 →
             </Link>
           </div>
@@ -227,7 +225,7 @@ export function DashboardPage() {
         <section className="bento-card col-span-12 p-5 md:col-span-6 lg:col-span-3">
           <div className="mb-3 flex items-baseline justify-between">
             <h2 className="text-base font-bold tracking-tight">最近足迹</h2>
-            <Link className="text-[11px] font-medium text-accent hover:underline" to="/review">
+            <Link className="-my-1 inline-flex items-center py-1 text-xs font-medium text-accent hover:underline" to="/review">
               复习 →
             </Link>
           </div>
@@ -246,7 +244,7 @@ export function DashboardPage() {
                       <span className="min-w-0 flex-1 truncate text-[12px] text-ink">
                         题目 {String(item.question_id).slice(0, 8)}
                       </span>
-                      <span className={`shrink-0 text-[10px] font-medium ${correct ? "text-good" : wrong ? "text-warn" : "text-muted"}`}>
+                      <span className={`shrink-0 text-xs font-medium ${correct ? "text-good" : wrong ? "text-warn" : "text-muted"}`}>
                         {correct ? "答对" : wrong ? "巩固" : "待评"}
                       </span>
                     </Link>
@@ -258,7 +256,7 @@ export function DashboardPage() {
             <p className="py-6 text-center text-xs leading-6 text-muted">还没有足迹，第一步随时可以开始。</p>
           )}
           <Link
-            className="mt-3 flex items-center justify-between rounded-xl border border-line bg-panel-2/50 px-3 py-2 text-[11px] font-medium text-muted transition hover:border-accent/35 hover:text-accent"
+            className="mt-3 flex items-center justify-between rounded-xl border border-line bg-panel-2/50 px-3 py-2 text-xs font-medium text-muted transition hover:border-accent/35 hover:text-accent"
             to="/review"
           >
             查看全部错题
@@ -273,7 +271,7 @@ export function DashboardPage() {
           {[0, 1].map((copy) => (
             <div key={copy} className="flex shrink-0 items-center gap-8 pr-8" aria-hidden={copy === 1}>
               {MARQUEE.map((text) => (
-                <span key={text} className="flex items-center gap-8 text-[11px] font-medium tracking-[0.14em] text-muted">
+                <span key={text} className="flex items-center gap-8 text-xs font-medium tracking-[0.14em] text-muted">
                   {text}
                   <span className="h-1 w-1 rounded-full bg-accent/50" />
                 </span>
@@ -288,13 +286,13 @@ export function DashboardPage() {
 
 function StatTile({ label, value, caption, icon }: { label: string; value: number | string; caption: string; icon: ReactNode }) {
   return (
-    <section className="bento-card dot-grid col-span-6 p-5 md:col-span-3">
+    <section className="bento-card dot-grid col-span-6 p-5 md:col-span-3" style={{ backgroundColor: "rgb(var(--c-panel-2))" }}>
       <div className="relative z-10 flex items-start justify-between gap-2">
-        <span className="text-[11px] font-medium tracking-wide text-muted">{label}</span>
+        <span className="text-xs font-medium tracking-wide text-muted">{label}</span>
         <span className="text-accent/80">{icon}</span>
       </div>
       <div className="figure-xl relative z-10 mt-3">{value}</div>
-      <p className="relative z-10 mt-1 text-[11px] text-muted">{caption}</p>
+      <p className="relative z-10 mt-1 text-xs text-muted">{caption}</p>
     </section>
   );
 }
@@ -328,7 +326,7 @@ function ProgressRing({ value, light = false }: { value: number; light?: boolean
       </svg>
       <div className="absolute text-center">
         <div className="figure-xl">{clamped}%</div>
-        <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-muted">coverage</div>
+        <div className="mt-1 text-xs uppercase tracking-[0.16em] text-muted">coverage</div>
       </div>
     </div>
   );

@@ -46,8 +46,9 @@ export function StatsPage() {
 
       <div className="bento stagger">
         {/* 正确率主卡 */}
-        <section className="bento-card bento-hero grid-lines col-span-12 flex flex-col justify-between gap-6 p-6 sm:flex-row sm:items-center xl:col-span-7">
-          <div className="relative z-10">
+        <section className="bento-card bento-hero grid-lines col-span-12 flex flex-col justify-between gap-6 p-6 sm:flex-row sm:items-stretch xl:col-span-7">
+          <div className="relative z-10 flex flex-col justify-between">
+            <div>
             <p className="eyebrow">Accuracy</p>
             <div className="mt-3 flex items-end gap-2">
               <span className="hero-display text-[3.6rem] leading-none">{accuracy}</span>
@@ -59,7 +60,8 @@ export function StatsPage() {
             <Link className="btn-secondary btn-sm mt-4" to="/review">
               去复盘错题
             </Link>
-            <div className="mt-6 flex flex-wrap gap-6 border-t border-accent-border/50 pt-4 text-[11px] text-muted">
+            </div>
+            <div className="mt-6 flex flex-wrap gap-6 border-t border-accent-border/50 pt-4 text-xs text-muted">
               <span>已作答 <b className="text-sm text-ink">{stats.answered_count}</b> 题</span>
               <span>错题 <b className="text-sm text-ink">{stats.wrong_count}</b> 道</span>
               <span>待覆盖 <b className="text-sm text-ink">{Math.max(0, stats.total_questions - stats.answered_count)}</b> 题</span>
@@ -73,30 +75,30 @@ export function StatsPage() {
         {/* 三个数字 */}
         <div className="col-span-12 flex flex-col gap-3 xl:col-span-5">
         <section className="bento-card dot-grid flex-1 p-5">
-          <div className="relative z-10 flex items-center justify-between text-[11px] text-muted">
+          <div className="relative z-10 flex items-center justify-between text-xs text-muted">
             题库总量
             <BookOpen className="h-4 w-4 text-accent/80" aria-hidden="true" />
           </div>
           <div className="figure-xl relative z-10 mt-3">{stats.total_questions}</div>
-          <p className="relative z-10 mt-1 text-[11px] text-muted">道题在库里</p>
+          <p className="relative z-10 mt-1 text-xs text-muted">道题在库里</p>
         </section>
         <section className="bento-card dot-grid flex-1 p-5">
-          <div className="relative z-10 flex items-center justify-between text-[11px] text-muted">
+          <div className="relative z-10 flex items-center justify-between text-xs text-muted">
             已练习
             <Target className="h-4 w-4 text-accent/80" aria-hidden="true" />
           </div>
           <div className="figure-xl relative z-10 mt-3">{stats.answered_count}</div>
-          <p className="relative z-10 mt-1 text-[11px] text-muted">
+          <p className="relative z-10 mt-1 text-xs text-muted">
             覆盖 {stats.total_questions ? Math.round((stats.answered_count / stats.total_questions) * 100) : 0}%
           </p>
         </section>
         <section className="bento-card dot-grid flex-1 p-5">
-          <div className="relative z-10 flex items-center justify-between text-[11px] text-muted">
+          <div className="relative z-10 flex items-center justify-between text-xs text-muted">
             待复习
             <Flame className="h-4 w-4 text-accent/80" aria-hidden="true" />
           </div>
           <div className="figure-xl relative z-10 mt-3">{stats.wrong_count}</div>
-          <p className="relative z-10 mt-1 text-[11px] text-muted">道错题等你</p>
+          <p className="relative z-10 mt-1 text-xs text-muted">道错题等你</p>
         </section>
         </div>
 
@@ -107,9 +109,9 @@ export function StatsPage() {
               <p className="eyebrow">Distribution</p>
               <h2 className="mt-1.5 text-base font-bold tracking-tight">题型分布</h2>
             </div>
-            <span className="text-[10px] uppercase tracking-[0.16em] text-muted">Type</span>
+            <span className="text-xs uppercase tracking-[0.16em] text-muted">Type</span>
           </div>
-          <TypeDistributionChart data={stats.type_distribution} />
+          <TypeDistributionChart data={stats.type_distribution} layout="row" />
         </section>
 
         <section className="bento-card col-span-12 p-5 sm:p-6 lg:col-span-6">
@@ -117,9 +119,9 @@ export function StatsPage() {
             <div>
               <p className="eyebrow">Difficulty</p>
               <h2 className="mt-1.5 text-base font-bold tracking-tight">难度分布</h2>
-              <p className="mt-0.5 text-[11px] text-muted">横轴 1 最易 → 5 最难</p>
+              <p className="mt-0.5 text-xs text-muted">横轴 1 最易 → 5 最难</p>
             </div>
-            <span className="text-[10px] uppercase tracking-[0.16em] text-muted">Level</span>
+            <span className="text-xs uppercase tracking-[0.16em] text-muted">Level</span>
           </div>
           <AccuracyChart data={stats.difficulty_distribution} />
         </section>
@@ -131,7 +133,7 @@ export function StatsPage() {
               <p className="eyebrow">Weak spots</p>
               <h2 className="mt-1.5 text-base font-bold tracking-tight">高频错误考察点</h2>
             </div>
-            <Link className="text-[11px] font-medium text-accent hover:underline" to="/review">
+            <Link className="-my-1 inline-flex items-center py-1 text-xs font-medium text-accent hover:underline" to="/review">
               去复习 →
             </Link>
           </div>
@@ -145,12 +147,12 @@ export function StatsPage() {
                 <li key={item.point} className="space-y-1.5">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className="w-5 shrink-0 text-[11px] font-bold tabular-nums text-muted/70">
+                      <span className="w-5 shrink-0 text-xs font-bold tabular-nums text-muted/70">
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <span className="truncate text-ink">{item.point}</span>
                     </span>
-                    <span className="shrink-0 text-[11px] font-semibold tabular-nums text-bad">错 {item.count} 次</span>
+                    <span className="shrink-0 text-xs font-semibold tabular-nums text-bad">错 {item.count} 次</span>
                   </div>
                   <div className="progress-track ml-7">
                     <div className="progress-fill" style={{ width: `${Math.round((item.count / maxErrorCount) * 100)}%` }} />
@@ -188,32 +190,32 @@ export function StatsPage() {
 }
 
 function Ring({ value }: { value: number }) {
-  const radius = 44;
+  const radius = 62;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, value));
   return (
-    <div className="relative grid h-32 w-32 place-items-center">
-      <svg viewBox="0 0 104 104" className="h-full w-full -rotate-90" aria-hidden="true">
+    <div className="relative grid h-44 w-44 place-items-center">
+      <svg viewBox="0 0 148 148" className="h-full w-full -rotate-90" aria-hidden="true">
         <defs>
           <linearGradient id="stats-ring" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="rgb(var(--c-accent))" />
             <stop offset="100%" stopColor="rgb(var(--c-accent-2))" />
           </linearGradient>
         </defs>
-        <circle cx="52" cy="52" r={radius} fill="none" stroke="rgb(var(--c-accent) / 0.12)" strokeWidth="8" />
+        <circle cx="74" cy="74" r={radius} fill="none" stroke="rgb(var(--c-accent) / 0.12)" strokeWidth="9" />
         <circle
-          cx="52"
-          cy="52"
+          cx="74"
+          cy="74"
           r={radius}
           fill="none"
           stroke="url(#stats-ring)"
-          strokeWidth="8"
+          strokeWidth="9"
           strokeLinecap="round"
           strokeDasharray={circumference}
           strokeDashoffset={circumference * (1 - clamped / 100)}
         />
       </svg>
-      <span className="absolute text-[10px] font-semibold uppercase tracking-[0.14em] text-muted/80">acc</span>
+      <span className="absolute text-xs font-semibold uppercase tracking-[0.14em] text-muted/80">acc</span>
     </div>
   );
 }

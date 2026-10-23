@@ -1,4 +1,4 @@
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const FILLS = [1, 2, 3, 4, 5].map((index) => `rgb(var(--chart-${index}))`);
 
@@ -12,7 +12,7 @@ export function AccuracyChart({ data }: { data: Record<string, number> }) {
   return (
     <div className="mt-4 h-56">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={rows} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+        <BarChart data={rows} margin={{ top: 22, right: 8, left: -18, bottom: 0 }}>
           <CartesianGrid strokeDasharray="4 6" stroke="rgb(var(--c-line))" vertical={false} />
           <XAxis
             dataKey="name"
@@ -42,6 +42,7 @@ export function AccuracyChart({ data }: { data: Record<string, number> }) {
             {rows.map((_, index) => (
               <Cell key={index} fill={FILLS[index % FILLS.length]} />
             ))}
+            <LabelList dataKey="value" position="top" fill="rgb(var(--c-muted))" fontSize={12} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>

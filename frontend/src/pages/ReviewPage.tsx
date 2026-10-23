@@ -82,38 +82,45 @@ export function ReviewPage() {
       ) : (
         <div className="grid gap-3">
           {items.map(({ attempt, question, wrong_count, last_wrong_at, last_wrong_answer }) => (
-            <article className="panel panel-hover p-4" key={attempt.id}>
-              <div className="mb-2 flex flex-wrap gap-2">
+            <article className="panel panel-hover p-5 sm:p-6" key={attempt.id}>
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="bad">错 {wrong_count} 次</Badge>
                 <Badge tone="accent">{question.type_label}</Badge>
-                {question.difficulty && <Badge>{question.difficulty}</Badge>}
+                {question.difficulty && <Badge>难度 · {question.difficulty}</Badge>}
                 {question.directions.map((item) => <Badge key={item}>{item}</Badge>)}
+                <span className="ml-auto text-xs text-muted">
+                  {last_wrong_at ? formatTime(last_wrong_at) : "—"}
+                </span>
               </div>
-              <div className="mt-3 min-w-0 text-sm">
-                <RichContent content={question.stem} className="font-medium leading-7" />
+              <div className="mt-4 min-w-0">
+                <RichContent content={question.stem} className="text-[0.98rem] font-medium leading-8" />
               </div>
-              <div className="mt-3 grid gap-3 text-sm text-muted md:grid-cols-3">
-                <div>上次错误答案：{last_wrong_answer}</div>
-                <div className="min-w-0 md:col-span-2">
-                  <div>标准答案：</div>
-                  <RichContent content={formatStandardAnswer(question.standard_answer)} className="mt-1 text-ink" />
+              <dl className="mt-4 grid gap-3 rounded-xl border border-line bg-panel-2/60 p-4 text-sm sm:grid-cols-2">
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted">上次错误答案</dt>
+                  <dd className="mt-1 break-words font-medium text-bad">{last_wrong_answer || "—"}</dd>
                 </div>
-                <div>最近错误：{last_wrong_at ? new Date(last_wrong_at).toLocaleString() : "-"}</div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Link className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-sm text-on-accent" to={`/practice?mode=wrong&start_question_id=${question.id}`}>
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted">标准答案</dt>
+                  <dd className="mt-1 text-ink">
+                    <RichContent content={formatStandardAnswer(question.standard_answer)} />
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link className="btn-primary btn-sm" to={`/practice?mode=wrong&start_question_id=${question.id}`}>
                   <RotateCcw className="h-4 w-4" />
                   重新练习
                 </Link>
-                <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5 text-sm" to={`/questions/${question.id}`}>
+                <Link className="btn-secondary btn-sm" to={`/questions/${question.id}`}>
                   <BookOpen className="h-4 w-4" />
                   查看解析
                 </Link>
-                <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5 text-sm" to={`/questions/${question.id}/edit?${new URLSearchParams({ return_to: returnTo }).toString()}`}>
+                <Link className="btn-secondary btn-sm" to={`/questions/${question.id}/edit?${new URLSearchParams({ return_to: returnTo }).toString()}`}>
                   <Edit3 className="h-4 w-4" />
                   编辑题目
                 </Link>
-                <button className="inline-flex items-center gap-2 rounded-md border border-bad-border bg-bad-soft px-3 py-1.5 text-sm text-bad" onClick={() => setDeleting(question)}>
+                <button className="btn-danger btn-sm" onClick={() => setDeleting(question)}>
                   <Trash2 className="h-4 w-4" />
                   删除题目
                 </button>
@@ -146,6 +153,13 @@ export function ReviewPage() {
       />
     </div>
   );
+}
+
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getMonth() + 1} 月 ${date.getDate()} 日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function formatStandardAnswer(value: unknown): string {

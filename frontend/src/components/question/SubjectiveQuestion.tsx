@@ -9,7 +9,7 @@ export function SubjectiveQuestion({ value, onChange }: { value: string; onChang
         onChange={(event) => onChange(event.target.value)}
         placeholder="写下你的思路，提交后对照参考答案自评"
       />
-      <div className="mt-2 flex items-center justify-between text-[11px] text-muted">
+      <div className="mt-2 flex items-center justify-between text-xs text-muted">
         <span>建议按「结论 → 原理 → 例子」的结构作答。</span>
         <span className="tabular-nums">{value.length} 字</span>
       </div>

@@ -419,7 +419,7 @@ export function PracticePage() {
                   选好范围，小鲸陪你把这组题刷完。
                 </p>
               </div>
-              <ul className="mt-5 space-y-2 text-[11px] leading-5 text-muted">
+              <ul className="mt-5 space-y-2 text-xs leading-5 text-muted">
                 <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />先做会做的，再回头啃难点</li>
                 <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />答错会自动进入错题复习</li>
                 <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />草稿会保留，随时可以切题</li>
@@ -519,11 +519,12 @@ export function PracticePage() {
                 这道题之前已答过 {questionState.attempt_count} 次，{stateStatusText(questionState)}。本次练习不会预填历史答案，提交后才显示解析。
               </div>
             )}
-            <div className="flex flex-wrap gap-2">
-              <Link className="btn-secondary btn-sm" to={editQuestionPath(question.id, returnTo)}>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="mr-auto text-xs text-muted">题目有误？可以直接修正。</span>
+              <Link className="btn-ghost btn-sm" to={editQuestionPath(question.id, returnTo)}>
                 编辑题目
               </Link>
-              <button className="btn-danger btn-sm" onClick={() => setDeleteOpen(true)} disabled={busy}>
+              <button className="btn-ghost btn-sm text-bad hover:bg-bad-soft hover:text-bad" onClick={() => setDeleteOpen(true)} disabled={busy}>
                 <Trash2 className="h-4 w-4" />
                 删除题目
               </button>
@@ -534,7 +535,7 @@ export function PracticePage() {
                   <p className="eyebrow">Your answer</p>
                   <h2 className="mt-1 text-base font-bold tracking-tight">你的作答</h2>
                 </div>
-                <span className="text-[11px] text-muted">提交后显示解析</span>
+                <span className="text-xs text-muted">提交后显示解析</span>
               </div>
               <div className="p-5 sm:p-7">
                 <fieldset disabled={busy || Boolean(result)} className="min-w-0">
@@ -577,8 +578,8 @@ export function PracticePage() {
         <div className="space-y-1.5 rounded-xl border border-line bg-panel-2/60 p-3.5 text-xs leading-5 text-muted">
           {contextText.map((item) => <p key={item}>{item}</p>)}
         </div>
-        {hasPreviousGroup && <p className="mt-2.5 text-[11px] text-muted">上一题可回到上一组内容。</p>}
-        {hasNextGroup && <p className="mt-1 text-[11px] text-muted">当前组刷完后可继续下一组。</p>}
+        {hasPreviousGroup && <p className="mt-2.5 text-xs text-muted">上一题可回到上一组内容。</p>}
+        {hasNextGroup && <p className="mt-1 text-xs text-muted">当前组刷完后可继续下一组。</p>}
         <AiTutorPanel key={`tutor:${question?.id ?? "none"}:${result?.attempt_id ?? "unsubmitted"}`} question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} onSummaryPendingChange={setAiTutorSummaryPending} onConfigChange={setAiConfig} />
         <AiGradingPanel key={`grading:${question?.id ?? "none"}:${result?.attempt_id ?? "unsubmitted"}`} question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} config={aiConfig} onSummaryPendingChange={setAiGradingSummaryPending} />
       </aside>

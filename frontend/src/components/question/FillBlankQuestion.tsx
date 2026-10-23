@@ -9,7 +9,7 @@ export function FillBlankQuestion({ value, onChange }: { value: string; onChange
         onChange={(event) => onChange(event.target.value)}
         placeholder="在这里填写答案"
       />
-      <p className="mt-2 text-[11px] text-muted">多个可接受答案请用 / 分隔。</p>
+      <p className="mt-2 text-xs text-muted">多个可接受答案请用 / 分隔。</p>
     </div>
   );
 }
