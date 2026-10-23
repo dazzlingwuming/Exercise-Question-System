@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, RotateCcw, Send, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, Maximize2, Minimize2, RotateCcw, Send, Sparkles, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { finalizeAiSummaryStream, type AiConfig } from "../api/ai";
@@ -23,6 +23,7 @@ import { ExplanationPanel } from "../components/question/ExplanationPanel";
 import { DeleteQuestionDialog } from "../components/question/DeleteQuestionDialog";
 import { QuestionCard } from "../components/question/QuestionCard";
 import { QuestionRenderer } from "../components/question/QuestionRenderer";
+import { answerKeys } from "../utils/answers";
 import type { QuestionState, SubmitAnswerResponse } from "../types/attempt";
 import type { FilterOptions, PracticeQuestion } from "../types/question";
 import type { CollectionNode } from "../types/collection";
@@ -97,9 +98,11 @@ export function PracticePage() {
   const [aiConfig, setAiConfig] = useState<AiConfig>(() => loadStoredAiConfig());
   const [busy, setBusy] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [restartOpen, setRestartOpen] = useState(false);
   const actionLock = useRef(false);
+  const explanationRef = useRef<HTMLDivElement>(null);
   async function perform(action: () => Promise<void>) {
     if (actionLock.current) return;
     actionLock.current = true; setBusy(true); setError("");
@@ -127,6 +130,73 @@ export function PracticePage() {
 
   const question = currentGroup[currentIndex - groupStart] ?? null;
   const questionState = question ? questionStates[question.id] : undefined;
+
+  // 键盘流：数字键选选项、Enter 提交、左右键切题（输入框聚焦时不拦截）
+  useEffect(() => {
+    if (!question || groupFinished || sessionFinished) return;
+    const handler = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        void perform(goPrev);
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        void perform(goNext);
+        return;
+      }
+      if (event.key === "Enter" && !result) {
+        const empty = Array.isArray(answer) ? answer.length === 0 : !String(answer).trim();
+        if (!empty && !busy) {
+          event.preventDefault();
+          void perform(submit);
+        }
+        return;
+      }
+      if (result) return;
+      const index = Number(event.key);
+      if (!Number.isInteger(index) || index < 1 || index > question.options.length) return;
+      const option = question.options[index - 1];
+      if (!option) return;
+      event.preventDefault();
+      if (question.type === "multiple_choice") {
+        const current = Array.isArray(answer) ? answer : [];
+        setAnswer(current.includes(option.key) ? current.filter((key) => key !== option.key) : [...current, option.key].sort());
+      } else if (question.type === "single_choice") {
+        setAnswer(option.key);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [question, answer, result, busy, groupFinished, sessionFinished, currentIndex]);
+
+  // 提交后把解析滚动到视野内，省掉一次手动下滑
+  useEffect(() => {
+    if (!result) return;
+    const timer = window.setTimeout(() => {
+      explanationRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 140);
+    return () => window.clearTimeout(timer);
+  }, [result?.attempt_id]);
+
+  // 专注模式：隐藏 Dock 与顶栏，Esc 退出
+  useEffect(() => {
+    document.body.classList.toggle("focus-mode", focusMode);
+    if (!focusMode) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFocusMode(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.classList.remove("focus-mode");
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [focusMode]);
+
   const collectionName = findNode(collectionTree, collectionId)?.path ?? "";
   const returnTo = `${location.pathname}${location.search}`;
   const contextText = useMemo(() => {
@@ -375,15 +445,42 @@ export function PracticePage() {
 
   return (
     <div className={`practice-layout ${assistantOpen ? "has-assistant" : ""}`}>
-      <div className="practice-main space-y-5">
-        <PageHeader eyebrow="PRACTICE TIME" title="专注这一题" description="慢慢想，大胆答。每一次练习都算数。" actions={<button className="btn-secondary" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}><Sparkles className="h-4 w-4 text-accent" />{assistantOpen ? "收起 AI 助手" : "展开 AI 助手"}</button>} />
+      {focusMode && (
+        <button
+          type="button"
+          className="btn-secondary btn-sm fixed right-4 top-4 z-50 shadow-lift"
+          onClick={() => setFocusMode(false)}
+        >
+          <Minimize2 className="h-4 w-4" aria-hidden="true" />
+          退出专注
+        </button>
+      )}
+      <div className="practice-main mx-auto w-full max-w-[1000px] space-y-5">
+        <PageHeader
+          eyebrow="PRACTICE TIME"
+          title="专注这一题"
+          description="慢慢想，大胆答。每一次练习都算数。"
+          actions={
+            <>
+              <button className="btn-secondary" onClick={() => setFocusMode(true)}>
+                <Maximize2 className="h-4 w-4" aria-hidden="true" />
+                专注模式
+              </button>
+              <button className="btn-secondary" aria-expanded={assistantOpen} onClick={() => setAssistantOpen(!assistantOpen)}>
+                <Sparkles className="h-4 w-4 text-accent" aria-hidden="true" />
+                {assistantOpen ? "收起 AI 助手" : "展开 AI 助手"}
+              </button>
+            </>
+          }
+        />
         {sessionId && (
-          <section className="panel overflow-hidden p-4">
+          <section className="bento-card p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="chip border-accent-border bg-accent-soft text-accent">{MODE_LABELS[mode]}</span>
-                  <span className="text-sm font-semibold stat-value">{currentIndex + 1} / {total} 题</span>
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="figure-lg">{currentIndex + 1}</span>
+                  <span className="text-sm text-muted">/ {total} 题</span>
+                  <span className="chip ml-1 border-accent-border bg-accent-soft text-accent">{MODE_LABELS[mode]}</span>
                 </div>
                 <div className="mt-1.5 text-xs text-muted">{collectionName || "全部题库"} · 每组 {pageSize} 题 · {ORDER_LABELS[order]}</div>
               </div>
@@ -392,13 +489,13 @@ export function PracticePage() {
                 <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${configOpen ? "rotate-180" : ""}`} />
               </button>
             </div>
-            <div className="progress-track mt-3">
+            <div className="progress-track mt-4">
               <div className="progress-fill" style={{ width: `${total ? ((currentIndex + 1) / total) * 100 : 0}%` }} />
             </div>
           </section>
         )}
-        {(!sessionId || configOpen) && <section className="panel overflow-hidden">
-          <div className="grid lg:grid-cols-[250px_minmax(0,1fr)]">
+        {(!sessionId || configOpen) && <section className="bento-card">
+          <div className="grid lg:grid-cols-[280px_minmax(0,1fr)]">
             <aside
               className="relative hidden flex-col justify-between overflow-hidden border-r border-line p-5 lg:flex"
               style={{ background: "linear-gradient(165deg, rgb(var(--c-accent-soft)), rgb(var(--c-panel)) 70%)" }}
@@ -408,7 +505,7 @@ export function PracticePage() {
                   <img
                     src="/mascot/xiaojing.png"
                     alt="小鲸"
-                    className="mx-auto h-40 w-auto drop-shadow-[0_12px_24px_rgba(30,58,138,0.18)]"
+                    className="mx-auto h-52 w-auto drop-shadow-[0_16px_30px_rgba(30,58,138,0.2)]"
                   />
                 ) : (
                   <HeroScene className="mx-auto max-w-[9.5rem]" />
@@ -418,7 +515,7 @@ export function PracticePage() {
                   选好范围，小鲸陪你把这组题刷完。
                 </p>
               </div>
-              <ul className="mt-5 space-y-2 text-[11px] leading-5 text-muted">
+              <ul className="mt-5 space-y-2 text-xs leading-5 text-muted">
                 <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />先做会做的，再回头啃难点</li>
                 <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />答错会自动进入错题复习</li>
                 <li className="flex gap-2"><span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-accent" />草稿会保留，随时可以切题</li>
@@ -490,51 +587,66 @@ export function PracticePage() {
           </section>
         )}
         {sessionId && total > 0 && !question && !groupFinished && !sessionFinished && (
-          <section className="panel p-5">
-            <h2 className="text-lg font-semibold">当前题目不可用</h2>
+          <section className="bento-card p-6">
+            <h2 className="text-lg font-bold tracking-tight">当前题目不可用</h2>
             <p className="mt-2 text-sm text-muted">当前练习中的题目已被删除或不可用，请重新创建练习。</p>
-            <button className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent" onClick={requestStart} disabled={busy}>重新开始本模式</button>
+            <button className="btn-primary mt-4" onClick={requestStart} disabled={busy}>重新开始本模式</button>
           </section>
         )}
         {question && !groupFinished && !sessionFinished && (
           <>
-            <div className="flex items-center justify-between gap-3">
+            <div className="glass-bar sticky top-16 z-20 flex items-center justify-between gap-3 px-3 py-2">
               <button className="btn-secondary btn-sm" onClick={() => void perform(goPrev)} disabled={currentIndex === 0 || busy || aiSummaryRunning}>
                 <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                 上一题
               </button>
-              <span className="text-xs font-medium tabular-nums text-muted">
-                {currentIndex + 1} / {total}
-              </span>
-              <button className="btn-secondary btn-sm" onClick={() => void perform(goNext)} disabled={busy || aiSummaryRunning}>
+              <div className="flex flex-col items-center leading-tight">
+                <span className="text-[11px] uppercase tracking-[0.18em] text-muted">Progress</span>
+                <span className="text-sm font-bold tabular-nums">{currentIndex + 1} / {total}</span>
+              </div>
+              <button className="btn-primary btn-sm" onClick={() => void perform(goNext)} disabled={busy || aiSummaryRunning}>
                 下一题
                 <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
-            <QuestionCard question={question} />
+            <p className="hidden text-center text-xs text-muted sm:block">
+              快捷键：1–4 选择选项 · Enter 提交 · ← → 切题
+            </p>
+            <div key={question.id} className="animate-rise">
+              <QuestionCard question={question} />
+            </div>
             {questionState && questionState.attempt_count > 0 && !result && (
               <div className="rounded-md border border-warn-border bg-warn-soft p-3 text-sm text-warn">
                 这道题之前已答过 {questionState.attempt_count} 次，{stateStatusText(questionState)}。本次练习不会预填历史答案，提交后才显示解析。
               </div>
             )}
-            <div className="flex flex-wrap gap-2">
-              <Link className="btn-secondary btn-sm" to={editQuestionPath(question.id, returnTo)}>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <span className="mr-auto text-xs text-muted">题目有误？可以直接修正。</span>
+              <Link className="btn-ghost btn-sm" to={editQuestionPath(question.id, returnTo)}>
                 编辑题目
               </Link>
-              <button className="btn-danger btn-sm" onClick={() => setDeleteOpen(true)} disabled={busy}>
+              <button className="btn-ghost btn-sm text-bad hover:bg-bad-soft hover:text-bad" onClick={() => setDeleteOpen(true)} disabled={busy}>
                 <Trash2 className="h-4 w-4" />
                 删除题目
               </button>
             </div>
-            <section className="panel overflow-hidden">
-              <div className="flex items-center justify-between gap-2 border-b border-line/70 bg-panel-2/70 px-5 py-3">
-                <h2 className="text-sm font-bold tracking-tight">你的作答</h2>
-                <span className="text-[11px] text-muted">提交后显示解析</span>
+            <section className="bento-card">
+              <div className="flex items-center justify-between gap-2 border-b border-line/60 bg-panel-2/40 px-5 py-4 sm:px-7">
+                <div>
+                  <p className="eyebrow">Your answer</p>
+                  <h2 className="mt-1 text-base font-bold tracking-tight">你的作答</h2>
+                </div>
+                <span className="text-xs text-muted">提交后显示解析</span>
               </div>
-              <div className="p-5">
+              <div className="p-5 sm:p-7">
                 <fieldset disabled={busy || Boolean(result)} className="min-w-0">
                   <legend className="sr-only">你的作答</legend>
-                  <QuestionRenderer question={question} answer={answer} setAnswer={setAnswer} />
+                  <QuestionRenderer
+                    question={question}
+                    answer={answer}
+                    setAnswer={setAnswer}
+                    grade={result ? { correctKeys: answerKeys(result.standard_answer), isCorrect: result.is_correct } : null}
+                  />
                 </fieldset>
                 {!result && <p className="mt-3 text-xs text-muted">草稿会保留在当前浏览器标签页中，切题和刷新均可恢复。</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -547,12 +659,12 @@ export function PracticePage() {
               </div>
             </section>
             {result && (
-              <>
+              <div ref={explanationRef} className="scroll-mt-24 space-y-4">
                 <ExplanationPanel result={result} />
                 <Link className="btn-secondary btn-sm" to={editQuestionPath(question.id, returnTo)}>
                   发现题目有误？编辑题目
                 </Link>
-              </>
+              </div>
             )}
             {result?.requires_self_review && (
               <div className="flex gap-2">
@@ -572,8 +684,8 @@ export function PracticePage() {
         <div className="space-y-1.5 rounded-xl border border-line bg-panel-2/60 p-3.5 text-xs leading-5 text-muted">
           {contextText.map((item) => <p key={item}>{item}</p>)}
         </div>
-        {hasPreviousGroup && <p className="mt-2.5 text-[11px] text-muted">上一题可回到上一组内容。</p>}
-        {hasNextGroup && <p className="mt-1 text-[11px] text-muted">当前组刷完后可继续下一组。</p>}
+        {hasPreviousGroup && <p className="mt-2.5 text-xs text-muted">上一题可回到上一组内容。</p>}
+        {hasNextGroup && <p className="mt-1 text-xs text-muted">当前组刷完后可继续下一组。</p>}
         <AiTutorPanel key={`tutor:${question?.id ?? "none"}:${result?.attempt_id ?? "unsubmitted"}`} question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} onSummaryPendingChange={setAiTutorSummaryPending} onConfigChange={setAiConfig} />
         <AiGradingPanel key={`grading:${question?.id ?? "none"}:${result?.attempt_id ?? "unsubmitted"}`} question={question} attemptId={result?.attempt_id} submitted={Boolean(result)} config={aiConfig} onSummaryPendingChange={setAiGradingSummaryPending} />
       </aside>

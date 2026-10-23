@@ -50,7 +50,7 @@ export function ThemeSwitcher() {
         >
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.18em] text-accent">Appearance</p>
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-accent">Appearance</p>
               <h2 className="mt-1 text-base font-bold tracking-tight">换一套界面心情</h2>
               <p className="mt-0.5 text-xs leading-5 text-muted">六套主题即时切换，会记住你的选择。</p>
             </div>
@@ -87,9 +87,9 @@ export function ThemeSwitcher() {
                     <span className="min-w-0">
                       <span className="flex items-center gap-1.5">
                         <span className="text-sm font-semibold text-ink">{item.name}</span>
-                        <span className="text-[10px] uppercase tracking-wider text-muted">{item.en}</span>
+                        <span className="text-xs uppercase tracking-wider text-muted">{item.en}</span>
                       </span>
-                      <span className="mt-0.5 block text-[11px] leading-4 text-muted">{item.tagline}</span>
+                      <span className="mt-0.5 block text-xs leading-4 text-muted">{item.tagline}</span>
                     </span>
                     <span
                       className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border transition ${
@@ -103,7 +103,7 @@ export function ThemeSwitcher() {
                     {item.dots.map((color) => (
                       <span key={color} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
                     ))}
-                    <span className="ml-auto text-[10px] font-medium text-muted">
+                    <span className="ml-auto text-xs font-medium text-muted">
                       {item.mode === "dark" ? "深色" : "浅色"}
                     </span>
                   </span>

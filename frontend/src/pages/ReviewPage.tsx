@@ -1,4 +1,4 @@
-import { BookOpen, Edit3, RotateCcw, Trash2 } from "lucide-react";
+import { BookOpen, Edit3, RotateCcw, Search, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { listWrongAttempts } from "../api/attempts";
@@ -11,7 +11,7 @@ import { DeleteQuestionDialog } from "../components/question/DeleteQuestionDialo
 import type { WrongAttempt } from "../types/attempt";
 import type { FilterOptions, Question } from "../types/question";
 
-import { LoadingState } from "../components/common/LoadingState";
+import { ListSkeleton } from "../components/common/ListSkeleton";
 import { PageHeader } from "../components/common/PageHeader";
 
 export function ReviewPage() {
@@ -60,60 +60,78 @@ export function ReviewPage() {
   return (
     <div className="space-y-5">
       <PageHeader eyebrow="A LITTLE BETTER EACH TIME" title="把错题变成进步" description="回看没掌握的地方，下一次就会更有把握。" />
-      <section className="panel p-4">
-        <div className="grid gap-3 md:grid-cols-6">
-          <input aria-label="搜索错题题干" className="rounded-md border border-line px-3 py-2" value={keyword} onChange={(event) => { setPage(1); setKeyword(event.target.value); }} placeholder="搜索题干" />
-          <Select value={type} onChange={setType} empty="全部题型" options={filters?.types ?? []} />
-          <Select value={difficulty} onChange={setDifficulty} empty="全部难度" options={filters?.difficulties ?? []} />
-          <Select value={examPoint} onChange={setExamPoint} empty="全部考察点" options={filters?.exam_points ?? []} />
-          <Select value={direction} onChange={setDirection} empty="全部方向" options={filters?.directions ?? []} />
-          <select aria-label="错题排序" className="rounded-md border border-line bg-panel px-3 py-2" value={sort} onChange={(event) => setSort(event.target.value)}>
-            <option value="latest_wrong">最新错题</option>
-            <option value="oldest_wrong">最早错题</option>
-            <option value="import_order">导入顺序</option>
-            <option value="wrong_count_desc">错误次数</option>
-          </select>
+      <section className="bento-card p-4">
+        <div className="space-y-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+            <input
+              aria-label="搜索错题题干"
+              className="field field--icon"
+              value={keyword}
+              onChange={(event) => { setPage(1); setKeyword(event.target.value); }}
+              placeholder="搜索题干关键词…"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+            <Select value={type} onChange={setType} empty="全部题型" options={filters?.types ?? []} />
+            <Select value={difficulty} onChange={setDifficulty} empty="全部难度" options={filters?.difficulties ?? []} />
+            <Select value={examPoint} onChange={setExamPoint} empty="全部考察点" options={filters?.exam_points ?? []} />
+            <Select value={direction} onChange={setDirection} empty="全部方向" options={filters?.directions ?? []} />
+            <select aria-label="错题排序" className="field" value={sort} onChange={(event) => setSort(event.target.value)}>
+              <option value="latest_wrong">最新错题</option>
+              <option value="oldest_wrong">最早错题</option>
+              <option value="import_order">导入顺序</option>
+              <option value="wrong_count_desc">错误次数</option>
+            </select>
+          </div>
         </div>
       </section>
       {error && <ErrorState message={error} />}
       {notice && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{notice}</div>}
-      {loading ? <LoadingState text="正在准备复习内容…" /> : items.length === 0 ? (
-        <EmptyState text="暂无错题。" />
+      {loading ? <ListSkeleton rows={3} /> : items.length === 0 ? (
+        <EmptyState title="错题本是干净的" text="答错的题会自动收进这里，方便你回头再啃一遍。" action={<Link className="btn-secondary btn-sm" to="/practice">去练一组</Link>} />
       ) : (
         <div className="grid gap-3">
           {items.map(({ attempt, question, wrong_count, last_wrong_at, last_wrong_answer }) => (
-            <article className="panel panel-hover p-4" key={attempt.id}>
-              <div className="mb-2 flex flex-wrap gap-2">
+            <article className="panel panel-hover p-5 sm:p-6" key={attempt.id}>
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="bad">错 {wrong_count} 次</Badge>
                 <Badge tone="accent">{question.type_label}</Badge>
-                {question.difficulty && <Badge>{question.difficulty}</Badge>}
+                {question.difficulty && <Badge>难度 · {question.difficulty}</Badge>}
                 {question.directions.map((item) => <Badge key={item}>{item}</Badge>)}
+                <span className="ml-auto text-xs text-muted">
+                  {last_wrong_at ? formatTime(last_wrong_at) : "—"}
+                </span>
               </div>
-              <div className="mt-3 min-w-0 text-sm">
-                <RichContent content={question.stem} className="font-medium leading-7" />
+              <div className="mt-4 min-w-0">
+                <RichContent content={question.stem} className="text-[0.98rem] font-medium leading-8" />
               </div>
-              <div className="mt-3 grid gap-3 text-sm text-muted md:grid-cols-3">
-                <div>上次错误答案：{last_wrong_answer}</div>
-                <div className="min-w-0 md:col-span-2">
-                  <div>标准答案：</div>
-                  <RichContent content={formatStandardAnswer(question.standard_answer)} className="mt-1 text-ink" />
+              <dl className="mt-4 grid gap-3 rounded-xl border border-line bg-panel-2/60 p-4 text-sm sm:grid-cols-2">
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted">上次错误答案</dt>
+                  <dd className="mt-1 break-words font-medium text-bad">{last_wrong_answer || "—"}</dd>
                 </div>
-                <div>最近错误：{last_wrong_at ? new Date(last_wrong_at).toLocaleString() : "-"}</div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Link className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-sm text-on-accent" to={`/practice?mode=wrong&start_question_id=${question.id}`}>
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted">标准答案</dt>
+                  <dd className="mt-1 text-ink">
+                    <RichContent content={formatStandardAnswer(question.standard_answer)} />
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link className="btn-primary btn-sm" to={`/practice?mode=wrong&start_question_id=${question.id}`}>
                   <RotateCcw className="h-4 w-4" />
                   重新练习
                 </Link>
-                <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5 text-sm" to={`/questions/${question.id}`}>
+                <Link className="btn-secondary btn-sm" to={`/questions/${question.id}`}>
                   <BookOpen className="h-4 w-4" />
                   查看解析
                 </Link>
-                <Link className="inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-1.5 text-sm" to={`/questions/${question.id}/edit?${new URLSearchParams({ return_to: returnTo }).toString()}`}>
+                <Link className="btn-secondary btn-sm" to={`/questions/${question.id}/edit?${new URLSearchParams({ return_to: returnTo }).toString()}`}>
                   <Edit3 className="h-4 w-4" />
                   编辑题目
                 </Link>
-                <button className="inline-flex items-center gap-2 rounded-md border border-bad-border bg-bad-soft px-3 py-1.5 text-sm text-bad" onClick={() => setDeleting(question)}>
+                <button className="btn-danger btn-sm" onClick={() => setDeleting(question)}>
                   <Trash2 className="h-4 w-4" />
                   删除题目
                 </button>
@@ -148,6 +166,13 @@ export function ReviewPage() {
   );
 }
 
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getMonth() + 1} 月 ${date.getDate()} 日 ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function formatStandardAnswer(value: unknown): string {
   if (Array.isArray(value)) return value.map(String).join("、");
   if (value && typeof value === "object") return JSON.stringify(value);
@@ -156,7 +181,7 @@ function formatStandardAnswer(value: unknown): string {
 
 function Select({ value, onChange, options, empty }: { value: string; onChange: (value: string) => void; options: string[]; empty: string }) {
   return (
-    <select aria-label={empty} className="rounded-md border border-line bg-panel px-3 py-2" value={value} onChange={(event) => onChange(event.target.value)}>
+    <select aria-label={empty} className="field" value={value} onChange={(event) => onChange(event.target.value)}>
       <option value="">{empty}</option>
       {options.map((item) => <option key={item} value={item}>{item}</option>)}
     </select>

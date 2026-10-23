@@ -1,4 +1,4 @@
-import { FolderInput, GripVertical, Plus, Search, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Eye, FolderInput, GripVertical, Pencil, Plus, Search, Sparkles, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { recommendCollectionPlacements } from "../api/ai";
@@ -17,7 +17,7 @@ import type { FilterOptions, Question } from "../types/question";
 import { aiConfigForRole, loadStoredAiConfig } from "../utils/aiConfigStorage";
 
 import { Dialog } from "../components/common/Dialog";
-import { LoadingState } from "../components/common/LoadingState";
+import { ListSkeleton } from "../components/common/ListSkeleton";
 import { PageHeader } from "../components/common/PageHeader";
 
 type OrganizeProposal = {
@@ -241,7 +241,7 @@ export function QuestionBankPage() {
       {notice && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{notice}</div>}
       <button type="button" className="collection-mobile-trigger lg:hidden" onClick={() => setMobileTreeOpen(true)}>选择集合：{current?.path || "全部题库"}</button>
       {mobileTreeOpen && <Dialog open title="选择集合" onClose={() => setMobileTreeOpen(false)}><button type="button" className="btn-secondary" aria-label="关闭集合导航" onClick={() => setMobileTreeOpen(false)}><X className="h-5 w-5" />关闭</button><div className="mt-3"><CollectionTree tree={tree} selectedId={collectionId} onSelect={selectCollection} onAction={invokeAction} onDropCollection={(id, target) => void moveCollectionByDrop(id, target)} onDropQuestions={(ids, target) => void moveQuestions(ids, target)} /></div></Dialog>}
-      <div className="grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+      <div className="grid gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <div className="hidden lg:block"><CollectionTree tree={tree} selectedId={collectionId} onSelect={selectCollection} onAction={invokeAction} onDropCollection={(id, target) => void moveCollectionByDrop(id, target)} onDropQuestions={(ids, target) => void moveQuestions(ids, target)} /></div>
         <section className="min-w-0 space-y-4">
           <div className="panel overflow-hidden">
@@ -266,6 +266,29 @@ export function QuestionBankPage() {
                   </span>
                   <span className="chip bg-panel/70">{current?.children.length ?? 0} 个子集合</span>
                   {collectionId === UNFILED_COLLECTION_ID && <span className="chip bg-panel/70">未归类</span>}
+                  {Boolean(current?.children.length) && (
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={includeDescendants}
+                      onClick={() => setIncludeDescendants(!includeDescendants)}
+                      className={`chip transition ${
+                        includeDescendants
+                          ? "border-accent-border bg-accent-soft text-accent"
+                          : "bg-panel/70 text-muted hover:text-ink"
+                      }`}
+                    >
+                      <span
+                        className={`grid h-3 w-3 place-items-center rounded-[3px] border ${
+                          includeDescendants ? "border-accent bg-accent text-white" : "border-line"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {includeDescendants && <Check className="h-2.5 w-2.5" />}
+                      </span>
+                      含子集合
+                    </button>
+                  )}
                 </div>
               </div>
               <div className="relative z-10 flex flex-wrap gap-2">
@@ -284,19 +307,122 @@ export function QuestionBankPage() {
               </div>
             </div>
             <div className="p-4">
-            {Boolean(current?.children.length) && <label className="mb-3 inline-flex items-center gap-2 text-sm text-muted"><input type="checkbox" checked={includeDescendants} onChange={(event) => setIncludeDescendants(event.target.checked)} />包含子集合题目（默认）</label>}
-            <div className="flex flex-wrap gap-2">
-              <div className="flex items-center gap-2 rounded-md border border-line bg-panel px-3"><Search className="h-4 w-4 text-muted" /><input aria-label="搜索题干" className="h-10 w-44 outline-none" value={keyword} onChange={(event) => setKeyword(event.target.value)} placeholder="搜索题干" /></div>
-              <FilterSelect value={type} onChange={setType} empty="全部题型" options={filterOptions?.types ?? []} />
-              <FilterSelect value={difficulty} onChange={setDifficulty} empty="全部难度" options={filterOptions?.difficulties ?? []} />
-              <FilterSelect value={tag} onChange={setTag} empty="全部标签" options={filterOptions?.tags ?? []} />
-              <FilterSelect value={examPoint} onChange={setExamPoint} empty="全部考察点" options={filterOptions?.exam_points ?? []} />
-              <FilterSelect value={direction} onChange={setDirection} empty="全部方向" options={filterOptions?.directions ?? []} />
+            <div className="space-y-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
+                <input
+                  aria-label="搜索题干"
+                  className="field field--icon"
+                  value={keyword}
+                  onChange={(event) => setKeyword(event.target.value)}
+                  placeholder="搜索题干关键词…"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                <FilterSelect value={type} onChange={setType} empty="全部题型" options={filterOptions?.types ?? []} />
+                <FilterSelect value={difficulty} onChange={setDifficulty} empty="全部难度" options={filterOptions?.difficulties ?? []} />
+                <FilterSelect value={tag} onChange={setTag} empty="全部标签" options={filterOptions?.tags ?? []} />
+                <FilterSelect value={examPoint} onChange={setExamPoint} empty="全部考察点" options={filterOptions?.exam_points ?? []} />
+                <FilterSelect value={direction} onChange={setDirection} empty="全部方向" options={filterOptions?.directions ?? []} />
+              </div>
             </div>
             </div>
           </div>
           {selected.size > 0 && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-accent/30 bg-accent-soft p-3 text-sm"><span>已选 {selected.size} 道题</span><button type="button" className="inline-flex items-center gap-1 rounded-md bg-accent px-3 py-1.5 text-on-accent" onClick={() => { setMoveTarget(selectedQuestions.length === 1 ? selectedQuestions[0].collection_id ?? null : null); setMoveOpen(true); }}><FolderInput className="h-4 w-4" />移动到集合</button><button type="button" className="inline-flex items-center gap-1 rounded-md border border-accent px-3 py-1.5 text-accent" disabled={organizeLoading} onClick={() => void recommendOrganization(selectedQuestions)}><Sparkles className="h-4 w-4" />AI 推荐位置</button><button type="button" onClick={() => setSelected(new Set())}>取消选择</button></div>}
-          {loading ? <LoadingState text="正在查找题目…" /> : items.length === 0 ? <EmptyState text="此集合范围内暂无题目。" /> : <div className="grid gap-3">{items.map((question) => <article key={question.id} className="panel panel-hover p-4" draggable onDragStart={(event) => event.dataTransfer.setData("application/x-question-ids", JSON.stringify(draggedQuestions(question.id)))}><div className="flex gap-3"><input className="mt-1 h-4 w-4" type="checkbox" aria-label={`选择题目 ${question.title || question.id}`} checked={selected.has(question.id)} onChange={(event) => setSelected((currentSet) => { const next = new Set(currentSet); event.target.checked ? next.add(question.id) : next.delete(question.id); return next; })} /><GripVertical className="mt-1 h-4 w-4 shrink-0 text-muted" /><div className="min-w-0 flex-1"><div className="mb-2 flex flex-wrap gap-2"><Badge tone="accent">{question.type_label}</Badge><Badge>v{question.version}</Badge>{question.collection_path && <Badge>{`集合：${question.collection_path}`}</Badge>}{question.difficulty && <Badge>{question.difficulty}</Badge>}</div><RichContent content={question.stem} className="font-medium leading-7" /><div className="mt-3 flex flex-wrap gap-2"><Link className="rounded-md border border-line bg-panel px-3 py-1.5 text-sm" to={`/questions/${question.id}`}>详情</Link><Link className="rounded-md bg-accent px-3 py-1.5 text-sm text-on-accent" to={`/questions/${question.id}/edit`}>编辑</Link><button type="button" className="rounded-md border border-line bg-panel px-3 py-1.5 text-sm" onClick={() => { setSelected(new Set([question.id])); setMoveTarget(question.collection_id ?? null); setMoveOpen(true); }}>移动到…</button><button className="inline-flex items-center gap-1 rounded-md border border-bad-border bg-bad-soft px-3 py-1.5 text-sm text-bad" onClick={() => setDeleting(question)}><Trash2 className="h-4 w-4" />删除</button></div></div></div></article>)}</div>}
+          {loading ? (
+            <ListSkeleton rows={3} />
+          ) : items.length === 0 ? (
+            <EmptyState
+              title="这个集合还没有题目"
+              text="换个集合看看，或者直接新增一道题。"
+              action={<Link className="btn-primary btn-sm" to={`/questions/new?collection_id=${encodeURIComponent(collectionId === ROOT_COLLECTION_ID ? UNFILED_COLLECTION_ID : collectionId)}`}>新增题目</Link>}
+            />
+          ) : (
+            <div className="grid gap-2.5 2xl:grid-cols-2">
+              {items.map((question) => (
+                <article
+                  key={question.id}
+                  className="panel panel-hover p-4"
+                  draggable
+                  onDragStart={(event) => event.dataTransfer.setData("application/x-question-ids", JSON.stringify(draggedQuestions(question.id)))}
+                >
+                  <div className="flex gap-2.5">
+                    <div className="flex flex-col items-center gap-1.5 pt-0.5">
+                      <input
+                        className="h-4 w-4 accent-[rgb(var(--c-accent))]"
+                        type="checkbox"
+                        aria-label={`选择题目 ${question.title || question.id}`}
+                        checked={selected.has(question.id)}
+                        onChange={(event) => setSelected((currentSet) => {
+                          const next = new Set(currentSet);
+                          event.target.checked ? next.add(question.id) : next.delete(question.id);
+                          return next;
+                        })}
+                      />
+                      <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-muted/50" aria-hidden="true" />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="chip border-accent-border bg-accent-soft text-accent">{question.type_label}</span>
+                        {question.difficulty && <span className="chip">难度 {question.difficulty}</span>}
+                        {question.directions.slice(0, 2).map((item) => (
+                          <span className="chip" key={item}>{item}</span>
+                        ))}
+                        <span className="ml-auto shrink-0 text-xs tabular-nums text-muted/70">v{question.version}</span>
+                      </div>
+
+                      <Link className="mt-2 block" to={`/questions/${question.id}`}>
+                        <RichContent content={question.stem} className="text-[0.95rem] font-medium leading-7" />
+                      </Link>
+
+                      {(collectionId === ROOT_COLLECTION_ID || collectionId === UNFILED_COLLECTION_ID) && question.collection_path && (
+                        <p className="mt-1.5 truncate text-xs text-muted" title={question.collection_path}>
+                          {question.collection_path}
+                        </p>
+                      )}
+
+                      <div className="mt-2 flex items-center gap-0.5">
+                        <Link className="icon-btn" title="查看详情" aria-label="查看详情" to={`/questions/${question.id}`}>
+                          <Eye className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                        <Link className="icon-btn" title="编辑题目" aria-label="编辑题目" to={`/questions/${question.id}/edit`}>
+                          <Pencil className="h-4 w-4" aria-hidden="true" />
+                        </Link>
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title="移动到集合"
+                          aria-label="移动到集合"
+                          onClick={() => {
+                            setSelected(new Set([question.id]));
+                            setMoveTarget(question.collection_id ?? null);
+                            setMoveOpen(true);
+                          }}
+                        >
+                          <FolderInput className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-btn icon-btn-danger"
+                          title="删除题目"
+                          aria-label="删除题目"
+                          onClick={() => setDeleting(question)}
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        {question.exam_points.length > 0 && (
+                          <span className="ml-auto truncate text-xs text-muted/80">
+                            考点 · {question.exam_points.slice(0, 2).join(" / ")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-muted">共 {total} 道题 · 第 {page} / {Math.max(1, Math.ceil(total / 20))} 页</p><div className="flex gap-2"><button className="btn-secondary" disabled={loading || page <= 1} onClick={() => setPage(page - 1)}>上一页</button><button className="btn-secondary" disabled={loading || page * 20 >= total} onClick={() => setPage(page + 1)}>下一页</button></div></div>
         </section>
       </div>
@@ -317,7 +443,7 @@ function OrganizeDialog({ proposals, tree, busy, onChange, onClose, onConfirm }:
 }
 
 function FilterSelect({ value, onChange, empty, options }: { value: string; onChange: (value: string) => void; empty: string; options: string[] }) {
-  return <select aria-label={empty} className="h-10 rounded-md border border-line bg-panel px-3" value={value} onChange={(event) => onChange(event.target.value)}><option value="">{empty}</option>{options.map((item) => <option key={item} value={item}>{item}</option>)}</select>;
+  return <select aria-label={empty} className="field" value={value} onChange={(event) => onChange(event.target.value)}><option value="">{empty}</option>{options.map((item) => <option key={item} value={item}>{item}</option>)}</select>;
 }
 
 function collectionContains(node: CollectionNode, collectionId: string): boolean {

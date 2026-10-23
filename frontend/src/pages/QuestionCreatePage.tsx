@@ -168,120 +168,220 @@ export function QuestionCreatePage() {
   };
 
   return (
-    <div className="space-y-5">
-      <PageHeader eyebrow="MAKE ROOM FOR NEW KNOWLEDGE" title="收集一道好题" description="把值得练习的知识放进题库，题干、材料和解析都可以插入图片。" actions={<><button className="btn-secondary" type="button" onClick={() => setParseOpen(true)}><Sparkles className="h-4 w-4 text-accent" />从原文解析</button><Link className="btn-secondary" to="/questions">取消</Link></>} />
+    <div className="space-y-5 pb-4">
+      <PageHeader
+        eyebrow="NEW QUESTION"
+        title="收集一道好题"
+        description="题干、材料和解析都支持 Markdown 与图片；保存后自动进入题目详情。"
+        actions={
+          <>
+            <button className="btn-secondary" type="button" onClick={() => setParseOpen(true)}>
+              <Sparkles className="h-4 w-4 text-accent" aria-hidden="true" />
+              从原文解析
+            </button>
+            <Link className="btn-secondary" to="/questions">取消</Link>
+          </>
+        }
+      />
+
       {error && <ErrorState message={error} />}
+
       {aiParseIssues.length > 0 && (
-        <section className="rounded-lg border border-warn-border bg-warn-soft p-4 text-sm text-warn">
-          <div className="font-medium">AI 解析待核对</div>
+        <section className="rounded-2xl border border-warn-border bg-warn-soft p-4 text-sm text-warn">
+          <div className="font-semibold">AI 解析待核对</div>
           <div className="mt-2 space-y-1 leading-6">
-            {aiParseIssues.map((issue, index) => <div key={`${issue.code}-${index}`}>{issue.severity === "error" ? "需处理" : "提示"}{issue.field ? ` · ${issue.field}` : ""}：{issue.message}</div>)}
+            {aiParseIssues.map((issue, index) => (
+              <div key={`${issue.code}-${index}`}>
+                {issue.severity === "error" ? "需处理" : "提示"}
+                {issue.field ? ` · ${issue.field}` : ""}：{issue.message}
+              </div>
+            ))}
           </div>
         </section>
       )}
-      <EditSection title="基础信息">
-        <div className="grid gap-3 md:grid-cols-3">
-          <Field label="题型">
-            <select
-              className="focus-ring w-full rounded-md border border-line px-3 py-2"
-              value={form.type}
-              onChange={(event) => {
-                const type = event.target.value;
-                const label = TYPE_OPTIONS.find(([value]) => value === type)?.[1] ?? type;
-                const options = type === "true_false" ? [{ key: "A", text: "正确" }, { key: "B", text: "错误" }] : isObjectiveChoice(type) ? DEFAULT_OPTIONS : [];
-                setForm({ ...form, type, type_label: label, options, standard_answer: type === "true_false" ? "正确" : "" });
-                setRecommendation(null);
-                setPlacementConfirmed(false);
-              }}
-            >
-              {TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </Field>
-          <Field label="难度">
-            <input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.difficulty ?? ""} onChange={(event) => update("difficulty", event.target.value)} />
-          </Field>
-          <Field label="标签">
-            <input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.tags.join("、")} onChange={(event) => update("tags", splitList(event.target.value))} />
-          </Field>
-          <Field label="题目方向">
-            <input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.directions.join("、")} onChange={(event) => update("directions", splitList(event.target.value))} placeholder="Tool Calling、Agent 基础" />
-          </Field>
-        </div>
-      </EditSection>
-      <EditSection title="归档位置">
-        <AiCollectionPlacement
-          tree={collectionTree}
-          selectedId={collectionId}
-          recommendation={recommendation}
-          confirmed={placementConfirmed}
-          loading={placementLoading}
-          onRecommend={() => void recommendPlacement()}
-          onConfirm={() => setPlacementConfirmed(true)}
-          onSelect={(id) => {
-            setCollectionId(id);
-            setRecommendation(null);
-            setPlacementConfirmed(Boolean(id));
-            if (id === UNFILED_COLLECTION_ID) setError("");
-          }}
-        />
-      </EditSection>
-      <EditSection title="题干内容">
-        <MarkdownEditor onUploadingChange={onUploadingChange} label="题干" value={form.stem} onChange={(value) => update("stem", value)} />
-      </EditSection>
-      <EditSection title="材料"><MarkdownEditor onUploadingChange={onUploadingChange} label="材料（可选）" value={form.material ?? ""} onChange={(value) => update("material", value)} /></EditSection>
-      {isChoice && (
-        <EditSection title="选项设置">
-          <div className="space-y-2">
-            {form.options.map((option, index) => (
-              <div key={`${option.key}-${index}`} className="grid gap-2 md:grid-cols-[80px_1fr_40px]">
-                <input className="focus-ring rounded-md border border-line px-2 py-2" value={option.key} onChange={(event) => updateOption(index, { key: event.target.value.toUpperCase() })} />
-                <MarkdownEditor onUploadingChange={onUploadingChange} label={`选项 ${option.key}`} rows={2} value={option.text} onChange={(value) => updateOption(index, { text: value })} />
-                <button aria-label={`删除选项 ${option.key}`} className="h-fit rounded-md border border-line bg-panel p-2" type="button" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></button>
+
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-4">
+          <EditSection index="01" title="题干" hint="必填">
+            <MarkdownEditor onUploadingChange={onUploadingChange} label="题干" hideLabel value={form.stem} onChange={(value) => update("stem", value)} />
+          </EditSection>
+
+          <EditSection index="02" title="材料" hint="可选">
+            <MarkdownEditor onUploadingChange={onUploadingChange} label="材料" hideLabel value={form.material ?? ""} onChange={(value) => update("material", value)} />
+          </EditSection>
+
+          {isChoice && (
+            <EditSection index="03" title="选项" hint={`${form.options.length} 个`}>
+              <div className="space-y-2.5">
+                {form.options.map((option, index) => (
+                  <div key={`${option.key}-${index}`} className="grid items-start gap-2 sm:grid-cols-[3.5rem_minmax(0,1fr)_2.25rem]">
+                    <input
+                      aria-label={`选项 ${index + 1} 编号`}
+                      className="field text-center font-bold uppercase"
+                      value={option.key}
+                      onChange={(event) => updateOption(index, { key: event.target.value.toUpperCase() })}
+                    />
+                    <MarkdownEditor
+                      onUploadingChange={onUploadingChange}
+                      label={`选项 ${option.key}`}
+                      rows={2}
+                      value={option.text}
+                      onChange={(value) => updateOption(index, { text: value })}
+                    />
+                    <button
+                      aria-label={`删除选项 ${option.key}`}
+                      className="grid h-10 w-9 place-items-center rounded-xl border border-line text-muted transition hover:border-bad-border hover:bg-bad-soft hover:text-bad"
+                      type="button"
+                      onClick={() => removeOption(index)}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+                <button className="btn-secondary btn-sm" type="button" onClick={addOption}>新增选项</button>
               </div>
-            ))}
-            <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm" type="button" onClick={addOption}>新增选项</button>
-          </div>
-        </EditSection>
-      )}
-      {isTrueFalse && (
-        <EditSection title="判断选项">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div className="rounded-md border border-line bg-panel p-3">A. 正确</div>
-            <div className="rounded-md border border-line bg-panel p-3">B. 错误</div>
-          </div>
-        </EditSection>
-      )}
-      <EditSection title={isObjective(form.type) ? "标准答案" : "参考答案"}>
-        <AnswerEditor onUploadingChange={onUploadingChange} type={form.type} options={form.options} value={form.standard_answer} onChange={(value) => update("standard_answer", value)} />
-      </EditSection>
-      <EditSection title="解析与考察点">
-        <div className="grid gap-3">
-          <MarkdownEditor onUploadingChange={onUploadingChange} label="详细解析" value={form.explanation ?? ""} onChange={(value) => update("explanation", value)} />
-          <Field label="考察点"><input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.exam_points.join("、")} onChange={(event) => update("exam_points", splitList(event.target.value))} /></Field>
-          <Field label="常见错误"><textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.common_mistakes ?? ""} onChange={(event) => update("common_mistakes", event.target.value)} /></Field>
-          <Field label="面试延伸追问"><textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.follow_up_question ?? ""} onChange={(event) => update("follow_up_question", event.target.value)} /></Field>
-          <Field label="评分标准"><textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.scoring_standard ?? ""} onChange={(event) => update("scoring_standard", event.target.value)} /></Field>
+            </EditSection>
+          )}
+
+          {isTrueFalse && (
+            <EditSection index="03" title="判断选项">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-xl border border-line bg-panel-2/60 p-3 text-sm font-medium">A. 正确</div>
+                <div className="rounded-xl border border-line bg-panel-2/60 p-3 text-sm font-medium">B. 错误</div>
+              </div>
+            </EditSection>
+          )}
+
+          <EditSection index="04" title={isObjective(form.type) ? "标准答案" : "参考答案"} hint="必填">
+            <AnswerEditor
+              onUploadingChange={onUploadingChange}
+              type={form.type}
+              options={form.options}
+              value={form.standard_answer}
+              onChange={(value) => update("standard_answer", value)}
+            />
+          </EditSection>
+
+          <EditSection index="05" title="解析与考察点">
+            <div className="grid gap-3">
+              <MarkdownEditor onUploadingChange={onUploadingChange} label="详细解析" value={form.explanation ?? ""} onChange={(value) => update("explanation", value)} />
+              <Field label="考察点" hint="用顿号分隔">
+                <input className="field" value={form.exam_points.join("、")} onChange={(event) => update("exam_points", splitList(event.target.value))} />
+              </Field>
+              <Field label="常见错误">
+                <textarea className="field" value={form.common_mistakes ?? ""} onChange={(event) => update("common_mistakes", event.target.value)} />
+              </Field>
+              <Field label="面试延伸追问">
+                <textarea className="field" value={form.follow_up_question ?? ""} onChange={(event) => update("follow_up_question", event.target.value)} />
+              </Field>
+              <Field label="评分标准">
+                <textarea className="field" value={form.scoring_standard ?? ""} onChange={(event) => update("scoring_standard", event.target.value)} />
+              </Field>
+            </div>
+          </EditSection>
         </div>
-      </EditSection>
-      <EditSection title="创建说明">
-        <textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.reason ?? ""} onChange={(event) => update("reason", event.target.value)} placeholder="例如：补充工具调用基础题" />
-      </EditSection>
-      {uploadCount > 0 && <p role="status" className="text-sm text-accent">图片正在上传，请等待完成后保存题目。</p>}
-      <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent" onClick={save} disabled={saving || uploadCount > 0}>
-        <Save className="h-4 w-4" />
-        {saving ? "保存中…" : "保存题目"}
-      </button>
+
+        <aside className="space-y-4">
+          <EditSection title="基础信息">
+            <div className="grid gap-3">
+              <Field label="题型">
+                <select
+                  className="field"
+                  value={form.type}
+                  onChange={(event) => {
+                    const type = event.target.value;
+                    const label = TYPE_OPTIONS.find(([value]) => value === type)?.[1] ?? type;
+                    const options = type === "true_false" ? [{ key: "A", text: "正确" }, { key: "B", text: "错误" }] : isObjectiveChoice(type) ? DEFAULT_OPTIONS : [];
+                    setForm({ ...form, type, type_label: label, options, standard_answer: type === "true_false" ? "正确" : "" });
+                    setRecommendation(null);
+                    setPlacementConfirmed(false);
+                  }}
+                >
+                  {TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </Field>
+              <Field label="难度" hint="1–5">
+                <input className="field" value={form.difficulty ?? ""} onChange={(event) => update("difficulty", event.target.value)} />
+              </Field>
+              <Field label="标签" hint="用顿号分隔">
+                <input className="field" value={form.tags.join("、")} onChange={(event) => update("tags", splitList(event.target.value))} />
+              </Field>
+              <Field label="题目方向" hint="用顿号分隔">
+                <input className="field" value={form.directions.join("、")} onChange={(event) => update("directions", splitList(event.target.value))} placeholder="Tool Calling、Agent 基础" />
+              </Field>
+            </div>
+          </EditSection>
+
+          <EditSection title="归档集合" hint="必选">
+            <AiCollectionPlacement
+              bare
+              tree={collectionTree}
+              selectedId={collectionId}
+              recommendation={recommendation}
+              confirmed={placementConfirmed}
+              loading={placementLoading}
+              onRecommend={() => void recommendPlacement()}
+              onConfirm={() => setPlacementConfirmed(true)}
+              onSelect={(id) => {
+                setCollectionId(id);
+                setRecommendation(null);
+                setPlacementConfirmed(Boolean(id));
+                if (id === UNFILED_COLLECTION_ID) setError("");
+              }}
+            />
+          </EditSection>
+
+          <EditSection title="创建说明">
+            <textarea className="field" value={form.reason ?? ""} onChange={(event) => update("reason", event.target.value)} placeholder="例如：补充工具调用基础题" />
+          </EditSection>
+        </aside>
+      </div>
+
+      <div className="action-bar">
+        <p className="hidden text-xs text-muted sm:block">
+          {uploadCount > 0 ? "图片正在上传，请稍候…" : "保存前请确认归档集合与标准答案。"}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link className="btn-secondary btn-sm" to="/questions">取消</Link>
+          <button className="btn-primary btn-sm" onClick={save} disabled={saving || uploadCount > 0}>
+            <Save className="h-4 w-4" aria-hidden="true" />
+            {saving ? "保存中…" : "保存题目"}
+          </button>
+        </div>
+      </div>
+
       <AiQuestionParseDialog open={parseOpen} typeOptions={TYPE_OPTIONS} onClose={() => setParseOpen(false)} onApply={applyAiDraft} />
     </div>
   );
 }
 
-function EditSection({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="panel p-5"><h2 className="mb-4 font-semibold">{title}</h2>{children}</section>;
+function EditSection({ index, title, hint, children }: { index?: string; title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section className="bento-card p-5 sm:p-6">
+      <div className="mb-4 flex items-baseline gap-2.5">
+        {index && (
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-accent-soft text-xs font-bold tabular-nums text-accent">
+            {index}
+          </span>
+        )}
+        <h2 className="text-sm font-bold tracking-tight">{title}</h2>
+        {hint && <span className="ml-auto text-xs text-muted">{hint}</span>}
+      </div>
+      {children}
+    </section>
+  );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <label className="block"><span className="mb-1 block text-sm text-muted">{label}</span>{children}</label>;
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="field-label">
+        <span>{label}</span>
+        {hint && <span className="font-normal text-muted/80">{hint}</span>}
+      </span>
+      {children}
+    </label>
+  );
 }
 
 function splitList(value: string) {

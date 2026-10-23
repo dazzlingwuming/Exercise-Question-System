@@ -49,8 +49,8 @@ export function QuestionEditPage() {
       <div className="space-y-5">
         <ErrorState message="题目已删除，需先恢复再编辑。" />
         <div className="flex gap-2">
-          <Link className="rounded-md border border-line bg-panel px-3 py-2 text-sm" to={`/questions/${form.id}`}>返回详情</Link>
-          <Link className="rounded-md border border-line bg-panel px-3 py-2 text-sm" to="/questions/deleted">查看回收站</Link>
+          <Link className="btn-secondary" to={`/questions/${form.id}`}>返回详情</Link>
+          <Link className="btn-secondary" to="/questions/deleted">查看回收站</Link>
         </div>
       </div>
     );
@@ -103,81 +103,172 @@ export function QuestionEditPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <PageHeader eyebrow="REFINE YOUR KNOWLEDGE" title="编辑题目" description={`${form.part_id ?? form.id} · v${form.version} · 每一次完善，都让题目更有价值。`} actions={<Link className="btn-secondary" to={returnTo || `/questions/${form.id}`}>取消</Link>} />
+    <div className="space-y-5 pb-4">
+      <PageHeader
+        eyebrow="EDIT QUESTION"
+        title="编辑题目"
+        description={`${form.title || form.id} · v${form.version} · 每次保存都会留下一个版本`}
+        actions={<Link className="btn-secondary" to={returnTo || `/questions/${form.id}`}>取消</Link>}
+      />
+
       {error && <ErrorState message={error} />}
-      {message && <div className="rounded-md bg-good-soft p-3 text-sm text-good">{message}</div>}
-      <EditSection title="基础信息">
-        <div className="grid gap-3 md:grid-cols-3">
-          <Field label="题型">
-            <select
-              className="focus-ring w-full rounded-md border border-line px-3 py-2"
-              value={form.type}
-              onChange={(event) => {
-                const label = TYPE_OPTIONS.find(([value]) => value === event.target.value)?.[1] ?? form.type_label;
-                setForm({ ...form, type: event.target.value, type_label: label });
-              }}
-            >
-              {TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </Field>
-          <Field label="难度">
-            <input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.difficulty ?? ""} onChange={(event) => update("difficulty", event.target.value)} />
-          </Field>
-          <Field label="标签">
-            <input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.tags.join("、")} onChange={(event) => update("tags", splitList(event.target.value))} />
-          </Field>
-          <Field label="题目方向">
-            <input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.directions.join("、")} onChange={(event) => update("directions", splitList(event.target.value))} placeholder="工作流 Agent、可观测性" />
-          </Field>
+      {message && (
+        <div className="rounded-2xl border border-good-border bg-good-soft p-3 text-sm font-medium text-good">
+          {message}
         </div>
-      </EditSection>
-      <EditSection title="题干内容">
-        <MarkdownEditor onUploadingChange={onUploadingChange} label="题干" value={form.stem} onChange={(value) => update("stem", value)} />
-      </EditSection>
-      <EditSection title="材料"><MarkdownEditor onUploadingChange={onUploadingChange} label="材料（可选）" value={form.material ?? ""} onChange={(value) => update("material", value)} /></EditSection>
-      <EditSection title="选项设置">
-        <div className="space-y-2">
-          {form.options.map((option, index) => (
-            <div key={`${option.key}-${index}`} className="grid gap-2 md:grid-cols-[80px_1fr_40px]">
-              <input className="focus-ring rounded-md border border-line px-2 py-2" value={option.key} onChange={(event) => updateOption(index, { key: event.target.value.toUpperCase() })} />
-              <MarkdownEditor onUploadingChange={onUploadingChange} label={`选项 ${option.key}`} rows={2} value={option.text} onChange={(value) => updateOption(index, { text: value })} />
-              <button aria-label={`删除选项 ${option.key}`} className="h-fit rounded-md border border-line bg-panel p-2" type="button" onClick={() => removeOption(index)}><Trash2 className="h-4 w-4" /></button>
+      )}
+
+      <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="min-w-0 space-y-4">
+          <EditSection index="01" title="题干" hint="必填">
+            <MarkdownEditor onUploadingChange={onUploadingChange} label="题干" hideLabel value={form.stem} onChange={(value) => update("stem", value)} />
+          </EditSection>
+
+          <EditSection index="02" title="材料" hint="可选">
+            <MarkdownEditor onUploadingChange={onUploadingChange} label="材料" hideLabel value={form.material ?? ""} onChange={(value) => update("material", value)} />
+          </EditSection>
+
+          {form.options.length > 0 && (
+            <EditSection index="03" title="选项" hint={`${form.options.length} 个`}>
+              <div className="space-y-2.5">
+                {form.options.map((option, index) => (
+                  <div key={`${option.key}-${index}`} className="grid items-start gap-2 sm:grid-cols-[3.5rem_minmax(0,1fr)_2.25rem]">
+                    <input
+                      aria-label={`选项 ${index + 1} 编号`}
+                      className="field text-center font-bold uppercase"
+                      value={option.key}
+                      onChange={(event) => updateOption(index, { key: event.target.value.toUpperCase() })}
+                    />
+                    <MarkdownEditor
+                      onUploadingChange={onUploadingChange}
+                      label={`选项 ${option.key}`}
+                      rows={2}
+                      value={option.text}
+                      onChange={(value) => updateOption(index, { text: value })}
+                    />
+                    <button
+                      aria-label={`删除选项 ${option.key}`}
+                      className="grid h-10 w-9 place-items-center rounded-xl border border-line text-muted transition hover:border-bad-border hover:bg-bad-soft hover:text-bad"
+                      type="button"
+                      onClick={() => removeOption(index)}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+                ))}
+                <button className="btn-secondary btn-sm" type="button" onClick={addOption}>新增选项</button>
+              </div>
+            </EditSection>
+          )}
+
+          <EditSection index="04" title="标准答案" hint="必填">
+            <AnswerEditor onUploadingChange={onUploadingChange} type={form.type} options={form.options} value={form.standard_answer} onChange={(value) => update("standard_answer", value)} />
+          </EditSection>
+
+          <EditSection index="05" title="解析与考察点">
+            <div className="grid gap-3">
+              <MarkdownEditor onUploadingChange={onUploadingChange} label="详细解析" value={form.explanation ?? ""} onChange={(value) => update("explanation", value)} />
+              <Field label="考察点" hint="用顿号分隔">
+                <input className="field" value={form.exam_points.join("、")} onChange={(event) => update("exam_points", splitList(event.target.value))} />
+              </Field>
+              <Field label="常见错误">
+                <textarea className="field" value={form.common_mistakes ?? ""} onChange={(event) => update("common_mistakes", event.target.value)} />
+              </Field>
+              <Field label="面试延伸追问">
+                <textarea className="field" value={form.follow_up_question ?? ""} onChange={(event) => update("follow_up_question", event.target.value)} />
+              </Field>
+              <Field label="评分标准">
+                <textarea className="field" value={form.scoring_standard ?? ""} onChange={(event) => update("scoring_standard", event.target.value)} />
+              </Field>
             </div>
-          ))}
-          <button className="rounded-md border border-line bg-panel px-3 py-2 text-sm" type="button" onClick={addOption}>新增选项</button>
+          </EditSection>
         </div>
-      </EditSection>
-      <EditSection title="标准答案">
-        <AnswerEditor onUploadingChange={onUploadingChange} type={form.type} options={form.options} value={form.standard_answer} onChange={(value) => update("standard_answer", value)} />
-      </EditSection>
-      <EditSection title="解析与考察点">
-        <div className="grid gap-3">
-          <MarkdownEditor onUploadingChange={onUploadingChange} label="详细解析" value={form.explanation ?? ""} onChange={(value) => update("explanation", value)} />
-          <Field label="考察点"><input className="focus-ring w-full rounded-md border border-line px-3 py-2" value={form.exam_points.join("、")} onChange={(event) => update("exam_points", splitList(event.target.value))} /></Field>
-          <Field label="常见错误"><textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.common_mistakes ?? ""} onChange={(event) => update("common_mistakes", event.target.value)} /></Field>
-          <Field label="面试延伸追问"><textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.follow_up_question ?? ""} onChange={(event) => update("follow_up_question", event.target.value)} /></Field>
-          <Field label="评分标准"><textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={form.scoring_standard ?? ""} onChange={(event) => update("scoring_standard", event.target.value)} /></Field>
+
+        <aside className="space-y-4">
+          <EditSection title="基础信息">
+            <div className="grid gap-3">
+              <Field label="短标题" hint="详情页展示">
+                <input
+                  className="field"
+                  value={form.title ?? ""}
+                  onChange={(event) => update("title", event.target.value)}
+                  placeholder="例如：标准 VLM 的流式感知瓶颈"
+                />
+              </Field>
+              <Field label="题型">
+                <select
+                  className="field"
+                  value={form.type}
+                  onChange={(event) => {
+                    const label = TYPE_OPTIONS.find(([value]) => value === event.target.value)?.[1] ?? form.type_label;
+                    setForm({ ...form, type: event.target.value, type_label: label });
+                  }}
+                >
+                  {TYPE_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </Field>
+              <Field label="难度" hint="1–5">
+                <input className="field" value={form.difficulty ?? ""} onChange={(event) => update("difficulty", event.target.value)} />
+              </Field>
+              <Field label="标签" hint="用顿号分隔">
+                <input className="field" value={form.tags.join("、")} onChange={(event) => update("tags", splitList(event.target.value))} />
+              </Field>
+              <Field label="题目方向" hint="用顿号分隔">
+                <input className="field" value={form.directions.join("、")} onChange={(event) => update("directions", splitList(event.target.value))} placeholder="工作流 Agent、可观测性" />
+              </Field>
+            </div>
+          </EditSection>
+
+          <EditSection title="修改原因">
+            <textarea className="field" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="例如：原标准答案有误，修正为 B" />
+            <p className="mt-2 text-xs leading-5 text-muted">会写入版本历史，方便日后回溯。</p>
+          </EditSection>
+        </aside>
+      </div>
+
+      <div className="action-bar">
+        <p className="hidden text-xs text-muted sm:block">
+          {uploadCount > 0 ? "图片正在上传，请稍候…" : "保存后自动跳回题目详情。"}
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link className="btn-secondary btn-sm" to={returnTo || `/questions/${form.id}`}>取消</Link>
+          <button className="btn-primary btn-sm" onClick={save} disabled={saving || uploadCount > 0}>
+            <Save className="h-4 w-4" aria-hidden="true" />
+            {saving ? "保存中…" : "保存修改"}
+          </button>
         </div>
-      </EditSection>
-      <EditSection title="修改原因">
-        <textarea className="focus-ring min-h-20 w-full rounded-md border border-line px-3 py-2" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="例如：原标准答案有误，修正为 B" />
-      </EditSection>
-      {uploadCount > 0 && <p role="status" className="text-sm text-accent">图片正在上传，请等待完成后保存题目。</p>}
-      <button className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-on-accent" onClick={save} disabled={saving || uploadCount > 0}>
-        <Save className="h-4 w-4" />
-        {saving ? "保存中…" : "保存修改"}
-      </button>
+      </div>
     </div>
   );
 }
 
-function EditSection({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="panel p-5"><h2 className="mb-4 font-semibold">{title}</h2>{children}</section>;
+function EditSection({ index, title, hint, children }: { index?: string; title: string; hint?: string; children: ReactNode }) {
+  return (
+    <section className="bento-card p-5 sm:p-6">
+      <div className="mb-4 flex items-baseline gap-2.5">
+        {index && (
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-accent-soft text-xs font-bold tabular-nums text-accent">
+            {index}
+          </span>
+        )}
+        <h2 className="text-sm font-bold tracking-tight">{title}</h2>
+        {hint && <span className="ml-auto text-xs text-muted">{hint}</span>}
+      </div>
+      {children}
+    </section>
+  );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <label className="block"><span className="mb-1 block text-sm text-muted">{label}</span>{children}</label>;
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="field-label">
+        <span>{label}</span>
+        {hint && <span>{hint}</span>}
+      </span>
+      {children}
+    </label>
+  );
 }
 
 function splitList(value: string) {

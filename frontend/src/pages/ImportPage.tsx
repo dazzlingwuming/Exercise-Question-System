@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronUp, Copy, Download, Play, RotateCcw } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Copy, Download, Play, RotateCcw, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getCollectionTree } from "../api/collections";
 import { commitImport, previewImport, resetCommitImport, type ImportPreview as ImportPreviewType } from "../api/imports";
@@ -146,7 +146,7 @@ export function ImportPage() {
       <PageHeader
         eyebrow="QUESTION BANK"
         title="题库导入"
-        description="粘贴 Markdown 或上传 .md 文件，先预览所有题目和字段错误，再选择追加导入。旧格式仍可读取，但建议转换为 v2。"
+        description="粘贴 Markdown 或上传 .md 文件，先预览题目与字段错误，再追加导入。"
         actions={
           <>
             <Badge tone="accent">Markdown v2</Badge>
@@ -161,8 +161,11 @@ export function ImportPage() {
       />
       <section className="panel p-5">
 
-        <section className="mt-5 rounded-md border border-warn-border bg-warn-soft p-4 text-sm leading-6 text-warn">
-          <h2 className="font-semibold">格式必读</h2>
+        <details className="group mt-5 rounded-xl border border-warn-border bg-warn-soft/70 p-4 text-sm leading-6 text-warn">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-semibold">
+            格式必读（6 条规则）
+            <ChevronDown className="h-4 w-4 shrink-0 transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+          </summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li>只需把上方这一份完整模板与原始资料交给 GPT；模板顶部是规则，后面是所有题型的正式示例，不需要再拼接其他说明。</li>
             <li>完整模板本身用于指导 GPT，不能导入；应导入 GPT 根据原始资料生成的新 Markdown 文件。</li>
@@ -171,43 +174,88 @@ export function ImportPage() {
             <li>行内公式用 <code>$...$</code>，块公式独占段落用 <code>$$...$$</code>；中文标点写在定界符外。</li>
             <li>代码和 Mermaid 必须放在 <code>|</code> 多行字段中；选项正文只能单行。</li>
           </ul>
-        </section>
+        </details>
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-[0.7fr_1.3fr]">
-          <div className="space-y-3 rounded-md border border-dashed border-line bg-surface p-4">
-            <div className="text-sm font-medium">从文件读取</div>
-            <p className="text-sm leading-6 text-muted">选择 UTF-8 编码的 .md 文件后，内容会填入右侧输入框；不会直接上传或写入数据库。</p>
-            <label className="sr-only" htmlFor="question-bank-file">选择 Markdown 文件</label>
-            <input
-              id="question-bank-file"
-              className="focus-ring block w-full cursor-pointer rounded-md border border-line bg-panel text-sm text-muted file:mr-3 file:cursor-pointer file:border-0 file:border-r file:border-line file:bg-panel file:px-3 file:py-2 file:text-sm file:font-medium file:text-ink hover:file:bg-surface"
-              type="file"
-              aria-label="选择 Markdown 文件"
-              accept=".md,.markdown,.txt,text/markdown,text/plain"
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0];
-                event.currentTarget.value = "";
-                if (file) void readFile(file);
+        <div className="mt-5 grid items-start gap-4 lg:grid-cols-[0.72fr_1.28fr]">
+          <aside className="rounded-2xl border border-dashed border-line bg-panel-2/50 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">Import source</p>
+            <h2 className="mt-1.5 text-sm font-bold tracking-tight">从文件读取</h2>
+            <p className="mt-2 text-xs leading-6 text-muted">
+              选择 UTF-8 编码的 .md 文件后，内容会填入右侧输入框；不会直接上传或写入数据库。
+            </p>
+            <label className="btn-secondary btn-sm mt-3 cursor-pointer">
+              <Upload className="h-4 w-4" aria-hidden="true" />
+              选择 .md 文件
+              <input
+                id="question-bank-file"
+                className="sr-only"
+                type="file"
+                aria-label="选择 Markdown 文件"
+                accept=".md,.markdown,.txt,text/markdown,text/plain"
+                onChange={(event) => {
+                  const file = event.currentTarget.files?.[0];
+                  event.currentTarget.value = "";
+                  if (file) void readFile(file);
+                }}
+              />
+            </label>
+            <p className="mt-2 truncate text-xs text-muted">{batchName || "尚未选择文件"}</p>
+            <button
+              className="mt-2 w-fit py-1 text-xs font-medium text-accent underline-offset-2 hover:underline"
+              type="button"
+              onClick={() => {
+                updateText("");
+                setBatchName("agent基础题目.md");
+                setMessage("已切换为项目默认题库 data/个人题库/agent基础题目.md。");
               }}
-            />
-            <button className="block text-sm text-accent underline-offset-2 hover:underline" type="button" onClick={() => {
-              updateText("");
-              setBatchName("agent基础题目.md");
-              setMessage("已切换为项目默认题库 data/个人题库/agent基础题目.md。");
-            }}>使用项目默认题库</button>
-          </div>
-          <div>
-            <label className="block text-sm font-medium">导入批次名称 <span className="text-bad">*</span></label>
-            <input className="focus-ring mt-1 w-full rounded-md border border-line px-3 py-2 text-sm" value={batchName} onChange={(event) => {
-              setBatchName(event.target.value);
-              setPreview(null);
-            }} placeholder="例如：bias_variance_A批次.md" />
-            <p className="mt-1 text-xs leading-5 text-muted">批次名和原文件名只用于导入审计，不决定题目归档位置。</p>
-            <label className="mt-3 block text-sm font-medium">目标集合 <span className="text-bad">*</span></label>
-            <div className="mt-1"><CollectionPicker tree={collectionTree} selectedId={collectionId} onSelect={(id) => { setCollectionId(id); setPreview(null); }} allowUnfiled label="请选择这批题目的归档集合" /></div>
-            <p className="mt-1 text-xs leading-5 text-muted">同一主题的 A/B 批次可以导入同一个集合；之后仍可在题库中重命名、移动或合并集合。</p>
-            <label className="mt-3 block text-sm font-medium">题库 Markdown</label>
-            <textarea className="focus-ring mt-1 min-h-[310px] w-full rounded-md border border-line px-3 py-2 font-mono text-sm leading-6" value={text} onChange={(event) => updateText(event.target.value)} placeholder="粘贴 question-bank-format v2 内容；留空则读取项目默认题库。" />
+            >
+              使用项目默认题库
+            </button>
+          </aside>
+
+          <div className="space-y-3">
+            <label className="block">
+              <span className="field-label">
+                <span>导入批次名称 <span className="text-bad">*</span></span>
+                <span>仅用于审计</span>
+              </span>
+              <input
+                className="field"
+                value={batchName}
+                onChange={(event) => {
+                  setBatchName(event.target.value);
+                  setPreview(null);
+                }}
+                placeholder="例如：bias_variance_A批次.md"
+              />
+            </label>
+
+            <div>
+              <span className="field-label">
+                <span>目标集合 <span className="text-bad">*</span></span>
+                <span>决定归档位置</span>
+              </span>
+              <CollectionPicker
+                tree={collectionTree}
+                selectedId={collectionId}
+                onSelect={(id) => { setCollectionId(id); setPreview(null); }}
+                allowUnfiled
+                label="请选择这批题目的归档集合"
+              />
+            </div>
+
+            <label className="block">
+              <span className="field-label">
+                <span>题库 Markdown</span>
+                <span>留空则读取默认题库</span>
+              </span>
+              <textarea
+                className="field field--tall field--code"
+                value={text}
+                onChange={(event) => updateText(event.target.value)}
+                placeholder="粘贴 question-bank-format v2 内容；留空则读取项目默认题库。"
+              />
+            </label>
           </div>
         </div>
 

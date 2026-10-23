@@ -23,7 +23,7 @@ export function StatCard({
           <div className="stat-value mt-2 text-[1.9rem] font-extrabold leading-none tracking-tight text-ink sm:text-[2.1rem]">
             {value}
           </div>
-          {hint && <p className="mt-1.5 text-[11px] leading-4 text-muted">{hint}</p>}
+          {hint && <p className="mt-1.5 text-xs leading-4 text-muted">{hint}</p>}
         </div>
         <span className="stat-icon shrink-0">{icon}</span>
       </div>

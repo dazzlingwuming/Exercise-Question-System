@@ -94,7 +94,7 @@ export function QuestionDeletedPage() {
         </div>
       </section>
       {items.length === 0 ? (
-        <EmptyState text="回收站暂无题目。" />
+        <EmptyState title="回收站是空的" text="删除的题目会先来到这里，随时可以恢复。" />
       ) : (
         <div className="grid gap-3">
           {items.map((question) => (
