@@ -1,0 +1,24 @@
+{
+  "name": "xiaojing-desktop",
+  "productName": "小鲸学习空间",
+  "version": "0.2.0",
+  "description": "本地 AI 学习工作台与题库",
+  "author": "Xiaojing contributors",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "prepare:ui": "node scripts/build-ui.cjs",
+    "prepare:backend": "python scripts/build-backend.py",
+    "test": "node --test tests/*.test.cjs",
+    "smoke": "node scripts/smoke.cjs",
+    "pack": "electron-builder --dir --publish never",
+    "dist": "electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0",
+    "playwright": "1.64.1"
+  }
+}

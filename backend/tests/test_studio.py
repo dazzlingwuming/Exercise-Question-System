@@ -45,6 +45,22 @@ def make_conversation(db):
     return row
 
 
+def test_desktop_restart_recovers_interrupted_run_without_discarding_content(db):
+    from app.services.desktop_lifecycle import recover_interrupted_runs
+    conversation = make_conversation(db)
+    conversation.active_run_id = "old-run"
+    conversation.run_started_at = utc_now()
+    db.add(StudioMessage(id="m", conversation_id=conversation.id, role="assistant", status="pending", content="已保存的部分回复"))
+    db.add(StudioMessage(id="complete", conversation_id=conversation.id, role="assistant", status="complete", content="完整回答"))
+    db.commit()
+    recover_interrupted_runs(db)
+    db.expire_all()
+    assert db.get(StudioMessage, "m").status == "stopped"
+    assert db.get(StudioMessage, "m").content == "已保存的部分回复"
+    assert db.get(StudioMessage, "complete").status == "complete"
+    assert db.get(StudioConversation, conversation.id).active_run_id is None
+
+
 def send_payload(**kwargs):
     return StudioSend(connection=ModelConnection(api_key="secret-test", supports_images=True), **kwargs)
 

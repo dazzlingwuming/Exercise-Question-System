@@ -1,5 +1,7 @@
 # Exercise Question System
 
+新增 **Windows / macOS 桌面客户端**：内置本地服务，免装 Python/Node，支持资料库备份、导入和独立数据保存。安装、构建与 Android 后续路线见 [桌面客户端](docs/desktop-client.md)。
+
 新增独立 **AI 工作台**：多模型连接、日常文字与图片讨论、停止/重试、讨论历史管理、计算与函数作图，以及从回答整理题目草稿。使用方法与能力边界见 [AI 工作台](docs/ai-studio.md)。
 
 新增今日小批次练习、断点续学、本轮复盘与定向重练，以及附件裁剪和步骤检查。成熟产品研究、使用方法与验证结果见 [从一道题到下一次复习](docs/study-workflow.md)。

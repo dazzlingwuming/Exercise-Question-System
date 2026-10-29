@@ -1,4 +1,4 @@
-export const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api";
+export const API_BASE = window.location.protocol === "xiaojing:" ? "/api" : (import.meta.env.VITE_API_BASE ?? "http://localhost:8000/api");
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {

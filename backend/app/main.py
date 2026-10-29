@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from app.services.media_service import MediaError
 from app.middleware.media_limit import MediaUploadLimitMiddleware
+from app.middleware.desktop_auth import DesktopTokenMiddleware
 
 from app.config import settings
 from app.database import init_db
@@ -20,6 +21,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+if settings.desktop_token:
+    app.add_middleware(DesktopTokenMiddleware, token=settings.desktop_token)
 
 
 @app.on_event("startup")

@@ -43,3 +43,11 @@ Thumbs.db
 .planning/
 .playwright-cli/
 output/playwright/
+
+# Desktop build products and isolated packaging environment
+desktop/node_modules/
+desktop/.venv/
+desktop/build/
+desktop/ui/
+desktop/release/
+desktop/resources/icon.*

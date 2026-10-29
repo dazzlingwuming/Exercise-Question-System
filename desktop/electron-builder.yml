@@ -1,0 +1,38 @@
+appId: com.xiaojing.study
+productName: 小鲸学习空间
+copyright: Copyright © Xiaojing contributors
+asar: true
+npmRebuild: false
+directories:
+  output: release
+  buildResources: resources
+files:
+  - src/**
+  - ui/**
+  - package.json
+extraResources:
+  - from: build/backend/xiaojing-backend
+    to: backend
+artifactName: Xiaojing-${version}-${os}-${arch}.${ext}
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: ../frontend/public/mascot/xiaojing-avatar.png
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  deleteAppDataOnUninstall: false
+mac:
+  target: [dmg, zip]
+  category: public.app-category.education
+  icon: ../frontend/public/mascot/xiaojing-avatar.png
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  identity: '-'
+  entitlements: resources/entitlements.mac.plist
+  entitlementsInherit: resources/entitlements.mac.plist
+dmg:
+  sign: false

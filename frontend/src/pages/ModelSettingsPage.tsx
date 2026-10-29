@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { checkConnection } from "../api/studio";
 import { AiConfigFields } from "../components/ai/AiConfigFields";
+import { DesktopLibrarySettings } from "../components/settings/DesktopLibrarySettings";
 import { loadStoredAiConfig, saveStoredAiConfig } from "../utils/aiConfigStorage";
 import { connectionPayload, loadConnections, saveConnections, type ModelProfile } from "../utils/modelConnections";
 
@@ -60,9 +61,10 @@ export function ModelSettingsPage() {
         </fieldset>
         <div className="connection-actions"><button className="btn-primary" disabled={testing} onClick={() => save(true)}><Save size={16} />保存并使用</button><button className="btn-secondary" disabled={testing || !draft.base_url.trim() || !draft.model.trim()} onClick={() => void test()}>{testing ? <LoaderCircle size={16} className="animate-spin" /> : <Radio size={16} />}测试连接</button><button className="btn-ghost" disabled={testing || store.profiles.length === 1 || dirty} onClick={remove}><Trash2 size={15} />移除</button></div>
         {error && <p role="alert" className="text-sm text-bad mt-4">{error}</p>}{notice && <p role="status" className="text-sm text-good mt-4">{notice}</p>}
-        <div className="connection-help"><KeyRound size={18} /><p>连接密钥保存在当前浏览器；发送请求时经本地后端转发到所填地址，不会写入聊天记录或导出文件。测试连接会发送一条很短的文本请求。</p></div>
+        <div className="connection-help"><KeyRound size={18} /><p>连接密钥保存在{window.xiaojingDesktop ? "当前客户端的本地存储" : "当前浏览器"}；发送请求时经本地后端转发到所填地址，不会写入聊天记录或导出文件。测试连接会发送一条很短的文本请求。</p></div>
         <details className="connection-advanced"><summary><CircleHelp size={16} />题库 AI 的任务配置</summary><p className="text-sm text-muted my-4">讲题、评分与生成题目可以继续使用不同模型。这里修改后会同步到题库内的 AI 设置。</p><AiConfigFields config={legacy} onChange={setLegacy} showSearch /><button className="btn-secondary mt-4" onClick={() => { saveStoredAiConfig(legacy); setNotice("题库 AI 配置已保存。"); }}>保存题库配置</button></details>
       </section>
     </div>
+    <DesktopLibrarySettings />
   </div>;
 }

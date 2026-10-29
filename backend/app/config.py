@@ -10,8 +10,9 @@ class Settings:
     repository_root: Path = Path(__file__).resolve().parents[2]
     backend_root: Path = repository_root / "backend"
     data_dir: Path = Path(os.getenv("EXERCISE_DATA_DIR", str(repository_root / "data"))).resolve()
-    question_bank_path: Path = data_dir / "个人题库" / "agent基础题目.md"
+    question_bank_path: Path = Path(os.getenv("EXERCISE_DEFAULT_BANK", str(data_dir / "个人题库" / "agent基础题目.md")))
     database_url: str = f"sqlite:///{data_dir / 'question_practice.sqlite3'}"
+    desktop_token: str = os.getenv("EXERCISE_DESKTOP_TOKEN", "")
     cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
