@@ -49,7 +49,7 @@ def get_db() -> Generator[Session, None, None]:
 def init_db() -> None:
     """中文说明：本地应用启动时自动创建缺失的数据表，并执行轻量字段迁移。"""
 
-    from app.models import ai_grading, ai_question_generation, ai_tutor, attempt, import_batch, practice_session, question, question_collection, question_revision, question_source, user_question_state  # noqa: F401
+    from app.models import ai_grading, ai_question_generation, ai_tutor, attempt, import_batch, practice_session, question, question_collection, question_revision, question_source, user_question_state, studio  # noqa: F401
 
     _backup_before_collection_migration()
     Base.metadata.create_all(bind=engine)

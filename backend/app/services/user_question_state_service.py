@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import and_, func, or_, select, union
 from sqlalchemy.orm import Session
 
 from app.models.attempt import Attempt
@@ -26,49 +26,50 @@ def answered_question_ids(db: Session, user_id: str = LOCAL_USER_ID) -> set[str]
             )
         ).all()
     )
-    if state_ids:
-        return state_ids
-    return set(db.scalars(select(Attempt.question_id)).all())
+    return state_ids | set(db.scalars(select(Attempt.question_id).distinct()).all())
+
+
+def wrong_question_id_query(db: Session, user_id: str = LOCAL_USER_ID):
+    """One definition for current wrong questions, shared by practice and statistics."""
+    state_ids = select(UserQuestionState.question_id).where(
+        UserQuestionState.user_id == user_id, UserQuestionState.status.in_(["wrong", "reviewing"]),
+        UserQuestionState.is_excluded.is_(False),
+    )
+    latest = select(Attempt.question_id, Attempt.is_correct, Attempt.review_status, func.row_number().over(
+        partition_by=Attempt.question_id, order_by=(Attempt.created_at.desc(), Attempt.id.desc()),
+    ).label("rank")).subquery()
+    missing = select(latest.c.question_id).where(latest.c.rank == 1,
+        or_(latest.c.is_correct.is_(False), latest.c.review_status == "partial"),
+        ~latest.c.question_id.in_(select(UserQuestionState.question_id).where(UserQuestionState.user_id == user_id)),
+    )
+    return union(state_ids, missing)
 
 
 def wrong_question_ids(db: Session, user_id: str = LOCAL_USER_ID) -> set[str]:
-    """中文说明：返回当前状态仍是错题/复习中的题目；兼容旧库回退到 attempts。"""
-
-    has_states = db.scalar(
-        select(UserQuestionState.id)
-        .where(UserQuestionState.user_id == user_id)
-        .limit(1)
-    ) is not None
-    ids = set(
-        db.scalars(
-            select(UserQuestionState.question_id).where(
-                UserQuestionState.user_id == user_id,
-                UserQuestionState.status.in_(["wrong", "reviewing"]),
-                UserQuestionState.is_excluded.is_(False),
-            )
-        ).all()
-    )
-    # 一旦已有累计状态，状态表就是唯一事实来源。不能因为当前没有错题，
-    # 又回退到历史 attempts，否则已经改正的旧错题会重新出现在错题练习中。
-    if has_states:
-        return ids
-    return set(db.scalars(select(Attempt.question_id).where(Attempt.is_correct.is_(False))).all())
+    """Current state wins, including when every previously wrong question is corrected."""
+    return set(db.scalars(wrong_question_id_query(db, user_id)).all())
 
 
 def due_question_ids(db: Session, user_id: str = LOCAL_USER_ID) -> set[str]:
     """中文说明：返回到期复习题。"""
 
-    now = datetime.now()
     return set(
         db.scalars(
             select(UserQuestionState.question_id).where(
                 UserQuestionState.user_id == user_id,
-                UserQuestionState.next_review_at.is_not(None),
-                UserQuestionState.next_review_at <= now,
+                due_condition(),
                 UserQuestionState.is_excluded.is_(False),
             )
         ).all()
     )
+
+
+def due_condition():
+    """Old mastered records had no date; allow their return after fourteen days."""
+    return or_(UserQuestionState.next_review_at <= datetime.now(), and_(
+        UserQuestionState.status == "mastered", UserQuestionState.next_review_at.is_(None),
+        UserQuestionState.last_attempt_at <= datetime.now() - timedelta(days=14),
+    ))
 
 
 def safe_states_for_questions(db: Session, question_ids: list[str], user_id: str = LOCAL_USER_ID) -> list[QuestionStateRead]:
@@ -110,6 +111,11 @@ def update_state_after_attempt(db: Session, attempt: Attempt, is_final: bool = T
 
     state = _get_or_create_state(db, attempt.question_id, user_id)
     now = attempt.created_at or datetime.now()
+    # Some OS clocks return the same microsecond for consecutive submissions.
+    # Preserve submission order instead of breaking a timestamp tie with random UUIDs.
+    if state.last_attempt_at and now <= state.last_attempt_at:
+        now = state.last_attempt_at + timedelta(microseconds=1)
+    attempt.created_at = now
     state.current_question_version = attempt.question_version
     state.last_attempt_id = attempt.id
     state.last_attempt_at = now
@@ -130,6 +136,15 @@ def update_state_after_self_review(db: Session, attempt: Attempt, user_id: str =
     """中文说明：主观题自评完成后，把 pending 状态更新为 correct/partial/wrong。"""
 
     state = _get_or_create_state(db, attempt.question_id, user_id)
+    if state.last_attempt_id and state.last_attempt_id != attempt.id:
+        # Reviewing an older submission must not overwrite a newer learning result.
+        latest = db.get(Attempt, state.last_attempt_id)
+        if latest and latest.created_at and attempt.created_at and latest.created_at >= attempt.created_at:
+            if attempt.review_status == "correct":
+                state.correct_count = (state.correct_count or 0) + 1
+            elif attempt.review_status == "wrong":
+                state.wrong_count = (state.wrong_count or 0) + 1
+            return state
     should_count_result = state.last_attempt_id != attempt.id or state.last_result == "ungraded"
     state.current_question_version = attempt.question_version
     state.last_attempt_id = attempt.id
@@ -188,7 +203,9 @@ def _apply_final_result(state: UserQuestionState, attempt: Attempt, count_result
 
 def _next_review_at(state: UserQuestionState) -> datetime | None:
     if state.status == "mastered":
-        return None
+        # Mastery lengthens the interval; it never means "never review again".
+        days = min(90, 14 * 2 ** min(3, max(0, state.consecutive_correct_count - 4)))
+        return datetime.now() + timedelta(days=days)
     if state.last_result == "wrong":
         minutes = 30 if state.consecutive_wrong_count >= 2 else 10
         return datetime.now() + timedelta(minutes=minutes)

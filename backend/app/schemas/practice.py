@@ -1,8 +1,8 @@
 """中文说明：练习会话 API 的输入输出结构。"""
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.question import PracticeQuestionRead
 
@@ -23,6 +23,15 @@ class PracticeSessionCreate(BaseModel):
     page_size: int = 20
     start_question_id: str | None = None
     allow_answered: bool = False
+    limit: int | None = Field(default=None, ge=1, le=100)
+
+
+class PracticeRetryRequest(BaseModel):
+    scope: Literal["mistakes", "unanswered"] = "mistakes"
+
+
+class PracticePositionRequest(BaseModel):
+    question_id: str
 
 
 class PracticeSessionResponse(BaseModel):

@@ -20,7 +20,9 @@ from app.schemas.practice import (
 )
 from app.schemas.question import PracticeQuestionRead
 from app.services.practice_service import build_practice_questions
-from app.services.question_service import collection_path_map, practice_question_read
+from app.services.question_service import collection_path_map, practice_question_read, practice_questions_read
+from app.services.study_plan_service import daily_question_ids
+from app.services.practice_report_service import session_report
 
 
 def create_practice_session(db: Session, payload: PracticeSessionCreate) -> PracticeSessionResponse:
@@ -32,6 +34,8 @@ def create_practice_session(db: Session, payload: PracticeSessionCreate) -> Prac
     """
 
     page_size = max(1, payload.page_size)
+    if payload.mode == "daily":
+        page_size = min(page_size, payload.limit or 10)
     filters = {
         "type": payload.type,
         "difficulty": payload.difficulty,
@@ -42,6 +46,7 @@ def create_practice_session(db: Session, payload: PracticeSessionCreate) -> Prac
         "source_id": payload.source_id,
         "start_question_id": payload.start_question_id,
         "allow_answered": payload.allow_answered,
+        "limit": payload.limit,
     }
     if payload.collection_id:
         filters["collection_path_snapshot"] = collection_path_map(db).get(payload.collection_id)
@@ -82,7 +87,7 @@ def get_practice_session(db: Session, session_id: str) -> PracticeSessionState |
         current_question=practice_question_read(db, current_question) if current_question else None,
         current_group_start=group_start,
         current_group_end=group_end,
-        current_group=[practice_question_read(db, item) for item in group],
+        current_group=practice_questions_read(db, group),
         has_next=session.current_index + 1 < session.total,
         has_previous=session.current_index > 0,
         has_next_group=group_end < session.total,
@@ -168,7 +173,12 @@ def move_to_previous_question(db: Session, session_id: str) -> PracticeMoveRespo
             has_previous=False,
             has_next_group=min(_current_group_start(session) + session.page_size, session.total) < session.total,
         )
-    session.current_index -= 1
+    previous = _questions_by_ids(db, _ids_slice(session, 0, session.current_index))
+    if not previous:
+        current = _question_at(db, session, session.current_index)
+        return PracticeMoveResponse(status="ok", current_index=session.current_index,
+                                    question=practice_question_read(db, current) if current else None, has_previous=False)
+    session.current_index = session.question_ids_json.index(previous[-1].id)
     _touch(session)
     db.commit()
     db.refresh(session)
@@ -222,6 +232,8 @@ def build_question_id_list_for_mode(db: Session, payload: PracticeSessionCreate)
     避免前端或 router 自己拼接复杂逻辑。
     """
 
+    if payload.mode == "daily":
+        return daily_question_ids(db, payload.limit or 10, payload)
     query = build_practice_questions(
         db,
         mode=payload.mode,
@@ -236,6 +248,7 @@ def build_question_id_list_for_mode(db: Session, payload: PracticeSessionCreate)
         page=1,
         page_size=1000000,
         allow_answered=payload.allow_answered,
+        metadata_only=True,
     )
     items = query.items
     if payload.mode == "wrong":
@@ -243,7 +256,32 @@ def build_question_id_list_for_mode(db: Session, payload: PracticeSessionCreate)
     question_ids = [item.id for item in items]
     if payload.start_question_id:
         question_ids = _rotate_ids_to_start(question_ids, payload.start_question_id)
-    return question_ids
+    return question_ids[:payload.limit] if payload.limit else question_ids
+
+
+def retry_session(db: Session, session: PracticeSession, scope: str) -> PracticeSessionResponse:
+    statuses = {"wrong", "partial"} if scope == "mistakes" else {"unanswered"}
+    ids = [item["question_id"] for item in session_report(db, session)["items"] if item["status"] in statuses]
+    if not ids:
+        raise ValueError("没有符合条件的题目")
+    retry = PracticeSession(id=uuid4().hex, mode="retry", page_size=session.page_size,
+                            filters_json={"source_session_id": session.id, "allow_answered": True},
+                            order="import_order", total=len(ids), current_index=0, question_ids_json=ids)
+    db.add(retry)
+    db.commit()
+    return _session_response(db, retry, 0, retry.page_size)
+
+
+def jump_to_question(db: Session, session: PracticeSession, question_id: str) -> PracticeSessionState:
+    if question_id not in session.question_ids_json:
+        raise ValueError("题目不属于本次练习")
+    question = db.get(Question, question_id)
+    if not question or question.is_deleted:
+        raise ValueError("题目已删除，不能继续作答")
+    session.current_index = session.question_ids_json.index(question_id)
+    _touch(session)
+    db.commit()
+    return get_practice_session(db, session.id)
 
 
 def _session_response(db: Session, session: PracticeSession, offset: int, limit: int) -> PracticeSessionResponse:
@@ -257,7 +295,7 @@ def _session_response(db: Session, session: PracticeSession, offset: int, limit:
         current_index=session.current_index,
         current_group_start=offset,
         current_group_end=end,
-        items=[practice_question_read(db, item) for item in items],
+        items=practice_questions_read(db, items),
         has_next_group=end < session.total,
         has_previous_group=offset > 0,
         **_shortage_fields(session),
@@ -267,7 +305,7 @@ def _session_response(db: Session, session: PracticeSession, offset: int, limit:
 def _group_response(db: Session, session: PracticeSession, offset: int, end: int, current_index: int) -> PracticeGroupResponse:
     items = _questions_by_ids(db, _ids_slice(session, offset, end))
     return PracticeGroupResponse(
-        items=[practice_question_read(db, item) for item in items],
+        items=practice_questions_read(db, items),
         offset=offset,
         limit=end - offset,
         total=session.total,
@@ -370,7 +408,7 @@ def _shortage_fields(session: PracticeSession) -> dict[str, object | None]:
 
     filters = session.filters_json or {}
     allow_answered = bool(filters.get("allow_answered"))
-    if allow_answered or session.mode in {"wrong", "due_review", "all_practice"}:
+    if allow_answered or session.mode in {"wrong", "due_review", "all_practice", "daily", "retry"}:
         return {}
     if session.total <= 0 or session.total >= session.page_size:
         return {}

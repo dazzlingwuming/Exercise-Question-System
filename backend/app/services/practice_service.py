@@ -6,7 +6,7 @@ import random
 from dataclasses import dataclass
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from app.models.question import Question
 from app.services.question_service import collection_subtree_ids
@@ -55,6 +55,7 @@ def build_practice_questions(
     page_size: int = 20,
     start_question_id: str | None = None,
     allow_answered: bool = False,
+    metadata_only: bool = False,
 ) -> PracticeQueryResult:
     """
     中文说明：
@@ -63,7 +64,7 @@ def build_practice_questions(
     避免 router 中堆积大量 if/else。
     """
 
-    items = _base_questions(db)
+    items = _base_questions(db, metadata_only=metadata_only)
     items = _apply_common_filters(
         db,
         items,
@@ -138,16 +139,15 @@ def get_next_practice_question(
     return items[0]
 
 
-def _base_questions(db: Session) -> list[Question]:
+def _base_questions(db: Session, metadata_only: bool = False) -> list[Question]:
     """中文说明：按导入顺序读取全部题目，后续在服务层做 JSON 字段筛选。"""
 
-    return list(
-        db.scalars(
-            select(Question)
-            .where(Question.is_deleted.is_(False))
-            .order_by(Question.import_order.asc().nulls_last(), Question.part_id)
-        ).all()
-    )
+    query = select(Question).where(Question.is_deleted.is_(False)).order_by(Question.import_order.asc().nulls_last(), Question.part_id)
+    if metadata_only:
+        query = query.options(load_only(Question.id, Question.part_id, Question.import_order,
+            Question.type, Question.type_label, Question.difficulty, Question.exam_points,
+            Question.directions, Question.collection_id, Question.source_id))
+    return list(db.scalars(query).all())
 
 
 def _apply_common_filters(

@@ -5,6 +5,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { recommendCollectionPlacements, type AiParseIssue } from "../api/ai";
 import { getCollectionTree } from "../api/collections";
 import { createQuestion } from "../api/questions";
+import { getStudioQuestionDraft } from "../api/studio";
+import { LoadingState } from "../components/common/LoadingState";
 import { ErrorState } from "../components/common/ErrorState";
 import { AiCollectionPlacement, type CollectionRecommendation } from "../components/collection/AiCollectionPlacement";
 import { AnswerEditor } from "../components/question/AnswerEditor";
@@ -45,6 +47,8 @@ export function QuestionCreatePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const requestedCollectionId = searchParams.get("collection_id");
+  const studioMessage = searchParams.get("studio_message");
+  const [draftLoading, setDraftLoading] = useState(Boolean(studioMessage));
   const [form, setForm] = useState<QuestionCreatePayload>({
     type: "single_choice",
     type_label: "单选题",
@@ -66,7 +70,7 @@ export function QuestionCreatePage() {
   const [saving, setSaving] = useState(false);
   const [uploadCount, setUploadCount] = useState(0);
   const onUploadingChange = useCallback((active: boolean) => setUploadCount((count) => Math.max(0, count + (active ? 1 : -1))), []);
-  const [parseOpen, setParseOpen] = useState(false);
+  const [parseOpen, setParseOpen] = useState(searchParams.get("parse") === "1");
   const [aiParseIssues, setAiParseIssues] = useState<AiParseIssue[]>([]);
   const [collectionTree, setCollectionTree] = useState<CollectionNode[]>([]);
   const [collectionId, setCollectionId] = useState<string | null>(requestedCollectionId && requestedCollectionId !== ROOT_COLLECTION_ID ? requestedCollectionId : null);
@@ -77,6 +81,16 @@ export function QuestionCreatePage() {
   useEffect(() => {
     getCollectionTree().then(setCollectionTree).catch((err) => setError((err as Error).message));
   }, []);
+
+  useEffect(() => {
+    if (!studioMessage) return;
+    let active = true;
+    setDraftLoading(true);
+    getStudioQuestionDraft(studioMessage).then(value => { if (active) setForm(value); })
+      .catch(err => { if (active) setError(err.message); })
+      .finally(() => { if (active) setDraftLoading(false); });
+    return () => { active = false; };
+  }, [studioMessage]);
 
   const update = <K extends keyof QuestionCreatePayload>(key: K, value: QuestionCreatePayload[K]) => {
     setForm({ ...form, [key]: value });
@@ -167,6 +181,7 @@ export function QuestionCreatePage() {
     setParseOpen(false);
   };
 
+  if (draftLoading) return <LoadingState />;
   return (
     <div className="space-y-5 pb-4">
       <PageHeader
@@ -177,7 +192,7 @@ export function QuestionCreatePage() {
           <>
             <button className="btn-secondary" type="button" onClick={() => setParseOpen(true)}>
               <Sparkles className="h-4 w-4 text-accent" aria-hidden="true" />
-              从原文解析
+              从文字或图片识别
             </button>
             <Link className="btn-secondary" to="/questions">取消</Link>
           </>
@@ -185,6 +200,7 @@ export function QuestionCreatePage() {
       />
 
       {error && <ErrorState message={error} />}
+      {studioMessage && <p className="rounded-lg border border-line bg-panel p-4 text-sm leading-7 text-muted">已从讨论整理为草稿。参考答案来自 AI，请核对题干和答案、补充评分标准，再选择归档位置保存。</p>}
 
       {aiParseIssues.length > 0 && (
         <section className="rounded-2xl border border-warn-border bg-warn-soft p-4 text-sm text-warn">

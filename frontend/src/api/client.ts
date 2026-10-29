@@ -21,6 +21,10 @@ export function readApiErrorMessage(body: string) {
     const parsed = JSON.parse(body) as { detail?: unknown; message?: unknown };
     const detail = parsed.detail ?? parsed.message;
     if (typeof detail === "string") return detail;
+    if (Array.isArray(detail)) {
+      const messages = detail.filter(item => item && typeof item.msg === "string").map(item => item.msg.replace(/^Value error, /, ""));
+      if (messages.length) return messages.slice(0, 3).join("；");
+    }
     if (detail && typeof detail === "object" && "message" in detail && typeof detail.message === "string") return detail.message;
   } catch {
     // 非 JSON 错误（例如反向代理错误）直接展示原文即可。

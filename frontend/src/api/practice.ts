@@ -1,5 +1,6 @@
 import { request } from "./client";
 import type { PracticeQuestion } from "../types/question";
+import type { SubmitAnswerResponse } from "../types/attempt";
 
 export type PracticeParams = {
   mode?: string;
@@ -19,6 +20,7 @@ export type PracticeParams = {
 };
 
 export type PracticeSessionCreate = {
+  limit?: number;
   mode?: string;
   type?: string;
   difficulty?: string;
@@ -114,3 +116,17 @@ export const movePracticeNext = (sessionId: string) => request<PracticeMoveRespo
 export const movePracticePrevious = (sessionId: string) => request<PracticeMoveResponse>(`/practice/sessions/${sessionId}/previous`, { method: "POST" });
 export const movePracticeNextGroup = (sessionId: string) => request<PracticeSessionResponse>(`/practice/sessions/${sessionId}/next-group`, { method: "POST" });
 export const movePracticePreviousGroup = (sessionId: string) => request<PracticeSessionResponse>(`/practice/sessions/${sessionId}/previous-group`, { method: "POST" });
+
+export type StudyOverview = { due_count: number; today_count: number; available_count: number; date: string };
+export type PracticeReport = {
+  session_id: string; total: number; answered: number; correct: number; wrong: number; partial: number;
+  pending: number; unanswered: number; deleted: number; accuracy: number | null;
+  weak_points: Array<{ point: string; count: number }>;
+  items: Array<{ question_id: string; index: number; title: string; status: "correct" | "wrong" | "partial" | "pending" | "unanswered" | "deleted" }>;
+};
+export type SessionAnswer = { question_id: string; answer: string | string[]; result: SubmitAnswerResponse };
+export const getStudyOverview = () => request<StudyOverview>(`/practice/overview?utc_offset_minutes=${-new Date().getTimezoneOffset()}`);
+export const getPracticeReport = (id: string) => request<PracticeReport>(`/practice/sessions/${id}/report`);
+export const getSessionAnswers = (id: string) => request<SessionAnswer[]>(`/practice/sessions/${id}/answers`);
+export const jumpPracticeQuestion = (id: string, question_id: string) => request<PracticeSessionState>(`/practice/sessions/${id}/position`, { method: "POST", body: JSON.stringify({ question_id }) });
+export const retryPracticeSession = (id: string, scope: "mistakes" | "unanswered") => request<PracticeSessionResponse>(`/practice/sessions/${id}/retry`, { method: "POST", body: JSON.stringify({ scope }) });

@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from uuid import uuid4
+from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.attempt import Attempt
 from app.models.question import Question
+from app.models.practice_session import PracticeSession
 from app.schemas.attempt import SubmitAnswerResponse
 from app.services.answer_checker import check_answer
+from app.services.media_service import MediaError, question_images
 from app.services.question_revision_service import question_to_snapshot
 from app.services.user_question_state_service import update_state_after_attempt, update_state_after_self_review
 
@@ -20,6 +23,15 @@ def submit_answer(db: Session, question: Question, user_answer: object, practice
 
     if question.is_deleted:
         raise ValueError("题目已删除，不能提交答案")
+    if practice_session_id:
+        session = db.get(PracticeSession, practice_session_id)
+        if not session or question.id not in (session.question_ids_json or []):
+            raise ValueError("题目不属于本次练习，请重新打开练习")
+    if isinstance(user_answer, str):
+        try:
+            question_images(db, {**question_to_snapshot(question), "user_answer": user_answer})
+        except MediaError as exc:
+            raise ValueError(exc.message) from exc
     result = check_answer(question.type, question.standard_answer, user_answer)
     attempt = Attempt(
         id=str(uuid4()),
@@ -34,6 +46,7 @@ def submit_answer(db: Session, question: Question, user_answer: object, practice
         review_status="pending" if result.requires_self_review else None,
         question_version=question.version,
         question_snapshot=question_to_snapshot(question),
+        created_at=datetime.now(timezone.utc).replace(tzinfo=None),
     )
     db.add(attempt)
     update_state_after_attempt(db, attempt, is_final=not result.requires_self_review)
@@ -88,17 +101,12 @@ def latest_attempts_for_questions(db: Session, question_ids: list[str]) -> list[
 
     if not question_ids:
         return []
-    latest: list[Attempt] = []
-    for question_id in dict.fromkeys(question_ids):
-        attempt = db.scalars(
-            select(Attempt)
-            .where(Attempt.question_id == question_id)
-            .order_by(Attempt.created_at.desc())
-            .limit(1)
-        ).first()
-        if attempt:
-            latest.append(attempt)
-    return latest
+    ranked = select(Attempt.id, func.row_number().over(
+        partition_by=Attempt.question_id, order_by=(Attempt.created_at.desc(), Attempt.id.desc()),
+    ).label("rank")).where(Attempt.question_id.in_(question_ids)).subquery()
+    rows = db.scalars(select(Attempt).join(ranked, ranked.c.id == Attempt.id).where(ranked.c.rank == 1)).all()
+    by_id = {attempt.question_id: attempt for attempt in rows}
+    return [by_id[question_id] for question_id in dict.fromkeys(question_ids) if question_id in by_id]
 
 
 def list_wrong_attempts(db: Session) -> list[tuple[Attempt, Question]]:

@@ -10,6 +10,7 @@ from app.models.question import Question
 from app.models.user_question_state import UserQuestionState
 from app.services.attempt_service import self_review_attempt, submit_answer
 from app.services.user_question_state_service import wrong_question_ids
+from app.services.stats_service import get_stats_summary
 
 
 def make_db() -> Session:
@@ -26,6 +27,25 @@ def make_db() -> Session:
     )
     db.commit()
     return db
+
+
+def test_stats_count_current_wrong_questions_and_keep_attempt_accuracy():
+    db = make_db()
+    try:
+        question = db.get(Question, "q-objective")
+        submit_answer(db, question, "B")
+        submit_answer(db, question, "B")
+        summary = get_stats_summary(db)
+        assert summary.wrong_count == 1
+        assert summary.accuracy == 0
+        submit_answer(db, question, "A")
+        summary = get_stats_summary(db)
+        assert summary.wrong_count == 0
+        assert summary.accuracy == 33.33
+        assert summary.answered_count == 1
+        assert summary.recent_attempts[0]["title"] == question.title
+    finally:
+        db.close()
 
 
 def make_question(question_id: str, question_type: str, standard_answer: str) -> Question:

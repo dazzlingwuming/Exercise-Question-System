@@ -1,4 +1,4 @@
-import { Children, Component, isValidElement, type ReactNode, useState } from "react";
+import { Children, Component, isValidElement, memo, type ReactNode, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import remarkGfm from "remark-gfm";
@@ -34,7 +34,7 @@ const markdownComponents: Components = {
   },
 };
 
-export function RichContent({ content, className = "", allowImages = true }: RichContentProps) {
+export const RichContent = memo(function RichContent({ content, className = "", allowImages = true }: RichContentProps) {
   const source = String(content ?? "");
   if (!source) return null;
   if (source.length > MAX_CONTENT_LENGTH) {
@@ -56,7 +56,7 @@ export function RichContent({ content, className = "", allowImages = true }: Ric
       </div>
     </RichContentErrorBoundary>
   );
-}
+});
 
 /** Keep older AI messages renderable when a model mixed MathJax and Markdown delimiters. */
 export function normalizeMathDelimiters(source: string): string {

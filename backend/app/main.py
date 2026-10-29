@@ -8,7 +8,7 @@ from app.middleware.media_limit import MediaUploadLimitMiddleware
 
 from app.config import settings
 from app.database import init_db
-from app.routers import ai, attempts, collections, imports, media, practice, questions, stats
+from app.routers import ai, attempts, collections, imports, media, practice, questions, stats, studio
 
 app = FastAPI(title="Agent 应用层岗位题库刷题系统", version="0.1.0")
 
@@ -49,3 +49,4 @@ app.include_router(practice.router, prefix="/api")
 app.include_router(attempts.router, prefix="/api")
 app.include_router(stats.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
+app.include_router(studio.router, prefix="/api")

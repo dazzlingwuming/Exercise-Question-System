@@ -5,10 +5,12 @@ import {
   History,
   Import,
   LayoutDashboard,
+  MessageSquare,
   Palette,
   PenLine,
   RotateCcw,
   Search,
+  Settings2,
   Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
@@ -27,6 +29,8 @@ type Action = {
 };
 
 const BASE_ACTIONS: Action[] = [
+  { id: "studio", label: "AI 工作台", group: "讨论", keywords: "ai studio chat 对话 图片 问题 学习", icon: MessageSquare, to: "/studio" },
+  { id: "models", label: "模型连接", group: "管理", keywords: "model api key 模型 设置 连接", icon: Settings2, to: "/settings" },
   { id: "practice", label: "开始练习", group: "去练习", keywords: "practice 刷题 随机", icon: PenLine, to: "/practice" },
   { id: "wrong", label: "练错题", group: "去练习", keywords: "wrong 错题", icon: History, to: "/practice?mode=wrong" },
   { id: "unanswered", label: "探索新题", group: "去练习", keywords: "new 未答", icon: RotateCcw, to: "/practice?mode=unanswered" },

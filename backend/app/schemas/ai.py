@@ -1,6 +1,7 @@
 """中文说明：AI 讲题助手 API 的输入输出结构。"""
 
 from datetime import datetime
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
@@ -71,7 +72,8 @@ class AiActionRequest(AiConfig):
 class AiUserMessageRequest(AiConfig):
     question_id: str
     attempt_id: str | None = None
-    content: str
+    content: str = Field(default="", max_length=12000)
+    image_ids: list[Annotated[str, Field(pattern=r"^[a-f0-9]{32}$")]] = Field(default_factory=list, max_length=6)
 
 
 class AiSummaryRequest(AiConfig):
@@ -256,7 +258,9 @@ class AiCollectionPlacementResponse(BaseModel):
 class AiQuestionParseRequest(AiConfig):
     """中文说明：把用户粘贴的一道原始题目解析为未保存的表单草稿。"""
 
-    source_text: str
+    source_text: str = Field(default="", max_length=12000)
+    image_ids: list[Annotated[str, Field(pattern=r"^[a-f0-9]{32}$")]] = Field(default_factory=list, max_length=6)
+    keep_source_images: bool = False
     expected_type: str | None = None
 
 
@@ -273,3 +277,5 @@ class AiQuestionParseResponse(BaseModel):
     detected_type: str | None = None
     issues: list[AiParseIssue] = []
     parser_version: str = "v1"
+    model: str | None = None
+    image_count: int = 0

@@ -20,7 +20,7 @@ class Settings:
     ]
     deepseek_api_key: str | None = os.getenv("DEEPSEEK_API_KEY") or os.getenv("AI_API_KEY")
     deepseek_base_url: str = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-    deepseek_model: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    deepseek_model: str = os.getenv("DEEPSEEK_MODEL", "deepseek-flash")
     deepseek_grading_model: str = os.getenv("DEEPSEEK_GRADING_MODEL", "deepseek-v4-pro")
     deepseek_vision_model: str = os.getenv("DEEPSEEK_VISION_MODEL", "deepseek-flash")
     anysearch_enabled: bool = os.getenv("ANYSEARCH_ENABLED", "true").lower() not in {"0", "false", "no", "off"}

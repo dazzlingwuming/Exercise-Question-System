@@ -12,12 +12,14 @@ export function QuestionRenderer({
   answer,
   setAnswer,
   grade = null,
+  onUploadingChange,
 }: {
   question: PracticeQuestion;
   answer: string | string[];
   setAnswer: (value: string | string[]) => void;
   /** 提交后传入，用于给选项标注正确 / 错误。 */
   grade?: AnswerGrade;
+  onUploadingChange?: (busy: boolean) => void;
 }) {
   if (question.type === "single_choice") {
     return <SingleChoiceQuestion question={question} value={String(answer)} onChange={setAnswer} grade={grade} />;
@@ -42,5 +44,5 @@ export function QuestionRenderer({
     );
   }
   if (question.type === "fill_blank") return <FillBlankQuestion value={String(answer)} onChange={setAnswer} />;
-  return <SubjectiveQuestion value={String(answer)} onChange={setAnswer} />;
+  return <SubjectiveQuestion value={String(answer)} onChange={setAnswer} onUploadingChange={onUploadingChange} />;
 }

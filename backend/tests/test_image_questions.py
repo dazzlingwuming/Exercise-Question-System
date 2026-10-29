@@ -16,9 +16,11 @@ from app.database import Base, get_db
 from app.main import app
 from app.models.ai_tutor import AiTutorMessage
 from app.models.media_asset import MediaAsset
+from app.models.question import Question
 from app.schemas.ai import AiConfig
 from app.schemas.question import QuestionUpdate
 from app.services.llm import ai_grading_service, ai_tutor_service, vision_context
+from app.services.llm import ai_question_parse_service as parse_service
 from app.services.llm.deepseek_client import AiClientError
 from app.services.media_service import MAX_IMAGE_BYTES, MediaError, decode_image, markdown_images, question_images, store_image
 from app.services.question_revision_service import update_question
@@ -51,6 +53,98 @@ def synthetic_image(kind="geometry", format="PNG", size=(240, 180)):
     output = BytesIO()
     image.save(output, format=format)
     return output.getvalue()
+
+
+def test_image_only_parse_and_repair_keep_the_same_vision_context(image_env, monkeypatch):
+    client, _ = image_env
+    asset, data = upload(client)
+    calls = []
+    def completion(**kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            return "invalid json"
+        return json.dumps({"candidate": {"type": "short_answer", "stem": "求直角三角形的斜边。"}})
+    monkeypatch.setattr(parse_service, "chat_completion", completion)
+    response = client.post("/api/ai/question-parse", json={"image_ids": [asset["id"], asset["id"]], "api_key": "test-only", "generation_model": "deepseek-v4-pro"})
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["image_count"] == 1
+    assert result["candidate"]["standard_answer"] in (None, "")
+    assert not result["candidate"]["material"]
+    assert any(issue["code"] == "SOURCE_IMAGES_NOT_SAVED" for issue in result["issues"])
+    for call in calls:
+        assert call["model"] == "deepseek-flash"
+        assert image_urls(call["messages"]) == ["data:image/png;base64," + base64.b64encode(data).decode()]
+
+
+def test_parse_preserves_source_only_when_requested(image_env, monkeypatch):
+    client, _ = image_env
+    asset, _ = upload(client)
+    monkeypatch.setattr(parse_service, "chat_completion", lambda **_: json.dumps({"candidate": {"type": "short_answer", "stem": "看图说明"}}))
+    response = client.post("/api/ai/question-parse", json={"image_ids": [asset["id"]], "keep_source_images": True, "api_key": "test-only"})
+    assert response.status_code == 200
+    assert asset["url"] in response.json()["candidate"]["material"]
+
+
+def test_parse_missing_asset_and_excess_images_never_call_model(image_env, monkeypatch):
+    client, _ = image_env
+    monkeypatch.setattr(parse_service, "chat_completion", lambda **_: pytest.fail("invalid image reached model"))
+    assert client.post("/api/ai/question-parse", json={"image_ids": ["f" * 32]}).status_code == 400
+    assert client.post("/api/ai/question-parse", json={"image_ids": ["f" * 32] * 7}).status_code == 422
+    assert client.post("/api/ai/question-parse", json={"image_ids": ["../../outside"]}).status_code == 422
+
+
+def test_chat_attachment_is_reused_on_followup_without_modifying_question(image_env, monkeypatch):
+    client, db = image_env
+    first, _ = upload(client)
+    second, data = upload(client, "function")
+    question = create(client, first["url"])
+    captures = []
+    monkeypatch.setattr(ai_tutor_service, "chat_completion", lambda **kw: captures.append(kw) or "先观察两条边的关系。")
+    payload = {"question_id": question["id"], "api_key": "test-only", "content": "这张草稿里的思路有什么问题？", "image_ids": [second["id"]]}
+    response = client.post("/api/ai/thread/message", json=payload)
+    assert response.json()["ok"] is True
+    assert response.json()["thread"]["image_count"] == 2
+    assert second["url"] in response.json()["thread"]["messages"][-2]["content"]
+    followup = client.post("/api/ai/thread/message", json={**payload, "content": "上一张图的横轴表示什么？", "image_ids": []})
+    assert followup.json()["ok"] is True
+    assert "data:image/png;base64," + base64.b64encode(data).decode() in image_urls(captures[-1]["messages"])
+    assert second["url"] not in db.get(Question, question["id"]).stem
+
+
+def test_photo_answer_is_included_in_grading_and_tutor(image_env, monkeypatch):
+    client, _ = image_env
+    question_asset, _ = upload(client)
+    answer_asset, answer_data = upload(client, "function")
+    question = create(client, question_asset["url"], subjective=True)
+    answer = f"我的过程：![手写作答]({answer_asset['url']})"
+    submission = client.post(f"/api/questions/{question['id']}/submit", json={"answer": answer})
+    assert submission.status_code == 200, submission.text
+    captures = []
+    monkeypatch.setattr(ai_grading_service, "chat_completion", lambda **kw: captures.append(kw) or grading_json())
+    monkeypatch.setattr(ai_tutor_service, "chat_completion", lambda **kw: captures.append(kw) or "看到了草稿中的计算。")
+    payload = {"question_id": question["id"], "attempt_id": submission.json()["attempt_id"], "api_key": "test-only"}
+    graded = client.post("/api/ai/grading/grade", json=payload)
+    assert graded.status_code == 200, graded.text
+    assert client.post("/api/ai/thread/message", json={**payload, "content": "看看我的手写过程"}).json()["ok"]
+    for call in captures:
+        assert call["model"] == "deepseek-flash"
+        assert "data:image/png;base64," + base64.b64encode(answer_data).decode() in image_urls(call["messages"])
+    bad = client.post(f"/api/questions/{question['id']}/submit", json={"answer": "![bad](https://outside.example/image.png)"})
+    assert bad.status_code == 400
+
+
+def test_stream_keeps_whitespace_for_mermaid(image_env, monkeypatch):
+    client, _ = image_env
+    asset, _ = upload(client)
+    question = create(client, asset["url"])
+    attempt = client.post(f"/api/questions/{question['id']}/submit", json={"answer": "因为垂直"}).json()
+    chunks = ['```mermaid', '\n', 'flowchart', ' ', 'TD', '\n', 'A["已知条件"]', ' --> ', 'B["求解"]', '\n', '```']
+    monkeypatch.setattr(ai_tutor_service, "stream_chat_completion", lambda **_: iter(chunks))
+    response = client.post("/api/ai/thread/message-stream", json={"question_id": question["id"], "attempt_id": attempt["attempt_id"], "content": "画一张流程图", "api_key": "test-only"})
+    events = [json.loads(line[6:]) for line in response.text.splitlines() if line.startswith("data: ")]
+    assert "".join(item["content"] for item in events if item["type"] == "delta") == "".join(chunks)
+    assert "flowchart TD\n" in events[-1]["thread"]["messages"][-1]["content"]
 
 
 def upload(client, kind="geometry", format="PNG"):
@@ -138,7 +232,7 @@ def test_actual_format_not_filename_or_declared_mime(image_env, format, mime):
 @pytest.mark.parametrize("data,code", [(b"<svg xmlns='http://www.w3.org/2000/svg'></svg>", "INVALID_IMAGE"),
                                         (b"not an image", "INVALID_IMAGE"),
                                         (synthetic_image(format="GIF"), "UNSUPPORTED_IMAGE_TYPE"),
-                                        (b"x" * (MAX_IMAGE_BYTES + 1), "MEDIA_TOO_LARGE")])
+                                        (b"x" * (MAX_IMAGE_BYTES + 1), "MEDIA_TOO_LARGE")], ids=["svg", "corrupt", "gif", "too-large"])
 def test_bad_uploads_return_actionable_errors(image_env, data, code):
     client, db = image_env
     response = client.post("/api/media/images", files={"file": ("image.png", data, "image/png")})

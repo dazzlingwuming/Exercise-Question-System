@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -48,17 +47,21 @@ def list_wrong_questions(
 ) -> WrongQuestionPage:
     """中文说明：按题目维度聚合错题，支持分页、筛选和排序。"""
 
-    attempts = list(db.scalars(select(Attempt).where(Attempt.is_correct.is_(False)).order_by(Attempt.created_at.desc())).all())
-    grouped: dict[str, list[Attempt]] = defaultdict(list)
-    for attempt in attempts:
-        grouped[attempt.question_id].append(attempt)
-    rows: list[WrongQuestionRow] = []
-    for question_id, question_attempts in grouped.items():
-        question = db.get(Question, question_id)
-        if not question or question.is_deleted or not _match_question(question, type, difficulty, exam_point, direction, keyword):
+    # Fetch attempts and questions together: no per-question database lookup and no re-sort per group.
+    records = db.execute(
+        select(Attempt, Question).join(Question, Question.id == Attempt.question_id)
+        .where(Attempt.is_correct.is_(False), Question.is_deleted.is_(False))
+        .order_by(Attempt.created_at.desc(), Attempt.id.desc())
+    ).all()
+    grouped: dict[str, WrongQuestionRow] = {}
+    for attempt, question in records:
+        if not _match_question(question, type, difficulty, exam_point, direction, keyword):
             continue
-        latest = sorted(question_attempts, key=lambda item: item.created_at or datetime.min, reverse=True)[0]
-        rows.append(WrongQuestionRow(latest, question, len(question_attempts), latest.created_at, latest.user_answer_raw))
+        if question.id in grouped:
+            grouped[question.id].wrong_count += 1
+        else:
+            grouped[question.id] = WrongQuestionRow(attempt, question, 1, attempt.created_at, attempt.user_answer_raw)
+    rows = list(grouped.values())
     rows = _sort_rows(rows, sort)
     total = len(rows)
     start = max(page - 1, 0) * page_size

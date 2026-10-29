@@ -175,10 +175,14 @@ export type AiQuestionParseResponse = {
   detected_type?: string | null;
   issues: AiParseIssue[];
   parser_version: string;
+  model?: string;
+  image_count?: number;
 };
 
 export type AiQuestionParseRequest = AiConfig & {
   source_text: string;
+  image_ids?: string[];
+  keep_source_images?: boolean;
   expected_type?: string;
 };
 
@@ -275,8 +279,8 @@ async function streamAi(path: string, payload: unknown, onEvent: (event: AiStrea
 export const runAiActionStream = (questionId: string, action: string, config: AiConfig, attemptId: string | undefined, onEvent: (event: AiStreamEvent) => void) =>
   streamAi("/ai/thread/action-stream", { question_id: questionId, attempt_id: attemptId, action, ...config }, onEvent);
 
-export const sendAiMessageStream = (questionId: string, content: string, config: AiConfig, attemptId: string | undefined, onEvent: (event: AiStreamEvent) => void) =>
-  streamAi("/ai/thread/message-stream", { question_id: questionId, attempt_id: attemptId, content, ...config }, onEvent);
+export const sendAiMessageStream = (questionId: string, content: string, config: AiConfig, attemptId: string | undefined, onEvent: (event: AiStreamEvent) => void, imageIds: string[] = []) =>
+  streamAi("/ai/thread/message-stream", { question_id: questionId, attempt_id: attemptId, content, ...config, image_ids: imageIds }, onEvent);
 
 export const sendAiGradingMessageStream = (gradingId: number, content: string, config: AiConfig, onEvent: (event: AiStreamEvent) => void) =>
   streamAi("/ai/grading/message-stream", { grading_id: gradingId, content, ...config }, onEvent);

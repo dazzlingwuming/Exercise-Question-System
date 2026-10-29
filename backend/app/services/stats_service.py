@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from collections import Counter
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.models.attempt import Attempt
 from app.models.question import Question
 from app.schemas.stats import StatsSummary
+from app.services.user_question_state_service import wrong_question_id_query
 
 
 def get_stats_summary(db: Session) -> StatsSummary:
@@ -24,14 +25,15 @@ def get_stats_summary(db: Session) -> StatsSummary:
         )
         or 0
     )
-    completed_attempts = db.scalars(
-        select(Attempt)
+    completed_count, correct_count = db.execute(
+        select(func.count(Attempt.id), func.sum(case((Attempt.is_correct.is_(True), 1), else_=0)))
         .join(Question, Question.id == Attempt.question_id)
         .where(Attempt.is_correct.is_not(None), Question.is_deleted.is_(False))
-    ).all()
-    correct_count = sum(1 for item in completed_attempts if item.is_correct)
-    wrong_count = sum(1 for item in completed_attempts if item.is_correct is False)
-    accuracy = round(correct_count / len(completed_attempts) * 100, 2) if completed_attempts else None
+    ).one()
+    wrong_count = db.scalar(select(func.count(Question.id)).where(
+        Question.is_deleted.is_(False), Question.id.in_(wrong_question_id_query(db)),
+    )) or 0
+    accuracy = round((correct_count or 0) / completed_count * 100, 2) if completed_count else None
 
     type_distribution = dict(
         db.execute(select(Question.type_label, func.count()).where(Question.is_deleted.is_(False)).group_by(Question.type_label)).all()
@@ -40,9 +42,9 @@ def get_stats_summary(db: Session) -> StatsSummary:
         db.execute(select(Question.difficulty, func.count()).where(Question.is_deleted.is_(False)).group_by(Question.difficulty)).all()
     )
     recent_attempts = [
-        attempt_to_dict(item)
-        for item in db.scalars(
-            select(Attempt)
+        {**attempt_to_dict(item), "title": title if title and not title.startswith("Manual-") else stem[:100]}
+        for item, title, stem in db.execute(
+            select(Attempt, Question.title, Question.stem)
             .join(Question, Question.id == Attempt.question_id)
             .where(Question.is_deleted.is_(False))
             .order_by(Attempt.created_at.desc())
@@ -80,12 +82,13 @@ def _frequent_error_points(db: Session) -> list[dict[str, object]]:
     """中文说明：从错题关联题目的考察点中统计高频薄弱点。"""
 
     rows = db.execute(
-        select(Question.exam_points)
+        select(Question.exam_points, func.count(Attempt.id))
         .join(Attempt, Attempt.question_id == Question.id)
         .where(Attempt.is_correct.is_(False), Question.is_deleted.is_(False))
+        .group_by(Question.id, Question.exam_points)
     ).all()
     counter: Counter[str] = Counter()
     for row in rows:
         for point in row[0] or []:
-            counter[point] += 1
+            counter[point] += row[1]
     return [{"point": point, "count": count} for point, count in counter.most_common(10)]

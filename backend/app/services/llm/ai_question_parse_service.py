@@ -9,11 +9,13 @@ from __future__ import annotations
 import json
 import re
 from typing import Any
+from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.schemas.ai import AiParseIssue, AiQuestionParseRequest, AiQuestionParseResponse
 from app.schemas.question import OptionSchema, QuestionCreate
 from app.services.llm.deepseek_client import AiClientError, chat_completion
+from app.services.llm.vision_context import with_source_images, source_image_markdown
 from app.services.question_create_service import TYPE_LABELS
 from app.services.question_validation_service import QuestionValidationError, validate_question_for_save
 
@@ -53,12 +55,12 @@ TYPE_ALIASES = {
 }
 
 
-def parse_question_draft(payload: AiQuestionParseRequest) -> AiQuestionParseResponse:
+def parse_question_draft(payload: AiQuestionParseRequest, db: Session | None = None) -> AiQuestionParseResponse:
     """调用模型提取一道题，再返回带确定性校验结果的未保存候选草稿。"""
 
     source_text = payload.source_text.strip()
-    if not source_text:
-        raise AiClientError("AI_PARSE_EMPTY_SOURCE", "请先粘贴一道题目的原始文本。")
+    if not source_text and not payload.image_ids:
+        raise AiClientError("AI_PARSE_EMPTY_SOURCE", "请粘贴题目文本或上传题目图片。")
     if len(source_text) > 12_000:
         raise AiClientError("AI_PARSE_SOURCE_TOO_LONG", "一次最多解析 12,000 个字符；请只保留一道题及其答案、解析。")
 
@@ -67,10 +69,20 @@ def parse_question_draft(payload: AiQuestionParseRequest) -> AiQuestionParseResp
         raise AiClientError("AI_PARSE_BAD_TYPE", "预期题型不受支持，请选择“自动识别”或一个系统题型。")
 
     messages = _parse_messages(source_text, expected_type)
+    if payload.image_ids:
+        messages[0]["content"] += (
+            "同时识别随附图片中的题干、公式、选项和图形条件。看不清的字符和缺失条件必须标为 issues，不能猜测。"
+            "使用 $...$ 和 $$...$$ 表示公式；不要自行求解或编造原图没有的答案。"
+            "不要输出任何图片 Markdown 或图片链接，原图由应用管理。"
+        )
+    messages, model, image_count = with_source_images(
+        db, payload.image_ids, payload, messages,
+        payload.generation_model or payload.model or settings.deepseek_model,
+    )
     raw = chat_completion(
         api_key=payload.api_key or settings.deepseek_api_key or "",
         base_url=payload.base_url or settings.deepseek_base_url,
-        model=payload.generation_model or payload.model or settings.deepseek_model,
+        model=model,
         messages=messages,
         max_tokens=3600,
         response_format={"type": "json_object"},
@@ -82,7 +94,7 @@ def parse_question_draft(payload: AiQuestionParseRequest) -> AiQuestionParseResp
         repair_raw = chat_completion(
             api_key=payload.api_key or settings.deepseek_api_key or "",
             base_url=payload.base_url or settings.deepseek_base_url,
-            model=payload.generation_model or payload.model or settings.deepseek_model,
+            model=model,
             messages=[
                 *messages,
                 {"role": "assistant", "content": raw},
@@ -104,8 +116,14 @@ def parse_question_draft(payload: AiQuestionParseRequest) -> AiQuestionParseResp
 
     candidate, normalization_issues = _candidate_from_model(raw_candidate, expected_type, model_type)
     issues.extend(normalization_issues)
+    if payload.image_ids:
+        issues.append(_issue("warning", "VERIFY_IMAGE_TRANSCRIPTION", "stem", "请对照原图核对公式、上下标、图形条件与选项；AI 识别可能有误。", None))
+        if payload.keep_source_images:
+            candidate.material = "\n\n".join(filter(None, [candidate.material, source_image_markdown(payload.image_ids)]))
+        else:
+            issues.append(_issue("warning", "SOURCE_IMAGES_NOT_SAVED", "material", "原图未随草稿保存；若题目依赖图形，请在材料中上传裁剪后的题图。", "避免把含答案的截图放进题干或材料。"))
     issues.extend(_validate_candidate(candidate))
-    return AiQuestionParseResponse(candidate=candidate, detected_type=model_type, issues=_dedupe_issues(issues))
+    return AiQuestionParseResponse(candidate=candidate, detected_type=model_type, issues=_dedupe_issues(issues), model=model, image_count=image_count)
 
 
 def _parse_messages(source_text: str, expected_type: str | None) -> list[dict[str, str]]:

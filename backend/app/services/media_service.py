@@ -135,7 +135,7 @@ def content_fields(data: dict, submitted: bool = True):
             option = option.model_dump()
         yield f"options[{index}].text", str(option.get("text") or "")
     if submitted:
-        for field in ("standard_answer", "explanation", "common_mistakes", "follow_up_question", "scoring_standard"):
+        for field in ("standard_answer", "explanation", "common_mistakes", "follow_up_question", "scoring_standard", "user_answer"):
             value = data.get(field)
             if isinstance(value, str):
                 yield field, value

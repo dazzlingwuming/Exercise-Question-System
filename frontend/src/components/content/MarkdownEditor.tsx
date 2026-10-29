@@ -25,6 +25,7 @@ export function MarkdownEditor({
   const textarea = useRef<HTMLTextAreaElement>(null);
   const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
   const [error, setError] = useState("");
   const latest = useRef(value);
   latest.current = value;
@@ -46,7 +47,7 @@ export function MarkdownEditor({
   }, [busy, onUploadingChange]);
 
   async function upload(file?: File) {
-    if (!file || busy) return;
+    if (!file || busyRef.current) return;
     if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
       setError("请选择 PNG、JPEG 或 WebP 图片。");
       return;
@@ -55,6 +56,7 @@ export function MarkdownEditor({
       setError("图片不能超过 5 MiB。");
       return;
     }
+    busyRef.current = true;
     setBusy(true);
     setError("");
     const start = textarea.current?.selectionStart ?? value.length;
@@ -67,9 +69,10 @@ export function MarkdownEditor({
       if (!active.current) return;
       change.current(current === original ? current.slice(0, start) + markdown + current.slice(end) : current + markdown);
     } catch (err) {
-      setError((err as Error).message);
+      if (active.current) setError((err as Error).message);
     } finally {
-      setBusy(false);
+      busyRef.current = false;
+      if (active.current) setBusy(false);
     }
   }
 
@@ -122,12 +125,22 @@ export function MarkdownEditor({
           rows={rows}
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onPaste={event => {
+            const image = Array.from(event.clipboardData.files).find(file => file.type.startsWith("image/"));
+            if (image) { event.preventDefault(); void upload(image); }
+          }}
+          onDragOver={event => { if (event.dataTransfer.types.includes("Files")) event.preventDefault(); }}
+          onDrop={event => {
+            if (!event.dataTransfer.files.length) return;
+            event.preventDefault();
+            void upload(event.dataTransfer.files[0]);
+          }}
           placeholder={placeholder}
         />
       )}
 
       <p className="mt-1.5 text-xs leading-5 text-muted/85" title="PNG / JPEG / WebP，最大 5 MiB。单边最大 8192 像素，总像素最多 1600 万。上传后插入本地资源 Markdown 路径；图片仅在保存题目后关联，外部图片不会加载。">
-        Markdown 与公式可用 · 图片 ≤ 5 MiB，保存后生效
+        支持公式、粘贴截图与拖入图片 · 单张 ≤ 5 MiB
       </p>
       {error && (
         <p role="alert" className="mt-1 text-xs text-bad">

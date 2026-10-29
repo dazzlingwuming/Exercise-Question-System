@@ -65,8 +65,23 @@ def question_context_data(question, attempt=None) -> dict:
     """Submitted work uses its frozen version; old attempts without snapshots fall back."""
     snapshot = attempt.question_snapshot if attempt is not None else None
     if isinstance(snapshot, dict) and snapshot.get("stem"):
-        return snapshot
-    return {field: getattr(question, field, None) for field in (
-        "id", "type", "type_label", "difficulty", "directions", "tags", "exam_points",
-        "stem", "material", "options", "standard_answer", "answer_text", "explanation",
-        "scoring_standard", "common_mistakes", "follow_up_question")}
+        data = dict(snapshot)
+    else:
+        data = {field: getattr(question, field, None) for field in (
+            "id", "type", "type_label", "difficulty", "directions", "tags", "exam_points",
+            "stem", "material", "options", "standard_answer", "answer_text", "explanation",
+            "scoring_standard", "common_mistakes", "follow_up_question")}
+    if attempt is not None:
+        data["user_answer"] = attempt.user_answer_raw
+    return data
+
+
+def source_image_markdown(image_ids: list[str]) -> str:
+    return "\n\n".join(f"![原图 {index}](/api/media/images/{asset_id})"
+                        for index, asset_id in enumerate(dict.fromkeys(image_ids), 1))
+
+
+def with_source_images(db: Session | None, image_ids: list[str], config: AiConfig,
+                       messages: list, text_model: str) -> tuple[list, str, int]:
+    # Reuse the same count, total byte, integrity and capability checks as stored questions.
+    return with_question_images(db, {"stem": source_image_markdown(image_ids)}, config, messages, text_model)

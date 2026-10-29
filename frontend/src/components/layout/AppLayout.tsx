@@ -1,57 +1,34 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { CommandPalette } from "./CommandPalette";
+import { Dialog } from "../common/Dialog";
 import { Dock } from "./Dock";
 import { Topbar } from "./Topbar";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const [paletteOpen, setPaletteOpen] = useState(false);
-
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setPaletteOpen((value) => !value);
+        event.preventDefault(); setPaletteOpen(value => !value);
       }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
-
-  return (
-    <div className="relative min-h-screen">
-      <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div
-          className="absolute -left-40 top-[-10%] h-[34rem] w-[34rem] rounded-full opacity-[0.5] blur-[100px] drift-soft"
-          style={{ background: "radial-gradient(circle, rgb(var(--c-blob-1) / 0.32), transparent 68%)" }}
-        />
-        <div
-          className="absolute right-[-12%] top-[14%] h-[30rem] w-[30rem] rounded-full opacity-45 blur-[110px] drift-soft"
-          style={{ background: "radial-gradient(circle, rgb(var(--c-blob-2) / 0.28), transparent 70%)", animationDelay: "-6s" }}
-        />
-        <div
-          className="absolute bottom-[-20%] left-[30%] h-[28rem] w-[28rem] rounded-full opacity-35 blur-[110px] drift-soft"
-          style={{ background: "radial-gradient(circle, rgb(var(--c-blob-3) / 0.26), transparent 70%)", animationDelay: "-11s" }}
-        />
-      </div>
-
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-24 lg:hidden"
-        style={{ background: "linear-gradient(to top, rgb(var(--c-surface)) 18%, rgb(var(--c-surface) / 0.75) 55%, transparent)" }}
-      />
-
-      <Dock />
-
-      <div className="app-shell lg:pl-[6.4rem]">
-        <Topbar onOpenPalette={() => setPaletteOpen(true)} />
-        <main key={pathname} className="mx-auto w-full max-w-[1560px] animate-rise px-4 pb-28 pt-4 md:px-7 lg:pb-14">
-          {children}
-        </main>
-      </div>
-
-      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+  return <div className="workspace">
+    <a className="skip-link" href="#main-content">跳到主内容</a>
+    <div className="desktop-navigation"><Dock /></div>
+    <div className="app-shell">
+      <Topbar onOpenPalette={() => setPaletteOpen(true)} onOpenMenu={() => setMenuOpen(true)} />
+      <main id="main-content" tabIndex={-1} key={pathname} className="workspace-main animate-rise">{children}</main>
     </div>
-  );
+    <Dialog open={menuOpen} title="导航" onClose={() => setMenuOpen(false)} className="max-w-sm">
+      <button className="btn-ghost w-full justify-end" onClick={() => setMenuOpen(false)}>关闭导航</button>
+      <Dock onNavigate={() => setMenuOpen(false)} />
+    </Dialog>
+    <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+  </div>;
 }

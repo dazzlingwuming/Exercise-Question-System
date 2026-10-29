@@ -20,7 +20,8 @@ from app.services.llm.deepseek_client import AiClientError, chat_completion, str
 from app.services.llm.intent_router import detect_intent
 from app.services.llm.output_guard import guardrail_reply, sanitize_output
 from app.services.llm.prompt_builder import build_messages
-from app.services.llm.vision_context import with_question_images, question_context_data
+from app.services.llm.vision_context import with_question_images, question_context_data, source_image_markdown
+from app.services.media_service import MediaError, question_images
 
 ACTION_STAGE = {
     "hint": "hint",
@@ -60,6 +61,7 @@ def run_action(db: Session, question_id: str, attempt_id: str | None, action: st
 
 
 def run_user_message(db: Session, question_id: str, attempt_id: str | None, content: str, config: AiConfig) -> AiThreadResponse:
+    content = _user_message_content(db, content, config)
     question = _get_question(db, question_id)
     attempt = _get_attempt(db, attempt_id, question_id)
     submitted = bool(attempt)
@@ -98,6 +100,7 @@ def stream_user_message(db: Session, question_id: str, attempt_id: str | None, c
     """中文说明：自由追问并以 SSE 形式流式返回模型输出。"""
 
     try:
+        content = _user_message_content(db, content, config)
         question = _get_question(db, question_id)
         attempt = _get_attempt(db, attempt_id, question_id)
         submitted = bool(attempt)
@@ -192,7 +195,7 @@ def _append_and_call(
         if item.role in {"user", "assistant"} and item.stage != SUMMARY_STAGE
     ]
     messages = build_messages(question=question, attempt=attempt, submitted=submitted, stage=stage, user_content=user_content, history=history)
-    messages, model, image_count = with_question_images(db, question_context_data(question, attempt if submitted else None), config, messages, model, submitted=submitted)
+    messages, model, image_count = _attach_conversation_images(db, question, attempt, submitted, config, messages, model)
     _save_message(db, thread.id, "user", stage, user_content)
     content = chat_completion(api_key=api_key, base_url=base_url, model=model, messages=messages)
     _save_message(db, thread.id, "assistant", stage, sanitize_output(content, submitted=submitted))
@@ -220,13 +223,13 @@ def _append_and_stream(
         if item.role in {"user", "assistant"} and item.stage != SUMMARY_STAGE
     ]
     messages = build_messages(question=question, attempt=attempt, submitted=submitted, stage=stage, user_content=user_content, history=history)
-    messages, model, image_count = with_question_images(db, question_context_data(question, attempt if submitted else None), config, messages, model, submitted=submitted)
+    messages, model, image_count = _attach_conversation_images(db, question, attempt, submitted, config, messages, model)
     _save_message(db, thread.id, "user", stage, user_content)
     db.commit()
     chunks: list[str] = []
     try:
         for chunk in stream_chat_completion(api_key=api_key, base_url=base_url, model=model, messages=messages):
-            if not chunk.strip():
+            if not chunk:
                 continue
             chunks.append(chunk)
             # 未提交时不能把原始模型分片直接发往浏览器，否则即使最终存储内容
@@ -256,6 +259,27 @@ def _append_and_stream(
     db.commit()
     db.refresh(thread)
     yield _sse({"type": "done", "thread": _thread_response(db, thread, submitted, include_unsubmitted_messages=True).model_dump(mode="json")})
+
+
+def _user_message_content(db: Session, content: str, config: AiConfig) -> str:
+    images = source_image_markdown(getattr(config, "image_ids", []))
+    content = "\n\n".join(filter(None, [content.strip(), images]))
+    if not content:
+        raise AiClientError("AI_EMPTY_MESSAGE", "请输入问题或附上一张图片。")
+    try:
+        question_images(db, {"stem": content})
+    except MediaError as exc:
+        raise AiClientError("AI_IMAGE_UNAVAILABLE", exc.message) from exc
+    return content
+
+
+def _attach_conversation_images(db, question, attempt, submitted, config, messages, model):
+    data = dict(question_context_data(question, attempt if submitted else None))
+    # build_messages keeps only the last 12 history entries. Include their original
+    # images so "上一张图" still works, without storing base64 or changing the question.
+    user_material = "\n\n".join(item["content"] for item in messages[2:] if item["role"] == "user")
+    data["material"] = "\n\n".join(filter(None, [data.get("material"), user_material]))
+    return with_question_images(db, data, config, messages, model, submitted=submitted)
 
 
 def _fallback_completion(*, api_key: str, base_url: str, model: str, messages: list[dict[str, str]]) -> str:

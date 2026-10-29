@@ -38,4 +38,4 @@ def image_file(asset_id: str, db: Session = Depends(get_db)) -> FileResponse:
     asset = get_asset(db, asset_id)
     read_image(asset)
     return FileResponse(asset_path(asset), media_type=asset.mime_type,
-                        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=31536000, immutable"})
+                        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "private, max-age=31536000, immutable", "Vary": "Origin"})

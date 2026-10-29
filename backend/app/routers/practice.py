@@ -1,6 +1,6 @@
 """中文说明：练习模式和候选题 API。"""
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -24,8 +24,51 @@ from app.services.practice_session_service import (
 )
 from app.services.practice_service import PRACTICE_MODES, build_practice_questions, get_next_practice_question
 from app.services.question_service import practice_question_read
+from app.models.practice_session import PracticeSession
+from app.schemas.practice import PracticeRetryRequest, PracticePositionRequest
+from app.services.practice_report_service import session_report, session_answers
+from app.services.practice_session_service import retry_session, jump_to_question
+from app.services.study_plan_service import study_overview
 
 router = APIRouter(prefix="/practice", tags=["practice"])
+
+
+@router.get("/overview")
+def study_overview_api(utc_offset_minutes: int = Query(default=480, ge=-720, le=840), db: Session = Depends(get_db)):
+    return study_overview(db, utc_offset_minutes)
+
+
+def _require_session(db: Session, session_id: str) -> PracticeSession:
+    session = db.get(PracticeSession, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="练习会话不存在")
+    return session
+
+
+@router.get("/sessions/{session_id}/report")
+def session_report_api(session_id: str, db: Session = Depends(get_db)):
+    return session_report(db, _require_session(db, session_id))
+
+
+@router.get("/sessions/{session_id}/answers")
+def session_answers_api(session_id: str, db: Session = Depends(get_db)):
+    return session_answers(db, _require_session(db, session_id))
+
+
+@router.post("/sessions/{session_id}/position", response_model=PracticeSessionState)
+def session_position_api(session_id: str, payload: PracticePositionRequest, db: Session = Depends(get_db)):
+    try:
+        return jump_to_question(db, _require_session(db, session_id), payload.question_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/sessions/{session_id}/retry", response_model=PracticeSessionResponse)
+def session_retry_api(session_id: str, payload: PracticeRetryRequest, db: Session = Depends(get_db)):
+    try:
+        return retry_session(db, _require_session(db, session_id), payload.scope)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.get("/modes")

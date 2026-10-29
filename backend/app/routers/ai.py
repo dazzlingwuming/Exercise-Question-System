@@ -56,7 +56,11 @@ def test_connection_api(payload: AiTestRequest) -> AiTestResponse:
 def thread_api(question_id: str, attempt_id: str | None = None, db: Session = Depends(get_db)) -> AiThreadResponse:
     """中文说明：获取或创建当前题目的 AI 连续对话。"""
 
-    return get_thread_response(db, question_id, attempt_id)
+    try:
+        return get_thread_response(db, question_id, attempt_id)
+    except AiClientError as exc:
+        raise HTTPException(status_code=404 if exc.code in {"QUESTION_NOT_FOUND", "ATTEMPT_NOT_FOUND"} else 400,
+                            detail={"code": exc.code, "message": exc.message}) from exc
 
 
 @router.post("/thread/action", response_model=AiActionResponse)
@@ -177,11 +181,11 @@ def collection_placement_recommend_api(
 
 
 @router.post("/question-parse", response_model=AiQuestionParseResponse)
-def question_parse_api(payload: AiQuestionParseRequest) -> AiQuestionParseResponse:
+def question_parse_api(payload: AiQuestionParseRequest, db: Session = Depends(get_db)) -> AiQuestionParseResponse:
     """中文说明：把一段原始题目文本解析为未保存的表单草稿。"""
 
     try:
-        return parse_question_draft(payload)
+        return parse_question_draft(payload, db)
     except AiClientError as exc:
         raise HTTPException(status_code=400, detail={"error": exc.code, "message": exc.message}) from exc
 

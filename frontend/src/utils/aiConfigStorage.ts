@@ -5,8 +5,8 @@ export const AI_CONFIG_STORAGE_KEY = "ai_tutor_deepseek_config";
 const DEFAULT_AI_CONFIG: AiConfig = {
   provider: "deepseek",
   base_url: "https://api.deepseek.com",
-  model: "deepseek-chat",
-  tutor_model: "deepseek-chat",
+  model: "deepseek-flash",
+  tutor_model: "deepseek-flash",
   grading_model: "deepseek-v4-pro",
   vision_model: "deepseek-flash",
   generation_model: "deepseek-v4-pro",
@@ -37,7 +37,7 @@ export function saveStoredAiConfig(config: AiConfig): AiConfig {
 export function aiConfigForRole(config: AiConfig, role: "tutor" | "grading" | "generation"): AiConfig {
   const normalized = normalizeConfig(config);
   const model = role === "tutor"
-    ? (normalized.tutor_model || normalized.model || "deepseek-chat")
+    ? (normalized.tutor_model || normalized.model || "deepseek-flash")
     : role === "grading"
       ? (normalized.grading_model || "deepseek-v4-pro")
       : (normalized.generation_model || "deepseek-v4-pro");
@@ -45,13 +45,15 @@ export function aiConfigForRole(config: AiConfig, role: "tutor" | "grading" | "g
 }
 
 function normalizeConfig(config: AiConfig): AiConfig {
-  const legacyModel = config.model || DEFAULT_AI_CONFIG.model;
+  const official = /^https:\/\/api\.deepseek\.com\/?(?:v1\/?)?$/.test(config.base_url || DEFAULT_AI_CONFIG.base_url || "");
+  const currentModel = (model: string | undefined) => official && model === "deepseek-chat" ? "deepseek-flash" : model;
+  const legacyModel = currentModel(config.model) || DEFAULT_AI_CONFIG.model;
   return {
     provider: "deepseek",
     base_url: config.base_url || DEFAULT_AI_CONFIG.base_url,
     api_key: config.api_key || "",
     model: legacyModel,
-    tutor_model: config.tutor_model || legacyModel || DEFAULT_AI_CONFIG.tutor_model,
+    tutor_model: currentModel(config.tutor_model) || legacyModel || DEFAULT_AI_CONFIG.tutor_model,
     vision_model: config.vision_model || DEFAULT_AI_CONFIG.vision_model,
     grading_model: config.grading_model || DEFAULT_AI_CONFIG.grading_model,
     generation_model: config.generation_model || DEFAULT_AI_CONFIG.generation_model,

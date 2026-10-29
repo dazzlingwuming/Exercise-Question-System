@@ -99,6 +99,12 @@ def practice_question_read(db: Session, question: Question) -> PracticeQuestionR
     return PracticeQuestionRead.model_validate(question)
 
 
+def practice_questions_read(db: Session, questions: list[Question]) -> list[PracticeQuestionRead]:
+    """Decorate a whole practice page once, rather than loading the collection tree per row."""
+    decorate_collection_paths(db, questions)
+    return [PracticeQuestionRead.model_validate(question) for question in questions]
+
+
 def bulk_move_questions(db: Session, placements: list[tuple[str, str | None]]) -> list[str]:
     """全量校验后原子移动题目；位置变化不修改题目内容或版本。"""
 

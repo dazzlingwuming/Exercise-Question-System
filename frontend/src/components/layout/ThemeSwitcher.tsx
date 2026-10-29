@@ -28,6 +28,7 @@ export function ThemeSwitcher() {
     <div className="relative" ref={wrap}>
       <button
         type="button"
+        aria-label={`切换主题，当前${meta.name}`}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={panelId}

@@ -1,4 +1,4 @@
-import { Bot, KeyRound, Send, Settings, Sparkles, X } from "lucide-react";
+import { Bot, GitBranch, KeyRound, Send, Settings, Sparkles, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { generateAiQuestions, getAiThread, runAiActionStream, sendAiMessageStream, testAiConnection, type AiConfig, type AiMessage, type AiThread } from "../../api/ai";
@@ -6,6 +6,9 @@ import type { PracticeQuestion } from "../../types/question";
 import { aiConfigForRole, loadStoredAiConfig, saveStoredAiConfig } from "../../utils/aiConfigStorage";
 import { Dialog } from "../common/Dialog";
 import { RichContent } from "../content/RichContent";
+import { AiConfigFields } from "./AiConfigFields";
+import { ImageAttachments } from "../content/ImageAttachments";
+import type { ManagedImage } from "../../api/media";
 
 const ACTIONS = [
   { key: "hint", label: "给我提示" },
@@ -57,6 +60,8 @@ export function AiTutorPanel({
   const [config, setConfig] = useState<AiConfig>(() => loadStoredAiConfig());
   const [showSettings, setShowSettings] = useState(false);
   const [input, setInput] = useState("");
+  const [images, setImages] = useState<ManagedImage[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState("");
   const [notice, setNotice] = useState("");
   const [showGenerationPanel, setShowGenerationPanel] = useState(false);
@@ -71,6 +76,7 @@ export function AiTutorPanel({
     let active = true;
     setThread(null);
     setNotice("");
+    setImages([]);
     setShowGenerationPanel(false);
     setGenerationMessage(null);
     setGenerationForm((current) => ({ ...current, target_type: question?.type ?? "short_answer" }));
@@ -114,18 +120,22 @@ export function AiTutorPanel({
     }
   }
 
-  async function send() {
-    if (!question || !input.trim() || !hasKey || loading) return;
-    const content = input.trim();
+  async function send(override?: string) {
+    if (!question || (!input.trim() && !images.length && !override) || !hasKey || loading || uploading) return;
+    const content = [override, input.trim()].filter(Boolean).join("\n\n") || "请结合这张图片，帮助我理解这道题。";
+    const sentImages = images;
     setInput("");
+    setImages([]);
     setLoading("message");
     setNotice("");
     try {
-      appendStreamingMessages("free_chat", content);
-      await sendAiMessageStream(question.id, content, aiConfigForRole(config, "tutor"), attemptId, handleStreamEvent);
+      const previews = sentImages.map((image, index) => `![附图 ${index + 1}](${image.url})`).join("\n\n");
+      appendStreamingMessages("free_chat", [content, previews].filter(Boolean).join("\n\n"));
+      await sendAiMessageStream(question.id, content, aiConfigForRole(config, "tutor"), attemptId, handleStreamEvent, sentImages.map(image => image.id));
     } catch (err) {
       removeStreamingAssistantMessage();
       setInput((current) => current.trim() ? current : content);
+      setImages(sentImages);
       setNotice((err as Error).message);
     } finally {
       setLoading("");
@@ -234,31 +244,7 @@ export function AiTutorPanel({
       {thread?.model && <p className="mb-3 text-xs text-muted">实际模型：{thread.model} · 图片：{thread.image_count ?? 0} 张</p>}
       {showSettings && (
         <div className="mb-3 space-y-2 rounded-md border border-line bg-surface p-3">
-          <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.base_url ?? ""} onChange={(event) => setConfig({ ...config, base_url: event.target.value })} placeholder="https://api.deepseek.com" />
-          <input className="w-full rounded-md border border-line px-3 py-2 text-sm" type="password" value={config.api_key ?? ""} onChange={(event) => setConfig({ ...config, api_key: event.target.value })} placeholder="DeepSeek API Key" />
-          <div className="grid gap-2">
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">AI 讲题助手模型</span>
-              <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.tutor_model ?? config.model ?? ""} onChange={(event) => setConfig({ ...config, tutor_model: event.target.value, model: event.target.value })} placeholder="deepseek-chat" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">AI 主观题评分模型</span>
-              <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.grading_model ?? ""} onChange={(event) => setConfig({ ...config, grading_model: event.target.value })} placeholder="deepseek-v4-pro" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">AI 生成题目模型</span>
-              <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.generation_model ?? ""} onChange={(event) => setConfig({ ...config, generation_model: event.target.value })} placeholder="deepseek-v4-pro" />
-            </label>
-            <label className="block"><span className="mb-1 block text-xs text-muted">图片理解模型</span><input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.vision_model ?? "deepseek-flash"} onChange={(event) => setConfig({ ...config, vision_model: event.target.value })} placeholder="deepseek-flash" /><span className="mt-1 block text-xs leading-5 text-muted">含图片的题目会使用此模型讲解或评分；模型不支持图片时会明确提示，不会省略图片。</span></label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">AnySearch Endpoint</span>
-              <input className="w-full rounded-md border border-line px-3 py-2 text-sm" value={config.anysearch_endpoint ?? ""} onChange={(event) => setConfig({ ...config, anysearch_endpoint: event.target.value })} placeholder="https://api.anysearch.com/mcp" />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-muted">AnySearch API Key</span>
-              <input className="w-full rounded-md border border-line px-3 py-2 text-sm" type="password" value={config.anysearch_api_key ?? ""} onChange={(event) => setConfig({ ...config, anysearch_api_key: event.target.value })} placeholder="可选，不填则使用匿名额度或后端环境变量" />
-            </label>
-          </div>
+          <AiConfigFields config={config} onChange={setConfig} showSearch disabled={Boolean(loading)} />
           <button className="inline-flex items-center gap-2 rounded-md border border-line bg-panel px-3 py-2 text-sm" onClick={testConnection} disabled={!hasKey || loading === "test"}>
             <KeyRound className="h-4 w-4" />
             测试连接
@@ -307,25 +293,28 @@ export function AiTutorPanel({
           <div key={`${message.created_at}-${index}`} className={message.role === "assistant" ? "text-[15px] leading-7" : "text-sm leading-6 text-muted"}>
             <div className="mb-1 flex items-center justify-between gap-2 text-xs text-muted">
               <span>{message.role === "assistant" ? "AI" : "你"} · {stageLabel(message.stage)}</span>
-              {message.role === "assistant" && message.content.trim() && !String(message.created_at ?? "").includes("assistant-streaming") && (
+              {message.role === "assistant" && message.content.trim() && !String(message.created_at ?? "").includes("assistant-streaming") && (<div className="flex gap-2"><button className="btn-ghost btn-sm" onClick={() => { navigator.clipboard.writeText(message.content).then(() => setNotice("已复制这段讲解。"), () => setNotice("复制失败，请选中文字手动复制。")); }}>复制</button>
                 <button className="inline-flex items-center gap-1 rounded-md border border-line bg-panel px-2 py-1 text-xs text-foreground" onClick={() => { setGenerationMessage(message); setShowGenerationPanel(true); }} disabled={!hasKey || Boolean(loading) || hasQuestionImages}>
                   <Sparkles className="h-3 w-3" />
                   生成题目
-                </button>
+                </button></div>
               )}
             </div>
-            {message.role === "assistant" && !String(message.created_at ?? "").includes("assistant-streaming") ? (
-              <RichContent allowImages={false} content={message.content} />
+            {!String(message.created_at ?? "").includes("assistant-streaming") ? (
+              <RichContent allowImages={message.role === "user"} content={message.content} />
             ) : (
               <div className="whitespace-pre-wrap">{message.content}</div>
             )}
           </div>
         )) : <div className="text-sm text-muted">暂无 AI 对话。</div>}
       </div>
-      <div className="mt-3 flex items-end gap-2">
+      <div className="mt-3"><ImageAttachments images={images} onChange={setImages} disabled={!question || Boolean(loading)} onBusyChange={setUploading}>
+      <div className="flex items-end gap-2">
         <textarea
           className="min-h-20 min-w-0 flex-1 resize-y rounded-md border border-line px-3 py-2 text-sm leading-6"
           value={input}
+          aria-label="向 AI 提问"
+          disabled={Boolean(loading) || uploading}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) void send();
@@ -333,11 +322,22 @@ export function AiTutorPanel({
           placeholder={placeholder}
           rows={3}
         />
-        <button className="inline-flex h-20 w-12 items-center justify-center rounded-md bg-accent text-sm text-on-accent disabled:opacity-50" onClick={send} disabled={!question || !hasKey || !input.trim() || Boolean(loading)} title="发送，Ctrl+Enter">
+        <button aria-label="发送消息" className="inline-flex h-20 w-12 items-center justify-center rounded-md bg-accent text-sm text-on-accent disabled:opacity-50" onClick={() => void send()} disabled={!question || !hasKey || (!input.trim() && !images.length) || Boolean(loading) || uploading} title="发送，Ctrl+Enter">
           <Send className="h-4 w-4" />
         </button>
       </div>
-      <div className="mt-1 text-xs text-muted">Ctrl+Enter 发送，Enter 换行。</div>
+      </ImageAttachments></div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <button className="btn-ghost btn-sm" disabled={!question || !hasKey || Boolean(loading) || uploading}
+          onClick={() => void send("请检查我提供的文字、手写图片或已提交答案中的推导。先简述你读到的关键步骤，不确定的字符先向我确认；只指出第一处明确的问题，给一个下一步提示，让我继续做。不要假装已经运行验算工具。")}>检查我的步骤</button>
+        <button className="btn-ghost btn-sm" disabled={!question || !hasKey || Boolean(loading) || uploading}
+          onClick={() => void send(submitted ? "请围绕这道题的核心知识点问我一个简短的理解问题，每次只问一个，等我回答后再反馈，不要同时给出答案。" : "请通过一个简单的问题帮助我找到这道题的切入点。每次只问一个，等我回答，不要给出本题答案。")}>问我一个问题</button>
+        <button className="btn-ghost btn-sm" disabled={!question || !hasKey || Boolean(loading) || uploading}
+          onClick={() => void send(submitted ? "请用 Mermaid 流程图解释这道题的解题步骤或知识关系，并补充简短说明。" : "请用 Mermaid 流程图给出这道题的思考路径，只给提示，不揭示最终答案。") }>
+          <GitBranch size={15} />用流程图解释
+        </button>
+        <span className="text-xs text-muted">Ctrl+Enter 发送</span>
+      </div>
       {showGenerationPanel && (
         <Dialog open title="AI 生成候选题" onClose={() => setShowGenerationPanel(false)} busy={Boolean(loading)} className="max-w-xl">
             <div className="mb-4 flex items-center justify-between">
