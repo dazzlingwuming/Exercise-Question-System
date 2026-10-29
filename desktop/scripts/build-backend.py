@@ -23,3 +23,9 @@ conda_libraries = Path(sys.base_prefix) / "Library/bin"
 if (Path(sys.base_prefix) / "conda-meta").is_dir() and conda_libraries.is_dir():
     environment["PATH"] = str(conda_libraries) + os.pathsep + environment.get("PATH", "")
 subprocess.run(command, cwd=root / "backend", env=environment, check=True)
+if sys.platform == "darwin":
+    # Package the existing avatar at the dimensions required by Apple's icon
+    # container. sips is supplied by macOS; no new artwork or network asset.
+    subprocess.run(["sips", "-z", "1024", "1024",
+                    str(root / "frontend/public/mascot/xiaojing-avatar.png"),
+                    "--out", str(desktop / "resources/icon.png")], check=True)

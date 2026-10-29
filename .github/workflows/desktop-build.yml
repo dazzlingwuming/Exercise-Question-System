@@ -90,6 +90,8 @@ jobs:
           name: diagnostics-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             .logs/desktop-smoke-*/logs/*.log
+            .logs/backend-smoke-*/backend.log
             output/playwright/desktop-*.png
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7

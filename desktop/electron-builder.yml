@@ -28,7 +28,7 @@ nsis:
 mac:
   target: [dmg, zip]
   category: public.app-category.education
-  icon: ../frontend/public/mascot/xiaojing-avatar.png
+  icon: resources/icon.png
   hardenedRuntime: true
   gatekeeperAssess: false
   identity: '-'
